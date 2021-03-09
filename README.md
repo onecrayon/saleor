@@ -1,3 +1,20 @@
+# Firstech Saleor Fork
+
+This repository is a fork of [Saleor](https://github.com/mirumee/saleor.git). Typically you will want to clone this as
+a sub-directory in your `ft-saleor-local` project.
+
+## Working with upstream changes
+
+After cloning this project, you will want to add the source project as your upstream remote:
+
+    git remote add upstream https://github.com/mirumee/saleor.git
+
+We are currently using **v2.11.8** of Saleor, which means that upstream changes will be available in the `2.11` branch.
+
+TBD: how to upgrade to later versions of 2.11. Merge the tag into `ft-develop`?
+
+**********
+
 ![Saleor Commerce - A GraphQL-first platform for perfectionists](https://user-images.githubusercontent.com/249912/71523206-4e45f800-28c8-11ea-84ba-345a9bfc998a.png)
 
 <div align="center">
