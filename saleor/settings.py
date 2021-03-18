@@ -66,7 +66,15 @@ INTERNAL_IPS = get_list(os.environ.get("INTERNAL_IPS", "127.0.0.1"))
 DATABASES = {
     "default": dj_database_url.config(
         default="postgres://saleor:saleor@localhost:5432/saleor", conn_max_age=600
-    )
+    ),
+    "drone_db": {
+        'NAME': 'bmappdev',
+        'ENGINE': 'django.db.backends.postgresql',
+        'USER': os.environ.get('DRONE_DATABASE_USERNAME'),
+        'PASSWORD': os.environ.get('DRONE_DATABASE_PASSWORD'),
+        'HOST': os.environ.get('DRONE_DATABASE_HOST'),
+        'PORT': os.environ.get('DRONE_DATABASE_PORT')
+    }
 }
 
 
@@ -263,6 +271,8 @@ INSTALLED_APPS = [
     "django_countries",
     "django_filters",
     "phonenumber_field",
+    # Custom local apps
+    "firstech.drone",
 ]
 
 
@@ -475,6 +485,7 @@ DEFAULT_PLACEHOLDER = "images/placeholder255x255.png"
 AUTHENTICATION_BACKENDS = [
     "saleor.core.auth_backend.JSONWebTokenBackend",
     "saleor.core.auth_backend.PluginBackend",
+    "firstech.drone.drone_auth.auth.JSONWebTokenAuthentication",
 ]
 
 # CELERY SETTINGS
@@ -594,3 +605,10 @@ JWT_TTL_REFRESH = timedelta(seconds=parse(os.environ.get("JWT_TTL_REFRESH", "30 
 JWT_TTL_REQUEST_EMAIL_CHANGE = timedelta(
     seconds=parse(os.environ.get("JWT_TTL_REQUEST_EMAIL_CHANGE", "1 hour")),
 )
+
+# Custom Environment Variables
+DRONE_COGNITO_POOL_ID = os.environ.get("DRONE_COGNITO_POOL_ID")
+DRONE_COGNITO_CLIENT_ID = os.environ.get("DRONE_COGNITO_CLIENT_ID")
+DRONE_AWS_DEFAULT_REGION = os.environ.get("DRONE_AWS_DEFAULT_REGION")
+DRONE_API_SECRET_KEY = os.environ.get("DRONE_API_SECRET_KEY")
+DRONE_API_URL = os.environ.get("DRONE_API_URL")
