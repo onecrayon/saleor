@@ -9,9 +9,9 @@ After cloning this project, you will want to add the source project as your upst
 
     git remote add upstream https://github.com/mirumee/saleor.git
 
-We are currently using **v2.11.8** of Saleor, which means that upstream changes will be available in the `2.11` branch.
+We are currently using **v3.0.0a15** of Saleor, which means that upstream changes will be available in the `3.0` branch.
 
-TBD: how to upgrade to later versions of 2.11. Merge the tag into `ft-develop`?
+TBD: how to upgrade to later versions of 3.0. Merge the tag into `ft-develop`?
 
 **********
 
