@@ -1,10 +1,7 @@
-from collections import namedtuple
 from dataclasses import dataclass
 from dateutil.relativedelta import relativedelta
-from typing import NamedTuple
 
 from django.db import models, connections
-from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 
 from saleor.account.models import User, Address
@@ -20,6 +17,17 @@ class DroneUserProfile(models.Model):
     cognito_sub = models.CharField(
         max_length=100,
         blank=True,
+        null=False
+    )
+
+    # We are keeping a copy of the drone user phone number because it is tied to the
+    # cognito id token.
+    #
+    # WARNING: This phone number should not be used for billing/shipping info
+    # for dealers/installers.
+    id_phone_number = models.CharField(
+        max_length=20,
+        blank=False,
         null=False
     )
     latest_global_logout = models.DateTimeField(
@@ -45,6 +53,7 @@ class DroneUserProfile(models.Model):
              drone_user_info.access_type == constants.FIRSTECH_ADMIN),
             (self, 'drone_user_id', drone_user_info.user_id),
             (self, 'cognito_sub', drone_user_info.cognito_sub),
+            (self, 'id_phone_number', drone_user_info.id_phone_number),
             (self, 'latest_global_logout', drone_user_info.latest_global_logout),
             (self, 'installer_id', drone_user_info.installer_id),
             (self, 'dealer_id', drone_user_info.dealer_id),
@@ -72,18 +81,19 @@ class DroneUser:
     user model. Defining this in its own class also lets us use type hints"""
     user_id: int
     email: str
-    first_name: str
-    last_name: str
     cognito_sub: str
-    is_staff: bool
-    access_type: str
-    latest_global_logout: timezone.datetime
-    installer_id: int
-    dealer_id: int
-    dealer_retired_date: timezone.datetime
+    id_phone_number: str
+
+    first_name: str = ""
+    last_name: str = ""
+    access_type: str = None
+    latest_global_logout: timezone.datetime = None
+    installer_id: int = None
+    dealer_id: int = None
+    dealer_retired_date: timezone.datetime = None
 
     @staticmethod
-    def get_user_from_drone(email: str) -> 'DroneUser':
+    def get_user_from_drone(email: str) -> 'DroneUser':  # pragma: no cover
         """Looks up drone user, installer, and dealer information for the given email
         address.
         :param email: An email address to look up in the bmapi_user table
@@ -91,8 +101,8 @@ class DroneUser:
         """
         with connections['drone_db'].cursor() as cursor:
             cursor.execute("""
-                SELECT us.id as user_id, us.email, us.first_name, us.last_name,
-                    us.cognito_sub, us.is_staff, us.access_type,
+                SELECT us.id as drone_user_id, us.email, us.first_name, us.last_name,
+                    us.cognito_sub, us.phone_number as id_phone_number, us.access_type,
                     us.latest_global_logout, inst.id as installer_id,
                     deal.id as dealer_id, deal.retired_date as dealer_retired_date
                 FROM bmapi_user AS us
@@ -127,6 +137,7 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
         email = jwt_payload['email']
 
     drone_user_info = None
+    drone_user_checked = False
 
     # Get or create the Saleor User object
     try:
@@ -140,6 +151,7 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
             }
         else:
             user_info = {}
+            drone_user_checked = True
 
         saleor_user = User.objects.create_user(email=email, **user_info)
 
@@ -147,7 +159,7 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
     try:
         drone_profile = DroneUserProfile.objects.get(user=saleor_user)
     except DroneUserProfile.DoesNotExist:
-        if not drone_user_info:
+        if not drone_user_info and not drone_user_checked:
             drone_user_info = DroneUser.get_user_from_drone(email)
         if drone_user_info:
             DroneUserProfile.objects.create(
@@ -158,6 +170,7 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
                 installer_id=drone_user_info.installer_id,
                 dealer_id=drone_user_info.dealer_id,
                 dealer_retired_date=drone_user_info.dealer_retired_date,
+                id_phone_number=drone_user_info.id_phone_number,
             )
     else:
         # The saleor user and drone profile already exist. Refresh the user info from
@@ -171,5 +184,6 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
         if token_iat > drone_profile.update_date or \
                 timezone.now() > drone_profile.update_date + relativedelta(hours=1):
             drone_profile.refresh_drone_profile()
+            saleor_user.refresh_from_db()
 
     return saleor_user

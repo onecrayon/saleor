@@ -67,15 +67,20 @@ DATABASES = {
     "default": dj_database_url.config(
         default="postgres://saleor:saleor@localhost:5432/saleor", conn_max_age=600
     ),
-    "drone_db": {
-        'NAME': 'bmappdev',
-        'ENGINE': 'django.db.backends.postgresql',
-        'USER': os.environ.get('DRONE_DATABASE_USERNAME'),
-        'PASSWORD': os.environ.get('DRONE_DATABASE_PASSWORD'),
-        'HOST': os.environ.get('DRONE_DATABASE_HOST'),
-        'PORT': os.environ.get('DRONE_DATABASE_PORT')
-    }
+
 }
+
+if not os.getenv('IS_TEST', False):
+    DATABASES.update({
+        "drone_db": {
+            'NAME': 'bmappdev',
+            'ENGINE': 'django.db.backends.postgresql',
+            'USER': os.environ.get('DRONE_DATABASE_USERNAME'),
+            'PASSWORD': os.environ.get('DRONE_DATABASE_PASSWORD'),
+            'HOST': os.environ.get('DRONE_DATABASE_HOST'),
+            'PORT': os.environ.get('DRONE_DATABASE_PORT')
+        }
+    })
 
 
 TIME_ZONE = "UTC"
