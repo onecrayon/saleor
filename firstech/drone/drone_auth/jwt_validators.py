@@ -42,7 +42,7 @@ class InternalTokenValidator:
                 raise TokenError('Invalid token, must contain sub')
 
             return jwt_data
-        except (jwt.InvalidTokenError, jwt.ExpiredSignature, jwt.DecodeError) as exc:
+        except (jwt.InvalidTokenError, jwt.ExpiredSignatureError, jwt.DecodeError) as exc:
             raise TokenError(str(exc)) from exc
 
 
@@ -110,7 +110,7 @@ class CognitoIdTokenValidator:
                 algorithms=['RS256'],
             )
             return jwt_data
-        except (jwt.InvalidTokenError, jwt.ExpiredSignature, jwt.DecodeError) as exc:
+        except (jwt.InvalidTokenError, jwt.ExpiredSignatureError, jwt.DecodeError) as exc:
             raise TokenError(str(exc)) from exc
 
     def validate(self, token):

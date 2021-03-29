@@ -207,3 +207,4 @@ websockets==8.1; python_full_version >= "3.6.1"
 wrapt==1.12.1; python_version >= "3.6" and python_version < "4.0"
 yarl==1.6.3; python_version >= "3.6"
 cryptography==3.4.6
+pycryptodomex==3.10.1

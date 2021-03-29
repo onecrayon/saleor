@@ -85,28 +85,29 @@ def authenticate_by_token(jwt_token: str) -> User:
 
     user = get_or_create_user_with_drone_profile(jwt_payload)
 
-    # Disallow installers associated with retired dealers
-    if (
-        user.droneuserprofile.installer_id and
-        user.droneuserprofile.dealer_id and
-        user.droneuserprofile.dealer_retired_date
-    ):
-        raise InvalidUserError()
+    if hasattr(user, 'droneuserprofile'):
+        # Disallow installers associated with retired dealers
+        if (
+            user.droneuserprofile.installer_id and
+            user.droneuserprofile.dealer_id and
+            user.droneuserprofile.dealer_retired_date
+        ):
+            raise InvalidUserError()
 
-    # # Disallow tokens that were issued prior to the user's most recent global logout
-    if user.droneuserprofile.latest_global_logout:
-        jwt_iat = jwt_payload.get('iat', 0)
-        issued_at = timezone.datetime.fromtimestamp(jwt_iat, tz=timezone.utc)
-        if issued_at < user.droneuserprofile.latest_global_logout:
-            raise AuthenticationError(
-                'Your login credentials need to be refreshed due to a recent change '
-                'you have made. Please login again to resume application access.'
-            )
+        # Disallow tokens that were issued prior to the user's most recent global logout
+        if user.droneuserprofile.latest_global_logout:
+            jwt_iat = jwt_payload.get('iat', 0)
+            issued_at = timezone.datetime.fromtimestamp(jwt_iat, tz=timezone.utc)
+            if issued_at < user.droneuserprofile.latest_global_logout:
+                raise AuthenticationError(
+                    'Your login credentials need to be refreshed due to a recent change'
+                    ' you have made. Please login again to resume application access.'
+                )
 
     return user
 
 
-def authenticate_by_auth_header(authorization_header: Optional[str]) -> Tuple[User, str]:
+def authenticate_by_auth_header(authorization_header: Optional[str]) -> User:
     """
     :param authorization_header: The value of the authorization header, or None if it's missing
     :raises: AuthenticationError
