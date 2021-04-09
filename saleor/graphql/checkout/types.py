@@ -11,8 +11,10 @@ from ..account.utils import requestor_has_access
 from ..channel import ChannelContext
 from ..channel.dataloaders import ChannelByCheckoutLineIDLoader, ChannelByIdLoader
 from ..core.connection import CountableDjangoObjectType
+from ..core.enums import LanguageCodeEnum
 from ..core.scalars import UUID
 from ..core.types.money import TaxedMoney
+from ..core.utils import str_to_enum
 from ..discount.dataloaders import DiscountsByDateTimeLoader
 from ..giftcard.types import GiftCard
 from ..meta.types import ObjectWithMetadata
@@ -194,6 +196,9 @@ class Checkout(CountableDjangoObjectType):
             "The sum of the the checkout line prices, with all the taxes,"
             "shipping costs, and discounts included."
         ),
+    )
+    language_code = graphene.Field(
+        LanguageCodeEnum, required=True, description="Checkout language code."
     )
 
     class Meta:
@@ -425,7 +430,9 @@ class Checkout(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_available_payment_gateways(root: models.Checkout, info):
-        return info.context.plugins.checkout_available_payment_gateways(checkout=root)
+        return info.context.plugins.list_payment_gateways(
+            currency=root.currency, checkout=root
+        )
 
     @staticmethod
     def resolve_gift_cards(root: models.Checkout, _info):
@@ -450,3 +457,7 @@ class Checkout(CountableDjangoObjectType):
             .load(root.token)
             .then(is_shipping_required)
         )
+
+    @staticmethod
+    def resolve_language_code(root, _info, **_kwargs):
+        return LanguageCodeEnum[str_to_enum(root.language_code)]

@@ -16,7 +16,6 @@ from ..discount.models import NotApplicable, OrderDiscount, Voucher, VoucherType
 from ..discount.utils import get_products_voucher_discount, validate_voucher_in_order
 from ..order import FulfillmentStatus, OrderLineData, OrderStatus
 from ..order.models import Order, OrderLine
-from ..plugins.manager import get_plugins_manager
 from ..product.utils.digital_products import get_default_digital_content_settings
 from ..shipping.models import ShippingMethod
 from ..warehouse.management import deallocate_stock, increase_stock
@@ -192,7 +191,9 @@ def update_taxes_for_order_line(
     line.unit_price = price
     line.total_price = line.unit_price * line.quantity
     if price.tax and price.net:
-        line.tax_rate = manager.get_order_line_tax_rate(order, product, None, price)
+        line.tax_rate = manager.get_order_line_tax_rate(
+            order, product, variant, None, price
+        )
 
 
 def update_taxes_for_order_lines(
@@ -289,7 +290,7 @@ def update_order_status(order):
 
 
 @transaction.atomic
-def add_variant_to_draft_order(order, variant, quantity, discounts=None):
+def add_variant_to_draft_order(order, variant, quantity, manager, discounts=None):
     """Add total_quantity of variant to order.
 
     Returns an order line the variant was added to.
@@ -328,11 +329,10 @@ def add_variant_to_draft_order(order, variant, quantity, discounts=None):
             total_price=total_price,
             variant=variant,
         )
-        manager = get_plugins_manager()
         unit_price = manager.calculate_order_line_unit(order, line, variant, product)
         line.unit_price = unit_price
         line.tax_rate = manager.get_order_line_tax_rate(
-            order, product, None, unit_price
+            order, product, variant, None, unit_price
         )
         line.save(
             update_fields=[

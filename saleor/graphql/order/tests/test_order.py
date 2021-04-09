@@ -2,6 +2,7 @@ import uuid
 from copy import deepcopy
 from datetime import date, timedelta
 from decimal import Decimal
+from unittest import mock
 from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import graphene
@@ -13,6 +14,7 @@ from measurement.measures import Weight
 from prices import Money, TaxedMoney
 
 from ....account.models import CustomerEvent
+from ....core.notify_events import NotifyEventType
 from ....core.prices import quantize_price
 from ....core.taxes import TaxError, zero_taxed_money
 from ....discount.models import OrderDiscount
@@ -21,6 +23,7 @@ from ....order import events as order_events
 from ....order.error_codes import OrderErrorCode
 from ....order.events import order_replacement_created
 from ....order.models import Order, OrderEvent
+from ....order.notifications import get_default_order_payload
 from ....payment import ChargeStatus, PaymentError
 from ....payment.models import Payment
 from ....plugins.manager import PluginsManager
@@ -257,6 +260,7 @@ query OrdersQuery {
                 channel {
                     slug
                 }
+                languageCodeEnum
                 statusDisplay
                 paymentStatus
                 paymentStatusDisplay
@@ -362,6 +366,7 @@ def test_order_query(
     assert order_data["paymentStatusDisplay"] == payment_status_display
     assert order_data["isPaid"] == order.is_fully_paid()
     assert order_data["userEmail"] == order.user_email
+    assert order_data["languageCodeEnum"] == order.language_code.upper()
     expected_price = Money(
         amount=str(order_data["shippingPrice"]["gross"]["amount"]), currency="USD"
     )
@@ -778,9 +783,11 @@ ORDER_CONFIRM_MUTATION = """
 """
 
 
+@patch("saleor.plugins.manager.PluginsManager.notify")
 @patch("saleor.payment.gateway.capture")
 def test_order_confirm(
     capture_mock,
+    mocked_notify,
     staff_api_client,
     order_unconfirmed,
     permission_manage_orders,
@@ -799,25 +806,31 @@ def test_order_confirm(
     assert order_data["status"] == OrderStatus.UNFULFILLED.upper()
     order_unconfirmed.refresh_from_db()
     assert order_unconfirmed.status == OrderStatus.UNFULFILLED
-    assert OrderEvent.objects.count() == 3
+    assert OrderEvent.objects.count() == 2
     assert OrderEvent.objects.filter(
         order=order_unconfirmed,
         user=staff_api_client.user,
         type=order_events.OrderEvents.CONFIRMED,
     ).exists()
-    assert OrderEvent.objects.filter(
-        order=order_unconfirmed,
-        user=staff_api_client.user,
-        type=order_events.OrderEvents.EMAIL_SENT,
-        parameters__email=order_unconfirmed.get_customer_email(),
-    ).exists()
+
     assert OrderEvent.objects.filter(
         order=order_unconfirmed,
         user=staff_api_client.user,
         type=order_events.OrderEvents.PAYMENT_CAPTURED,
         parameters__amount=payment_txn_preauth.get_total().amount,
     ).exists()
-    capture_mock.assert_called_once_with(payment_txn_preauth)
+
+    capture_mock.assert_called_once_with(payment_txn_preauth, ANY)
+    expected_payload = {
+        "order": get_default_order_payload(order_unconfirmed, ""),
+        "recipient_email": order_unconfirmed.user.email,
+        "requester_user_id": staff_api_client.user.id,
+        "site_name": "mirumee.com",
+        "domain": "mirumee.com",
+    }
+    mocked_notify.assert_called_once_with(
+        NotifyEventType.ORDER_CONFIRMED, expected_payload
+    )
 
 
 def test_order_confirm_unfulfilled(staff_api_client, order, permission_manage_orders):
@@ -858,17 +871,11 @@ def test_order_confirm_wont_call_capture_for_non_active_payment(
     assert order_data["status"] == OrderStatus.UNFULFILLED.upper()
     order_unconfirmed.refresh_from_db()
     assert order_unconfirmed.status == OrderStatus.UNFULFILLED
-    assert OrderEvent.objects.count() == 2
+    assert OrderEvent.objects.count() == 1
     assert OrderEvent.objects.filter(
         order=order_unconfirmed,
         user=staff_api_client.user,
         type=order_events.OrderEvents.CONFIRMED,
-    ).exists()
-    assert OrderEvent.objects.filter(
-        order=order_unconfirmed,
-        user=staff_api_client.user,
-        type=order_events.OrderEvents.EMAIL_SENT,
-        parameters__email=order_unconfirmed.get_customer_email(),
     ).exists()
     assert not capture_mock.called
 
@@ -3210,7 +3217,9 @@ def test_order_cancel(
     assert not data["orderErrors"]
 
     mock_clean_order_cancel.assert_called_once_with(order)
-    mock_cancel_order.assert_called_once_with(order=order, user=staff_api_client.user)
+    mock_cancel_order.assert_called_once_with(
+        order=order, user=staff_api_client.user, manager=ANY
+    )
 
 
 @patch("saleor.graphql.order.mutations.orders.cancel_order")
@@ -3233,11 +3242,18 @@ def test_order_cancel_as_app(
     assert not data["orderErrors"]
 
     mock_clean_order_cancel.assert_called_once_with(order)
-    mock_cancel_order.assert_called_once_with(order=order, user=AnonymousUser())
+    mock_cancel_order.assert_called_once_with(
+        order=order, user=AnonymousUser(), manager=ANY
+    )
 
 
+@mock.patch("saleor.plugins.manager.PluginsManager.notify")
 def test_order_capture(
-    staff_api_client, permission_manage_orders, payment_txn_preauth, staff_user
+    mocked_notify,
+    staff_api_client,
+    permission_manage_orders,
+    payment_txn_preauth,
+    staff_user,
 ):
     order = payment_txn_preauth.order
     query = """
@@ -3269,7 +3285,7 @@ def test_order_capture(
     assert data["isPaid"]
     assert data["totalCaptured"]["amount"] == float(amount)
 
-    event_captured, event_order_fully_paid, event_email_sent = order.events.all()
+    event_captured, event_order_fully_paid = order.events.all()
 
     assert event_captured.type == order_events.OrderEvents.PAYMENT_CAPTURED
     assert event_captured.user == staff_user
@@ -3282,11 +3298,25 @@ def test_order_capture(
     assert event_order_fully_paid.type == order_events.OrderEvents.ORDER_FULLY_PAID
     assert event_order_fully_paid.user == staff_user
 
-    assert event_email_sent.user == staff_user
-    assert event_email_sent.parameters == {
-        "email": order.user_email,
-        "email_type": order_events.OrderEventsEmails.PAYMENT,
+    payment = Payment.objects.get()
+    expected_payment_payload = {
+        "order": get_default_order_payload(order),
+        "recipient_email": order.get_customer_email(),
+        "payment": {
+            "created": payment.created,
+            "modified": payment.modified,
+            "charge_status": payment.charge_status,
+            "total": payment.total,
+            "captured_amount": payment.captured_amount,
+            "currency": payment.currency,
+        },
+        "site_name": "mirumee.com",
+        "domain": "mirumee.com",
     }
+
+    mocked_notify.assert_called_once_with(
+        NotifyEventType.ORDER_PAYMENT_CONFIRMATION, expected_payment_payload
+    )
 
 
 MUTATION_MARK_ORDER_AS_PAID = """
@@ -3498,11 +3528,6 @@ def test_order_refund(staff_api_client, permission_manage_orders, payment_txn_ca
         type=order_events.OrderEvents.PAYMENT_REFUNDED
     ).first()
     assert refund_order_event.parameters["amount"] == str(amount)
-
-    email_send_event = order.events.filter(
-        type=order_events.OrderEvents.EMAIL_SENT
-    ).first()
-    assert email_send_event.parameters["email_type"]
 
 
 @pytest.mark.parametrize(
@@ -4322,6 +4347,27 @@ def test_query_draft_order_by_token_as_anonymous_customer(api_client, draft_orde
     assert not content["data"]["orderByToken"]
 
 
+def test_query_order_without_addresess(order, user_api_client, channel_USD):
+    # given
+    query = ORDER_BY_TOKEN_QUERY
+
+    order = Order.objects.create(
+        token=str(uuid.uuid4()),
+        channel=channel_USD,
+        user=user_api_client.user,
+    )
+
+    # when
+    response = user_api_client.post_graphql(query, {"token": order.token})
+
+    # then
+    content = get_graphql_content(response)
+    data = content["data"]["orderByToken"]
+    assert data["userEmail"] == user_api_client.user.email
+    assert data["billingAddress"] is None
+    assert data["shippingAddress"] is None
+
+
 MUTATION_ORDER_BULK_CANCEL = """
 mutation CancelManyOrders($ids: [ID]!) {
     orderBulkCancel(ids: $ids) {
@@ -4358,7 +4404,9 @@ def test_order_bulk_cancel(
     assert data["count"] == expected_count
     assert not data["orderErrors"]
 
-    calls = [call(order=order, user=staff_api_client.user) for order in orders]
+    calls = [
+        call(order=order, user=staff_api_client.user, manager=ANY) for order in orders
+    ]
 
     mock_cancel_order.assert_has_calls(calls, any_order=True)
     mock_cancel_order.call_count == expected_count
@@ -4387,7 +4435,7 @@ def test_order_bulk_cancel_as_app(
     assert data["count"] == expected_count
     assert not data["orderErrors"]
 
-    calls = [call(order=order, user=AnonymousUser()) for order in orders]
+    calls = [call(order=order, user=AnonymousUser(), manager=ANY) for order in orders]
 
     mock_cancel_order.assert_has_calls(calls, any_order=True)
     assert mock_cancel_order.call_count == expected_count

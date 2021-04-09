@@ -17,17 +17,19 @@ from ...graphql.utils import get_user_or_app_from_context
 from ...order import OrderStatus, models
 from ...order.models import FulfillmentStatus
 from ...order.utils import get_order_country, get_valid_shipping_methods_for_order
-from ...plugins.manager import get_plugins_manager
-from ...product.templatetags.product_images import get_product_image_thumbnail
+from ...product.product_images import get_product_image_thumbnail
 from ...warehouse import models as warehouse_models
+from ..account.dataloaders import AddressByIdLoader
 from ..account.types import User
 from ..account.utils import requestor_has_access
 from ..channel import ChannelContext
 from ..channel.dataloaders import ChannelByIdLoader, ChannelByOrderLineIdLoader
 from ..core.connection import CountableDjangoObjectType
+from ..core.enums import LanguageCodeEnum
 from ..core.scalars import PositiveDecimal
 from ..core.types.common import Image
 from ..core.types.money import Money, TaxedMoney
+from ..core.utils import str_to_enum
 from ..decorators import one_of_permissions_required, permission_required
 from ..discount.dataloaders import OrderDiscountsByOrderIDLoader, VoucherByIdLoader
 from ..discount.enums import DiscountValueTypeEnum
@@ -570,6 +572,16 @@ class Order(CountableDjangoObjectType):
     is_shipping_required = graphene.Boolean(
         description="Returns True, if order requires shipping.", required=True
     )
+    language_code = graphene.String(
+        deprecation_reason=(
+            "Use the `languageCodeEnum` field to fetch the language code. "
+            "This field will be removed in Saleor 4.0."
+        ),
+        required=True,
+    )
+    language_code_enum = graphene.Field(
+        LanguageCodeEnum, description="Order language code.", required=True
+    )
     discount = graphene.Field(
         Money,
         description="Returns applied discount.",
@@ -611,7 +623,6 @@ class Order(CountableDjangoObjectType):
             "display_gross_prices",
             "gift_cards",
             "id",
-            "language_code",
             "shipping_address",
             "shipping_method",
             "shipping_method_name",
@@ -681,17 +692,29 @@ class Order(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_billing_address(root: models.Order, info):
+        if not root.shipping_address_id:
+            return
         requester = get_user_or_app_from_context(info.context)
         if requestor_has_access(requester, root.user, OrderPermissions.MANAGE_ORDERS):
-            return root.billing_address
-        return obfuscate_address(root.billing_address)
+            return AddressByIdLoader(info.context).load(root.billing_address_id)
+        return (
+            AddressByIdLoader(info.context)
+            .load(root.billing_address_id)
+            .then(obfuscate_address)
+        )
 
     @staticmethod
     def resolve_shipping_address(root: models.Order, info):
+        if not root.shipping_address_id:
+            return
         requester = get_user_or_app_from_context(info.context)
         if requestor_has_access(requester, root.user, OrderPermissions.MANAGE_ORDERS):
-            return root.shipping_address
-        return obfuscate_address(root.shipping_address)
+            return AddressByIdLoader(info.context).load(root.shipping_address_id)
+        return (
+            AddressByIdLoader(info.context)
+            .load(root.shipping_address_id)
+            .then(obfuscate_address)
+        )
 
     @staticmethod
     def resolve_shipping_price(root: models.Order, _info):
@@ -824,12 +847,12 @@ class Order(CountableDjangoObjectType):
 
     @staticmethod
     # TODO: We should optimize it in/after PR#5819
-    def resolve_available_shipping_methods(root: models.Order, _info):
+    def resolve_available_shipping_methods(root: models.Order, info):
         available = get_valid_shipping_methods_for_order(root)
         if available is None:
             return []
         available_shipping_methods = []
-        manager = get_plugins_manager()
+        manager = info.context.plugins
         display_gross = display_gross_prices()
         for shipping_method in available:
             # Ignore typing check because it is checked in
@@ -883,3 +906,7 @@ class Order(CountableDjangoObjectType):
         channel = ChannelByIdLoader(info.context).load(root.channel_id)
 
         return Promise.all([voucher, channel]).then(wrap_voucher_with_channel_context)
+
+    @staticmethod
+    def resolve_language_code_enum(root, _info, **_kwargs):
+        return LanguageCodeEnum[str_to_enum(root.language_code)]
