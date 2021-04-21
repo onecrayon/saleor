@@ -1,0 +1,68 @@
+from django.contrib.postgres.fields import ArrayField
+from django.db import models
+
+from saleor.account.models import Address, User
+
+from . import PricingList
+
+
+class BusinessPartner(models.Model):
+    addresses = models.ManyToManyField(
+        Address, blank=True, related_name="business_partner_addresses"
+    )
+    account_balance = models.DecimalField(
+        decimal_places=2,
+        max_digits=10,
+        null=True,
+        blank=True,
+    )
+    account_is_active = models.BooleanField(default=True)
+    account_purchasing_restricted = models.BooleanField(default=False)
+
+    company_name = models.CharField(max_length=256, blank=True, null=True)
+    company_url = models.CharField(max_length=256, blank=True, null=True)
+    credit_limit = models.DecimalField(decimal_places=2, max_digits=10, null=True)
+    customer_type = models.CharField(max_length=256, blank=True, null=True)
+    debit_limit = models.DecimalField(decimal_places=2, max_digits=10, null=True)
+    # TODO: drone_rewards. How/what to model?
+    inside_sales_rep = models.CharField(max_length=256, blank=True, null=True)
+    internal_ft_notes = models.CharField(max_length=256, blank=True, null=True)
+    outside_sales_rep = models.CharField(max_length=256, blank=True, null=True)
+    outside_sales_rep_emails = ArrayField(
+        base_field=models.EmailField(),
+        blank=True,
+        null=True
+    )
+    payment_terms = models.CharField(max_length=256, blank=True, null=True)
+    pricing_list = models.CharField(
+        choices=PricingList.CHOICES, blank=True, max_length=50, null=True
+    )
+    sales_manager = models.CharField(max_length=256, blank=True, null=True)
+    sap_bp_code = models.CharField(max_length=256, blank=True, null=True)
+    shipping_preference = models.CharField(max_length=256, blank=True, null=True)
+    sync_partner = models.BooleanField(default=True)
+    warranty_preference = models.CharField(max_length=256, blank=True, null=True)
+
+
+class ApprovedBrands(models.Model):
+    business_partner = models.OneToOneField(BusinessPartner, on_delete=models.CASCADE)
+    momento = models.BooleanField(default=True)
+    tesa = models.BooleanField(default=True)
+    idatalink = models.BooleanField(default=True)
+    maestro = models.BooleanField(default=True)
+    compustar = models.BooleanField(default=False)
+    compustar_pro = models.BooleanField(default=False)
+    ftx = models.BooleanField(default=False)
+    arctic_start = models.BooleanField(default=False)
+    compustar_mesa_only = models.BooleanField(default=False)
+    replacements = models.BooleanField(default=True)
+
+
+class SAPUserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    date_of_birth = models.DateField(null=True)
+    is_company_owner = models.BooleanField(default=False)
+    business_partner = models.ForeignKey(
+        BusinessPartner, related_name="business_partner", null=True, blank=True,
+        on_delete=models.SET_NULL
+    )

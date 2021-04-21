@@ -23,6 +23,10 @@ from .translations.schema import TranslationQueries
 from .warehouse.schema import StockQueries, WarehouseMutations, WarehouseQueries
 from .webhook.schema import WebhookMutations, WebhookQueries
 
+# Firstech Custom
+from .drone.schema import DroneQueries
+from .SAP.schema import SAPQueries
+
 
 class Query(
     AccountQueries,
@@ -46,6 +50,10 @@ class Query(
     TranslationQueries,
     WarehouseQueries,
     WebhookQueries,
+
+    #Firstech Custom
+    DroneQueries,
+    SAPQueries,
 ):
     pass
 

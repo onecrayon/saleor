@@ -279,6 +279,7 @@ INSTALLED_APPS = [
     "phonenumber_field",
     # Custom local apps
     "firstech.drone",
+    "firstech.SAP",
 ]
 
 
