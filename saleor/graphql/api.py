@@ -25,7 +25,7 @@ from .webhook.schema import WebhookMutations, WebhookQueries
 
 # Firstech Custom
 from .drone.schema import DroneQueries
-from .SAP.schema import SAPQueries
+from .SAP.schema import SAPQueries, SAPMutations
 
 
 class Query(
@@ -80,6 +80,9 @@ class Mutation(
     ShopMutations,
     WarehouseMutations,
     WebhookMutations,
+
+    #Firstech Custom
+    SAPMutations,
 ):
     pass
 

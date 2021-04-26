@@ -2,9 +2,9 @@ import graphene
 from graphene import relay
 from graphene_federation import key
 
-
-from saleor.account.models import User as UserModel
 from firstech.SAP import models
+from saleor.account.models import User as UserModel
+
 from ..core.connection import CountableDjangoObjectType
 
 

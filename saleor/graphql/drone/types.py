@@ -1,7 +1,9 @@
 from graphene import relay
 from graphene_federation import key
-from ..core.connection import CountableDjangoObjectType
+
 from firstech.drone.models import DroneUserProfile as DroneUserProfileModel
+
+from ..core.connection import CountableDjangoObjectType
 
 
 @key("id")

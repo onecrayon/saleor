@@ -77,6 +77,10 @@ class Error(graphene.ObjectType):
         description = "Represents an error in the input of a mutation."
 
 
+class BusinessPartnerError(Error):
+    code = graphene.String(description="The error code.", required=True)
+
+
 class AccountError(Error):
     code = AccountErrorCode(description="The error code.", required=True)
 

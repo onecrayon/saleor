@@ -18,12 +18,21 @@ class BusinessPartner(models.Model):
     )
     account_is_active = models.BooleanField(default=True)
     account_purchasing_restricted = models.BooleanField(default=False)
-
     company_name = models.CharField(max_length=256, blank=True, null=True)
     company_url = models.CharField(max_length=256, blank=True, null=True)
-    credit_limit = models.DecimalField(decimal_places=2, max_digits=10, null=True)
+    credit_limit = models.DecimalField(
+        decimal_places=2,
+        max_digits=10,
+        null=True,
+        blank=True
+    )
     customer_type = models.CharField(max_length=256, blank=True, null=True)
-    debit_limit = models.DecimalField(decimal_places=2, max_digits=10, null=True)
+    debit_limit = models.DecimalField(
+        decimal_places=2,
+        max_digits=10,
+        null=True,
+        blank=True
+    )
     # TODO: drone_rewards. How/what to model?
     inside_sales_rep = models.CharField(max_length=256, blank=True, null=True)
     internal_ft_notes = models.CharField(max_length=256, blank=True, null=True)

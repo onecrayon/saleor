@@ -1,12 +1,15 @@
 import graphene
 
+from firstech.SAP import models
+from saleor.graphql.SAP.mutations import (
+    CreateSAPUserProfile,
+    MigrateBusinessPartner
+)
 from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions
 from ..core.fields import FilterInputConnectionField
 from ..decorators import permission_required
 from ..utils import get_user_or_app_from_context
-
-from firstech.SAP import models
 from .types import BusinessPartner, SAPUserProfile
 
 
@@ -46,3 +49,8 @@ class SAPQueries(graphene.ObjectType):
             return models.BusinessPartner.objects.filter(**filter_kwargs).all()
 
         return PermissionDenied()
+
+
+class SAPMutations(graphene.ObjectType):
+    business_partner_migrate = MigrateBusinessPartner.Field()
+    create_sap_profile = CreateSAPUserProfile.Field()
