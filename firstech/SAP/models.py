@@ -18,6 +18,7 @@ class BusinessPartner(models.Model):
     )
     account_is_active = models.BooleanField(default=True)
     account_purchasing_restricted = models.BooleanField(default=False)
+    card_code = models.CharField(max_length=256, blank=False, null=False, unique=True)
     company_name = models.CharField(max_length=256, blank=True, null=True)
     company_url = models.CharField(max_length=256, blank=True, null=True)
     credit_limit = models.DecimalField(
@@ -32,6 +33,14 @@ class BusinessPartner(models.Model):
         max_digits=10,
         null=True,
         blank=True
+    )
+    # Setting default shipping and billing addresses here mimics the design of Accounts
+    # and billing/shipping addresses
+    default_shipping_address = models.ForeignKey(
+        Address, related_name="+", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    default_billing_address = models.ForeignKey(
+        Address, related_name="+", null=True, blank=True, on_delete=models.SET_NULL
     )
     # TODO: drone_rewards. How/what to model?
     inside_sales_rep = models.CharField(max_length=256, blank=True, null=True)
@@ -69,9 +78,10 @@ class ApprovedBrands(models.Model):
 
 class SAPUserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    date_of_birth = models.DateField(null=True)
+    date_of_birth = models.DateField(null=True, blank=True)
     is_company_owner = models.BooleanField(default=False)
     business_partner = models.ForeignKey(
         BusinessPartner, related_name="business_partner", null=True, blank=True,
         on_delete=models.SET_NULL
     )
+    middle_name = models.CharField(max_length=256, blank=True, null=True)

@@ -8,41 +8,48 @@ from saleor.account.models import User as UserModel
 from ..core.connection import CountableDjangoObjectType
 
 
+class SAPApprovedBrands(CountableDjangoObjectType):
+
+    @property
+    def fields(self):
+        return [
+            "momento",
+            "tesa",
+            "idatalink",
+            "maestro",
+            "compustar",
+            "compustar_pro",
+            "ftx",
+            "arctic_start",
+            # Not a field currently but will be added to SAP in the future
+            "compustar_mesa_only",
+            "replacements",
+        ]
+
+    class Meta:
+        description = "Approved brands from SAP"
+        model = models.ApprovedBrands
+        interfaces = [relay.Node]
+        fields = "__all__"
+
+
 @key("id")
+@key("cardCode")
 class BusinessPartner(CountableDjangoObjectType):
     company_contacts = graphene.List(
         "saleor.graphql.account.types.User",
         description="List of users at this business partner."
+    )
+    approved_brands = graphene.List(
+        graphene.String,
+        description="List of approved brands for this business partner."
     )
 
     class Meta:
         description = "Business partner"
         model = models.BusinessPartner
         interfaces = [relay.Node]
-        only_fields = [
-            "addresses",
-            "account_balance",
-            "account_is_active",
-            "account_purchasing_restricted",
-            "company_contacts",
-            "company_name",
-            "company_url",
-            "credit_limit",
-            "customer_type",
-            "debit_limit",
-            # drone_rewards
-            "inside_sales_rep",
-            "internal_ft_notes",
-            "outside_sales_rep",
-            "outside_sales_rep_emails",
-            "payment_terms",
-            "pricing_list",
-            "sales_manager",
-            "sap_bp_code",
-            "shipping_preference",
-            "sync_partner",
-            "warranty_preference",
-        ]
+        fields = "__all__"
 
     @staticmethod
     def resolve_company_contacts(root: models.BusinessPartner, _info, **kwargs):
@@ -55,6 +62,15 @@ class BusinessPartner(CountableDjangoObjectType):
 
         except models.SAPUserProfile.DoesNotExist:
             return None
+
+    @staticmethod
+    def resolve_approved_brands(root: models.BusinessPartner, _info, **kwargs):
+        all_brands = SAPApprovedBrands().fields
+        try:
+            return [field for field in all_brands
+                    if getattr(root.approvedbrands, field) is True]
+        except models.ApprovedBrands.DoesNotExist:
+            return []
 
 
 @key("id")
