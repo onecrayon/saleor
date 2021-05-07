@@ -1,6 +1,6 @@
 import graphene
 
-from firstech.SAP import PricingList, models
+from firstech.SAP import models
 from saleor.checkout import AddressType
 from saleor.core.permissions import AccountPermissions
 from saleor.graphql.account.enums import AddressTypeEnum
@@ -8,12 +8,12 @@ from saleor.graphql.account.types import AddressInput
 from saleor.graphql.core.mutations import ModelMutation
 from saleor.graphql.core.scalars import Decimal
 from saleor.graphql.core.types.common import BusinessPartnerError, AccountError
-from saleor.graphql.SAP.types import BusinessPartner, SAPUserProfile, SAPApprovedBrands
-
-
-PricingListEnum = graphene.Enum(
-    "PricingList",
-    [(pricing_list[0], pricing_list[0]) for pricing_list in PricingList.CHOICES]
+from saleor.graphql.SAP.enums import DistributionTypeEnum
+from saleor.graphql.SAP.types import (
+    BusinessPartner,
+    SAPUserProfile,
+    SAPApprovedBrands,
+    DroneRewardsProfile,
 )
 
 
@@ -28,13 +28,12 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
     credit_limit = Decimal()
     customer_type = graphene.String()
     debit_limit = Decimal()
-    # drone_rewards
     inside_sales_rep = graphene.String()
     internal_ft_notes = graphene.String()
     outside_sales_rep = graphene.String()
     outside_sales_rep_emails = graphene.List(of_type=graphene.String)
     payment_terms = graphene.String()
-    pricing_list = PricingListEnum(description="Prcing lists.")
+    channel = graphene.ID(required=True)
     sales_manager = graphene.String()
     sap_bp_code = graphene.String()
     shipping_preference = graphene.String()
@@ -43,13 +42,16 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
 
 
 class MigrateBusinessPartner(ModelMutation):
-    """Mutation for creating (i.e. migrating over) a business partner from SAP"""
+    """Mutation for creating (i.e. migrating over) a business partner from SAP. If the
+    id argument is passed, then whis will update the existing business partner with that
+    id."""
     business_partner = graphene.Field(
         BusinessPartner,
         description="A business partner instance that was created."
     )
 
     class Arguments:
+        id = graphene.ID()
         input = BusinessPartnerCreateInput(
             description="Fields required to create business partner.",
             required=True
@@ -117,22 +119,53 @@ class BusinessPartnerAddressCreate(ModelMutation):
         return response
 
 
+class DroneRewardsCreateInput(graphene.InputObjectType):
+    business_partner = graphene.ID()
+    distribution = DistributionTypeEnum()
+    enrolled = graphene.Boolean()
+    onboarded = graphene.Boolean()
+
+
+class CreateDroneRewardsProfile(ModelMutation):
+    """Mutation for creating a business partner's drone rewards information"""
+    drone_rewards_profile = graphene.Field(
+        DroneRewardsProfile,
+        description="A business partner's drone rewards information."
+    )
+
+    class Arguments:
+        input = DroneRewardsCreateInput(
+            description="Fields required to define drone rewards information.",
+            required=True
+        )
+
+    class Meta:
+        description = "Define the drone rewards information for a dealer."
+        exclude = []
+        model = models.DroneRewardsProfile
+        permissions = (AccountPermissions.MANAGE_USERS,)
+        error_type_class = BusinessPartnerError
+        error_type_field = "business_partner_errors"
+
+
 class SAPUserProfileCreateInput(graphene.InputObjectType):
     user = graphene.ID()
     date_of_birth = graphene.String()
     is_company_owner = graphene.Boolean()
     middle_name = graphene.String()
-    business_partner_id = graphene.ID()
+    business_partner = graphene.ID()
 
 
 class CreateSAPUserProfile(ModelMutation):
-    """Mutation for creating a user's SAP user profile"""
+    """Mutation for creating a user's SAP user profile. If the id argument is passed
+    then this mutation updates the existing SAP user profile with that id."""
     sap_user_profile = graphene.Field(
         SAPUserProfile,
         description="An SAP user profile that was created."
     )
 
     class Arguments:
+        id = graphene.ID()
         input = SAPUserProfileCreateInput(
             description="Fields required to create SAP user profile.",
             required=True

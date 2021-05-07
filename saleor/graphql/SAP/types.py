@@ -85,3 +85,12 @@ class SAPUserProfile(CountableDjangoObjectType):
             "is_company_owner",
             "business_partner",
         ]
+
+
+class DroneRewardsProfile(CountableDjangoObjectType):
+    class Meta:
+        description = "Define the drone rewards information for a dealer."
+        model = models.DroneRewardsProfile
+        interfaces = [relay.Node]
+        fields = "__all__"
+

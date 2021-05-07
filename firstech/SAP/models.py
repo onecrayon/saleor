@@ -2,8 +2,12 @@ from django.contrib.postgres.fields import ArrayField
 from django.db import models
 
 from saleor.account.models import Address, User
+from saleor.channel.models import Channel
 
-from . import PricingList
+from . import DroneDistribution
+
+
+DEFAULT_CHANNEL_ID = 1
 
 
 class BusinessPartner(models.Model):
@@ -43,8 +47,9 @@ class BusinessPartner(models.Model):
         Address, related_name="+", null=True, blank=True, on_delete=models.SET_NULL
     )
     # TODO: drone_rewards. How/what to model?
+
     inside_sales_rep = models.CharField(max_length=256, blank=True, null=True)
-    internal_ft_notes = models.CharField(max_length=256, blank=True, null=True)
+    internal_ft_notes = models.TextField(blank=True, null=True)
     outside_sales_rep = models.CharField(max_length=256, blank=True, null=True)
     outside_sales_rep_emails = ArrayField(
         base_field=models.EmailField(),
@@ -52,8 +57,12 @@ class BusinessPartner(models.Model):
         null=True
     )
     payment_terms = models.CharField(max_length=256, blank=True, null=True)
-    pricing_list = models.CharField(
-        choices=PricingList.CHOICES, blank=True, max_length=50, null=True
+    channel = models.ForeignKey(
+        Channel,
+        on_delete=models.PROTECT,
+        null=False,
+        blank=False,
+        default=DEFAULT_CHANNEL_ID,
     )
     sales_manager = models.CharField(max_length=256, blank=True, null=True)
     sap_bp_code = models.CharField(max_length=256, blank=True, null=True)
@@ -85,3 +94,16 @@ class SAPUserProfile(models.Model):
         on_delete=models.SET_NULL
     )
     middle_name = models.CharField(max_length=256, blank=True, null=True)
+
+
+class DroneRewardsProfile(models.Model):
+    # Making this its own table to anticipate future expansion and to match what's
+    # outlined in the spec.
+    business_partner = models.OneToOneField(BusinessPartner, on_delete=models.CASCADE)
+    enrolled = models.BooleanField(default=False)
+    onboarded = models.BooleanField(default=False)
+    distribution = models.CharField(
+        choices=DroneDistribution.CHOICES,
+        max_length=20,
+        default=DroneDistribution.STRIPE,
+    )

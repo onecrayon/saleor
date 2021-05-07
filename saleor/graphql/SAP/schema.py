@@ -5,7 +5,8 @@ from saleor.graphql.SAP.mutations import (
     CreateSAPUserProfile,
     MigrateBusinessPartner,
     BusinessPartnerAddressCreate,
-    AssignApprovedBrands
+    AssignApprovedBrands,
+    CreateDroneRewardsProfile
 )
 from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions
@@ -56,7 +57,7 @@ class SAPQueries(graphene.ObjectType):
         return PermissionDenied()
 
     @permission_required(AccountPermissions.MANAGE_USERS)
-    def resolve_business_partners(self, info, query=None):
+    def resolve_business_partners(self, info, query=None, **kwargs):
         requester = get_user_or_app_from_context(info.context)
         if requester:
             filter_kwargs = {}
@@ -71,3 +72,4 @@ class SAPMutations(graphene.ObjectType):
     create_sap_profile = CreateSAPUserProfile.Field()
     business_partner_address_create = BusinessPartnerAddressCreate.Field()
     business_partner_assign_approved_brands = AssignApprovedBrands.Field()
+    business_partner_drone_rewards_profile_create = CreateDroneRewardsProfile.Field()

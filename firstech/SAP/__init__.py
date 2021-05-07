@@ -44,3 +44,13 @@ class PricingList:
         (SEGI_WARRANTY, "Segi Warranty"),
         (SPECIAL_PRICING, "Special Pricing"),
     ]
+
+
+class DroneDistribution:
+    STRIPE = "stripe"
+    SAP = "SAP"
+
+    CHOICES = [
+        (STRIPE, "Stripe"),
+        (SAP, "SAP")
+    ]
