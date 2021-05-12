@@ -33,9 +33,18 @@ class SAPApprovedBrands(CountableDjangoObjectType):
         fields = "__all__"
 
 
+class DroneRewardsProfile(CountableDjangoObjectType):
+    class Meta:
+        description = "Define the drone rewards information for a dealer."
+        model = models.DroneRewardsProfile
+        interfaces = [relay.Node]
+        fields = "__all__"
+
+
 @key("id")
 @key("cardCode")
 class BusinessPartner(CountableDjangoObjectType):
+    """Business partners can be looked up using either their id or cardCode. """
     company_contacts = graphene.List(
         "saleor.graphql.account.types.User",
         description="List of users at this business partner."
@@ -43,6 +52,10 @@ class BusinessPartner(CountableDjangoObjectType):
     approved_brands = graphene.List(
         graphene.String,
         description="List of approved brands for this business partner."
+    )
+    drone_rewards_profile = graphene.Field(
+        DroneRewardsProfile,
+        description="Drone rewards information for the dealer."
     )
 
     class Meta:
@@ -53,7 +66,6 @@ class BusinessPartner(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_company_contacts(root: models.BusinessPartner, _info, **kwargs):
-
         try:
             contact_ids = models.SAPUserProfile.objects.filter(
                 business_partner=root
@@ -72,6 +84,13 @@ class BusinessPartner(CountableDjangoObjectType):
         except models.ApprovedBrands.DoesNotExist:
             return []
 
+    @staticmethod
+    def resolve_drone_rewards_profile(root: models.BusinessPartner, _info, **kwargs):
+        try:
+            return root.dronerewardsprofile
+        except models.DroneRewardsProfile.DoesNotExist:
+            return None
+
 
 @key("id")
 class SAPUserProfile(CountableDjangoObjectType):
@@ -85,12 +104,3 @@ class SAPUserProfile(CountableDjangoObjectType):
             "is_company_owner",
             "business_partner",
         ]
-
-
-class DroneRewardsProfile(CountableDjangoObjectType):
-    class Meta:
-        description = "Define the drone rewards information for a dealer."
-        model = models.DroneRewardsProfile
-        interfaces = [relay.Node]
-        fields = "__all__"
-
