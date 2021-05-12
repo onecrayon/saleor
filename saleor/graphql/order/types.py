@@ -1,4 +1,5 @@
 from decimal import Decimal
+from operator import attrgetter
 from typing import Optional
 
 import graphene
@@ -7,6 +8,7 @@ from django.core.exceptions import ValidationError
 from graphene import relay
 from promise import Promise
 
+from ...account.models import Address
 from ...account.utils import requestor_is_staff_member_or_app
 from ...core.anonymize import obfuscate_address, obfuscate_email
 from ...core.exceptions import PermissionDenied
@@ -14,12 +16,13 @@ from ...core.permissions import AccountPermissions, OrderPermissions, ProductPer
 from ...core.taxes import display_gross_prices
 from ...discount import OrderDiscountType
 from ...graphql.utils import get_user_or_app_from_context
+from ...graphql.warehouse.dataloaders import WarehouseByIdLoader
 from ...order import OrderStatus, models
 from ...order.models import FulfillmentStatus
 from ...order.utils import get_order_country, get_valid_shipping_methods_for_order
+from ...payment import ChargeStatus
 from ...product.product_images import get_product_image_thumbnail
-from ...warehouse import models as warehouse_models
-from ..account.dataloaders import AddressByIdLoader
+from ..account.dataloaders import AddressByIdLoader, UserByUserIdLoader
 from ..account.types import User
 from ..account.utils import requestor_has_access
 from ..channel import ChannelContext
@@ -48,8 +51,10 @@ from ..warehouse.types import Allocation, Warehouse
 from .dataloaders import (
     AllocationsByOrderLineIdLoader,
     OrderByIdLoader,
+    OrderEventsByOrderIdLoader,
     OrderLineByIdLoader,
     OrderLinesByOrderIdLoader,
+    PaymentsByOrderIdLoader,
 )
 from .enums import OrderEventsEmailsEnum, OrderEventsEnum
 from .utils import validate_draft_order
@@ -265,9 +270,10 @@ class OrderEvent(CountableDjangoObjectType):
         return models.FulfillmentLine.objects.filter(pk__in=lines)
 
     @staticmethod
-    def resolve_warehouse(root: models.OrderEvent, _info):
-        warehouse = root.parameters.get("warehouse")
-        return warehouse_models.Warehouse.objects.filter(pk=warehouse).first()
+    def resolve_warehouse(root: models.OrderEvent, info):
+        if warehouse_pk := root.parameters.get("warehouse"):
+            return WarehouseByIdLoader(info.context).load(warehouse_pk)
+        return None
 
     @staticmethod
     def resolve_transaction_reference(root: models.OrderEvent, _info):
@@ -692,28 +698,55 @@ class Order(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_billing_address(root: models.Order, info):
-        if not root.shipping_address_id:
+        def _resolve_billing_address(data):
+            if isinstance(data, Address):
+                user = None
+                address = data
+            else:
+                user, address = data
+
+            requester = get_user_or_app_from_context(info.context)
+            if requestor_has_access(requester, user, OrderPermissions.MANAGE_ORDERS):
+                return address
+            return obfuscate_address(address)
+
+        if not root.billing_address_id:
             return
-        requester = get_user_or_app_from_context(info.context)
-        if requestor_has_access(requester, root.user, OrderPermissions.MANAGE_ORDERS):
-            return AddressByIdLoader(info.context).load(root.billing_address_id)
+
+        if root.user_id:
+            user = UserByUserIdLoader(info.context).load(root.user_id)
+            address = AddressByIdLoader(info.context).load(root.billing_address_id)
+            return Promise.all([user, address]).then(_resolve_billing_address)
         return (
             AddressByIdLoader(info.context)
             .load(root.billing_address_id)
-            .then(obfuscate_address)
+            .then(_resolve_billing_address)
         )
 
     @staticmethod
     def resolve_shipping_address(root: models.Order, info):
+        def _resolve_shipping_address(data):
+            if isinstance(data, Address):
+                user = None
+                address = data
+            else:
+                user, address = data
+            requester = get_user_or_app_from_context(info.context)
+            if requestor_has_access(requester, user, OrderPermissions.MANAGE_ORDERS):
+                return address
+            return obfuscate_address(address)
+
         if not root.shipping_address_id:
             return
-        requester = get_user_or_app_from_context(info.context)
-        if requestor_has_access(requester, root.user, OrderPermissions.MANAGE_ORDERS):
-            return AddressByIdLoader(info.context).load(root.shipping_address_id)
+
+        if root.user_id:
+            user = UserByUserIdLoader(info.context).load(root.user_id)
+            address = AddressByIdLoader(info.context).load(root.shipping_address_id)
+            return Promise.all([user, address]).then(_resolve_shipping_address)
         return (
             AddressByIdLoader(info.context)
             .load(root.shipping_address_id)
-            .then(obfuscate_address)
+            .then(_resolve_shipping_address)
         )
 
     @staticmethod
@@ -776,7 +809,7 @@ class Order(CountableDjangoObjectType):
     @staticmethod
     @permission_required(OrderPermissions.MANAGE_ORDERS)
     def resolve_events(root: models.Order, _info):
-        return root.events.prefetch_related("user").all().order_by("pk")
+        return OrderEventsByOrderIdLoader(_info.context).load(root.id)
 
     @staticmethod
     def resolve_is_paid(root: models.Order, _info):
@@ -787,12 +820,30 @@ class Order(CountableDjangoObjectType):
         return str(root.pk)
 
     @staticmethod
-    def resolve_payment_status(root: models.Order, _info):
-        return root.get_payment_status()
+    def resolve_payment_status(root: models.Order, info):
+        def _resolve_payment_status(payments):
+            if last_payment := max(payments, default=None, key=attrgetter("pk")):
+                return last_payment.charge_status
+            return ChargeStatus.NOT_CHARGED
+
+        return (
+            PaymentsByOrderIdLoader(info.context)
+            .load(root.id)
+            .then(_resolve_payment_status)
+        )
 
     @staticmethod
-    def resolve_payment_status_display(root: models.Order, _info):
-        return root.get_payment_status_display()
+    def resolve_payment_status_display(root: models.Order, info):
+        def _resolve_payment_status(payments):
+            if last_payment := max(payments, default=None, key=attrgetter("pk")):
+                return last_payment.get_charge_status_display()
+            return dict(ChargeStatus.CHOICES).get(ChargeStatus.NOT_CHARGED)
+
+        return (
+            PaymentsByOrderIdLoader(info.context)
+            .load(root.id)
+            .then(_resolve_payment_status)
+        )
 
     @staticmethod
     def resolve_payments(root: models.Order, _info):
@@ -814,18 +865,33 @@ class Order(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_user_email(root: models.Order, info):
-        requester = get_user_or_app_from_context(info.context)
-        customer_email = root.get_customer_email()
-        if requestor_has_access(requester, root.user, OrderPermissions.MANAGE_ORDERS):
-            return customer_email
-        return obfuscate_email(customer_email)
+        def _resolve_user_email(user):
+            requester = get_user_or_app_from_context(info.context)
+            if requestor_has_access(requester, user, OrderPermissions.MANAGE_ORDERS):
+                return user.email if user else root.user_email
+            return obfuscate_email(user.email if user else root.user_email)
+
+        if not root.user_id:
+            return _resolve_user_email(None)
+
+        return (
+            UserByUserIdLoader(info.context)
+            .load(root.user_id)
+            .then(_resolve_user_email)
+        )
 
     @staticmethod
     def resolve_user(root: models.Order, info):
-        requester = get_user_or_app_from_context(info.context)
-        if requestor_has_access(requester, root.user, AccountPermissions.MANAGE_USERS):
-            return root.user
-        raise PermissionDenied()
+        def _resolve_user(user):
+            requester = get_user_or_app_from_context(info.context)
+            if requestor_has_access(requester, user, AccountPermissions.MANAGE_USERS):
+                return user
+            raise PermissionDenied()
+
+        if not root.user_id:
+            return None
+
+        return UserByUserIdLoader(info.context).load(root.user_id).then(_resolve_user)
 
     @staticmethod
     def resolve_shipping_method(root: models.Order, info):
