@@ -38,6 +38,7 @@ All notable, unreleased changes to this project will be documented in this file.
 - Fix invalid tax rates for lines - #7058 by @IKarbowiak
 - Allow seeing unconfirmed orders - #7072 by @IKarbowiak
 - Raise GraphQLError when too big integer value is provided - #7076 by @IKarbowiak
+- Do not update draft order addresses when user is changing - #7088 by @IKarbowiak
 - Recalculate draft order when product/variant was deleted - #7085 by @d-wysocki
 - Added validation for `DraftOrderCreate` with negative quantity line - #7085 by @d-wysocki
 - Remove html tags from product description_plaintext - #7094 by @d-wysocki
@@ -48,15 +49,30 @@ All notable, unreleased changes to this project will be documented in this file.
 - Fix dataloader for fetching checkout info - #7084 by @IKarbowiak
 - Update also draft order line total price after getting the unit price from plugin - #7080 by @IKarbowiak
 - Fix failing product tasks when instances are removed - #7092 by @IKarbowiak
+- Catch invalid object ID and raise ValidationError - #7114 by @d-wysocki
 - Update GraphQL endpoint to only match exactly `/graphql/` without trailing characters - #7117 by @IKarbowiak
+- Introduce traced_resolver decorator instead of graphene middleware - #7159 by @tomaszszymanski129
 - Fix failing export when exporting attribute without values - #7131 by @IKarbowiak
 - Extend Vatlayer functionalities - #7101 by @korycins:
     - Allow users to enter a list of exceptions (country ISO codes) that will use the source country rather than the destination country for tax purposes.
     - Allow users to enter a list of countries for which no VAT will be added.
+- Allow passing metadata to `accountRegister` mutation - #7152 by @piotrgrundas
 - Fix incorrect payment data for klarna - #7150 by @IKarbowiak
 - Drop deleted images from storage - #7129 by @IKarbowiak
 - Fix export with empty assignment values - #7214 by @IKarbowiak
 - Change exported file name - #7222 by @IKarbowiak
+- Fix core sorting on related fields - #7195 by @tomaszszymanski129
+- Fix variants dataloaders when querying with default channel - #7206 by @tomaszszymanski129
+- Performance upgrade on orders query with `subtotal` field - #7174 by @tomaszszymanski129
+- Performance upgrade on orders query with `actions` field - #7175 by @tomaszszymanski129
+- Performance upgrade on orders query with `totalAuthorized` field - #7170 by @tomaszszymanski129
+- Fix export with empty assignment values - #7207 by @IKarbowiak
+- Change exported file name - #7218 by @IKarbowiak
+- Performance upgrade on `OrderLine` type with `thumbnail` field - #7224 by @tomaszszymanski129
+- Use GraphQL IDs instead of database IDs in export - #7240 by @IKarbowiak
+- Fix draft order tax mismatch - #7226 by @IKarbowiak
+  - Introduce `calculate_order_line_total` plugin method
+- Raise ValidationError when refund cannot be performed - #7260 by @IKarbowiak
 
 ### Breaking
 - Multichannel MVP: Multicurrency - #6242 by @fowczarek @d-wysocki
@@ -104,6 +120,52 @@ All notable, unreleased changes to this project will be documented in this file.
 - Make `order` property of invoice webhook payload contain order instead of order lines - #7081 by @pdblaszczyk
   - Affected webhook events: `INVOICE_REQUESTED`, `INVOICE_SENT`, `INVOICE_DELETED`
 - Make quantity field on `StockInput` required - #7082 by @IKarbowiak
+- Extend plugins manager to configure plugins for each plugins - #7198 by @korycins:
+  - Introduce changes in API:
+    - `paymentInitialize` - add `channel` parameter. Optional when only one  channel exists.
+    - `pluginUpdate` - add `channel` parameter.
+    - `availablePaymentGateways` - add `channel` parameter.
+    - `storedPaymentSources` - add `channel` parameter.
+    - `requestPasswordReset` - add `channel` parameter.
+    - `requestEmailChange` - add `channel` parameter.
+    - `confirmEmailChange` - add `channel` parameter.
+    - `accountRequestDeletion` - add `channel` parameter.
+    - change structure of type `Plugin`:
+      - add `globalConfiguration` field for storing configuration when a plugin is globally configured
+      - add `channelConfigurations` field for storing plugin configuration for each channel
+      - removed `configuration` field, use `globalConfiguration` and `channelConfigurations` instead
+    - change structure of input `PluginFilterInput`:
+      - add `statusInChannels` field
+      - add `type` field
+      - removed `active` field. Use `statusInChannels` instead
+  - Change plugin webhook endpoint - #7332 by @korycins.
+    - Use /plugins/channel/<channel_slug>/<plugin_id> for plugins with channel configuration
+    - Use /plugins/global/<plugin_id> for plugins with global configuration
+    - Remove /plugin/<plugin_id> endpoint
+
+- Add description to shipping method - #7116 by @IKarbowiak
+  - `ShippingMethod` was extended with `description` field.
+  - `ShippingPriceInput` was extended with `description` field
+  - Extended `shippingPriceUpdate`, `shippingPriceCreate` mutation to add/edit description
+  - Input field in `shippingPriceTranslate` changed to `ShippingPriceTranslationInput`
+- Drop deprecated queries and mutations - #7199 by @IKarbowiak
+  - drop `url` field from `Category` type
+  - drop `url` field from `Category` type
+  - drop `url` field from `Product` type
+  - drop `localized` fild from `Money` type
+  - drop `permissions` field from `User` type
+  - drop `navigation` field from `Shop` type
+  - drop `isActive` from `AppInput`
+  - drop `value` from `AttributeInput`
+  - drop `customerId` from `checkoutCustomerAttach`
+  - drop `stockAvailability` argument from `products` query
+  - drop `created` and `status` arguments from `orders` query
+  - drop `created` argument from `draftOrders` query
+  - drop `productType` from `ProductFilter`
+  - deprecate mutations' `<name>Errors`, typed `errors` fields and remove deprecation
+- Add channel data to Order webhook - #7299 by @krzysztofwolski
+- Always create new checkout in `checkoutCreate` mutation - #7318 by @IKarbowiak
+  - deprecate `created` return field on `checkoutCreate` mutation
 
 ### Other
 
@@ -133,6 +195,7 @@ All notable, unreleased changes to this project will be documented in this file.
 - Introduce product reference attributes - #6711 by @IKarbowiak
 - Add metadata to warehouse - #6727 by @d-wysocki
 - Add page webhooks: `PAGE_CREATED`, `PAGE_UPDATED` and `PAGE_DELETED` - #6787 by @d-wysocki
+- Introduce numeric attributes - #6790 by @IKarbowiak
 - Add `PRODUCT_DELETED` webhook - #6794 by @d-wysocki
 - Fix `product_updated` and `product_created` webhooks - #6798 by @d-wysocki
 - Add interface for integrating the auth plugins - #6799 by @korycins

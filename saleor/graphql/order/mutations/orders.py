@@ -141,7 +141,10 @@ def clean_refund_payment(payment):
 
 def try_payment_action(order, user, payment, func, *args, **kwargs):
     try:
-        return func(*args, **kwargs)
+        result = func(*args, **kwargs)
+        # provided order might alter it's total_paid.
+        order.refresh_from_db()
+        return result
     except (PaymentError, ValueError) as e:
         message = str(e)
         events.payment_failed_event(
@@ -481,7 +484,8 @@ class OrderCapture(BaseMutation):
             gateway.capture,
             payment,
             info.context.plugins,
-            amount,
+            amount=amount,
+            channel_slug=order.channel.slug,
         )
         # Confirm that we changed the status to capture. Some payment can receive
         # asynchronous webhook with update status
@@ -517,6 +521,7 @@ class OrderVoid(BaseMutation):
             gateway.void,
             payment,
             info.context.plugins,
+            channel_slug=order.channel.slug,
         )
         # Confirm that we changed the status to void. Some payment can receive
         # asynchronous webhook with update status
@@ -563,7 +568,8 @@ class OrderRefund(BaseMutation):
             gateway.refund,
             payment,
             info.context.plugins,
-            amount,
+            amount=amount,
+            channel_slug=order.channel.slug,
         )
 
         # Confirm that we changed the status to refund. Some payment can receive
@@ -621,8 +627,16 @@ class OrderConfirm(ModelMutation):
         payment = order.get_last_payment()
         manager = info.context.plugins
         if payment and payment.is_authorized and payment.can_capture():
-            gateway.capture(payment, info.context.plugins)
-            order_captured(order, info.context.user, payment.total, payment, manager)
+            gateway.capture(
+                payment, info.context.plugins, channel_slug=order.channel.slug
+            )
+            order_captured(
+                order,
+                info.context.user,
+                payment.total,
+                payment,
+                manager,
+            )
         order_confirmed(order, info.context.user, manager, send_confirmation_email=True)
         return OrderConfirm(order=order)
 

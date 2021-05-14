@@ -1,9 +1,11 @@
 from ...account.models import Address
+from ...core.tracing import traced_resolver
 from ...shipping.models import ShippingMethod, ShippingMethodChannelListing
 from ...shipping.postal_codes import filter_shipping_methods_by_postal_code_rules
 from ..channel import ChannelContext
 
 
+@traced_resolver
 def resolve_available_shipping_methods(info, channel_slug: str, address):
     available = ShippingMethod.objects.for_channel(channel_slug)
     if address and address.country:
@@ -27,7 +29,9 @@ def resolve_available_shipping_methods(info, channel_slug: str, address):
     )
     for shipping_method in available:
         shipping_price = shipping_mapping[shipping_method.pk]
-        taxed_price = manager.apply_taxes_to_shipping(shipping_price, address)
+        taxed_price = manager.apply_taxes_to_shipping(
+            shipping_price, address, channel_slug
+        )
         if display_gross:
             shipping_method.price = taxed_price.gross
         else:
