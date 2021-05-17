@@ -130,12 +130,16 @@ def generate_order_payload(order: "Order"):
         "translated_name",
         "reason",
     )
+
+    channel_fields = ("slug", "currency_code")
     shipping_method_fields = ("name", "type", "currency", "price_amount")
+
     lines = order.lines.all()
     order_data = serializer.serialize(
         [order],
         fields=ORDER_FIELDS,
         additional_fields={
+            "channel": (lambda o: o.channel, channel_fields),
             "shipping_method": (lambda o: o.shipping_method, shipping_method_fields),
             "payments": (lambda o: o.payments.all(), payment_fields),
             "shipping_address": (lambda o: o.shipping_address, ADDRESS_FIELDS),
@@ -265,7 +269,18 @@ def generate_product_payload(product: "Product"):
             ),
         },
         extra_dict_data={
-            "attributes": serialize_product_or_variant_attributes(product)
+            "attributes": serialize_product_or_variant_attributes(product),
+            "media": [
+                {
+                    "alt": media_obj.alt,
+                    "url": (
+                        build_absolute_uri(media_obj.image.url)
+                        if media_obj.type == ProductMediaTypes.IMAGE
+                        else media_obj.external_url
+                    ),
+                }
+                for media_obj in product.media.all()
+            ],
         },
     )
     return product_payload
