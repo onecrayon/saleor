@@ -43,14 +43,11 @@ def test_create_checkout(
     if with_shipping_address:
         checkout_input["shippingAddress"] = graphql_address_data
 
-    content = get_graphql_content(
+    get_graphql_content(
         api_client.post_graphql(
             MUTATION_CHECKOUT_CREATE, {"checkoutInput": checkout_input}
         )
     )["data"]["checkoutCreate"]
-
-    # Ensure checkout was created
-    assert content["created"] is True, "The checkout should have been created"
 
     # Retrieve the created checkout
     checkout = Checkout.objects.get()
@@ -109,10 +106,6 @@ def test_checkout_update_shipping_address(
     data = content["data"]["checkoutShippingAddressUpdate"]
 
     assert data["errors"] == [
-        {"field": "shippingAddress", "message": "This checkout doesn't need shipping"}
-    ]
-
-    assert data["checkoutErrors"] == [
         {
             "field": "shippingAddress",
             "message": "This checkout doesn't need shipping",
@@ -143,7 +136,7 @@ def test_checkout_update_shipping_method(
     content = get_graphql_content(response)
     data = content["data"]["checkoutShippingMethodUpdate"]
 
-    assert data["checkoutErrors"] == [
+    assert data["errors"] == [
         {
             "field": "shippingMethod",
             "message": "This checkout doesn't need shipping",
@@ -198,7 +191,7 @@ def test_checkout_lines_update_remove_shipping_if_removed_product_with_shipping(
     content = get_graphql_content(response)
 
     data = content["data"]["checkoutLinesUpdate"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
     checkout.refresh_from_db()
     assert checkout.lines.count() == 1
     assert not checkout.shipping_method

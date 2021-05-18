@@ -5,7 +5,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.utils.text import slugify
 
-from ...attribute import AttributeInputType
+from ...attribute import ATTRIBUTE_PROPERTIES_CONFIGURATION, AttributeInputType
 from ...attribute import models as models
 from ...attribute.error_codes import AttributeErrorCode
 from ...core.exceptions import PermissionDenied
@@ -15,13 +15,11 @@ from ...core.permissions import (
     ProductTypePermissions,
 )
 from ..attribute.types import Attribute, AttributeValue
+from ..core.enums import MeasurementUnitsEnum
 from ..core.inputs import ReorderInput
 from ..core.mutations import BaseMutation, ModelDeleteMutation, ModelMutation
 from ..core.types.common import AttributeError
-from ..core.utils import (
-    from_global_id_strict_type,
-    validate_slug_and_generate_if_needed,
-)
+from ..core.utils import from_global_id_or_error, validate_slug_and_generate_if_needed
 from ..core.utils.reordering import perform_reordering
 from ..utils import resolve_global_ids_to_primary_keys
 from .descriptions import AttributeDescriptions, AttributeValueDescriptions
@@ -122,7 +120,7 @@ class BaseReorderAttributeValuesMutation(BaseMutation):
     def get_attribute_assignment(
         instance, instance_type, attribute_id: str, error_code_enum
     ):
-        attribute_pk = from_global_id_strict_type(
+        _type, attribute_pk = from_global_id_or_error(
             attribute_id, only_type=Attribute, field="attribute_id"
         )
 
@@ -199,6 +197,7 @@ class AttributeCreateInput(graphene.InputObjectType):
     name = graphene.String(required=True, description=AttributeDescriptions.NAME)
     slug = graphene.String(required=False, description=AttributeDescriptions.SLUG)
     type = AttributeTypeEnum(description=AttributeDescriptions.TYPE, required=True)
+    unit = MeasurementUnitsEnum(description=AttributeDescriptions.UNIT, required=False)
     values = graphene.List(
         AttributeValueCreateInput, description=AttributeDescriptions.VALUES
     )
@@ -226,6 +225,7 @@ class AttributeCreateInput(graphene.InputObjectType):
 class AttributeUpdateInput(graphene.InputObjectType):
     name = graphene.String(description=AttributeDescriptions.NAME)
     slug = graphene.String(description=AttributeDescriptions.SLUG)
+    unit = MeasurementUnitsEnum(description=AttributeDescriptions.UNIT, required=False)
     remove_values = graphene.List(
         graphene.ID,
         name="removeValues",
@@ -320,8 +320,14 @@ class AttributeMixin:
                 }
             )
 
+        is_numeric_attr = attribute_input_type == AttributeInputType.NUMERIC
         for value_data in values_input:
-            value_data["slug"] = slugify(value_data["name"], allow_unicode=True)
+            value = value_data["name"]
+            if is_numeric_attr:
+                cls.validate_numeric_value(value)
+            slug_value = value if not is_numeric_attr else value.replace(".", "_")
+            value_data["slug"] = slugify(slug_value, allow_unicode=True)
+
             attribute_value = models.AttributeValue(**value_data, attribute=attribute)
             try:
                 attribute_value.full_clean()
@@ -331,6 +337,20 @@ class AttributeMixin:
                         continue
                     raise ValidationError({cls.ATTRIBUTE_VALUES_FIELD: err})
         cls.check_values_are_unique(values_input, attribute)
+
+    @classmethod
+    def validate_numeric_value(cls, value):
+        try:
+            float(value)
+        except ValueError:
+            raise ValidationError(
+                {
+                    cls.ATTRIBUTE_VALUES_FIELD: ValidationError(
+                        "Value of numeric attribute must be numeric.",
+                        code=AttributeErrorCode.INVALID,
+                    )
+                }
+            )
 
     @classmethod
     def clean_attribute(cls, instance, cleaned_input):
@@ -352,21 +372,14 @@ class AttributeMixin:
         Ensure that any invalid operations will be not performed.
         """
         attribute_input_type = cleaned_input.get("input_type") or instance.input_type
-        if attribute_input_type not in [
-            AttributeInputType.FILE,
-            AttributeInputType.REFERENCE,
-        ]:
-            return
         errors = {}
-        for field in [
-            "filterable_in_storefront",
-            "filterable_in_dashboard",
-            "available_in_grid",
-            "storefront_search_position",
-        ]:
-            if cleaned_input.get(field):
+        for field in ATTRIBUTE_PROPERTIES_CONFIGURATION.keys():
+            allowed_input_type = ATTRIBUTE_PROPERTIES_CONFIGURATION[field]
+            if attribute_input_type not in allowed_input_type and cleaned_input.get(
+                field
+            ):
                 errors[field] = ValidationError(
-                    f"Cannot set on a {attribute_input_type} attribute.",
+                    f"Cannot set {field} on a {attribute_input_type} attribute.",
                     code=AttributeErrorCode.INVALID.value,
                 )
         if errors:
@@ -658,7 +671,7 @@ class AttributeReorderValues(BaseMutation):
 
     @classmethod
     def perform_mutation(cls, _root, info, attribute_id, moves):
-        pk = from_global_id_strict_type(
+        _type, pk = from_global_id_or_error(
             attribute_id, only_type=Attribute, field="attribute_id"
         )
 
@@ -679,7 +692,7 @@ class AttributeReorderValues(BaseMutation):
 
         # Resolve the values
         for move_info in moves:
-            value_pk = from_global_id_strict_type(
+            _type, value_pk = from_global_id_or_error(
                 move_info.id, only_type=AttributeValue, field="moves"
             )
 
