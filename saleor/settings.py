@@ -282,6 +282,7 @@ INSTALLED_APPS = [
     "phonenumber_field",
     # Custom local apps
     "firstech.drone",
+    "firstech.SAP",
 ]
 
 ENABLE_DJANGO_EXTENSIONS = get_bool_from_env("ENABLE_DJANGO_EXTENSIONS", False)

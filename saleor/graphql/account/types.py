@@ -25,6 +25,11 @@ from ..wishlist.resolvers import resolve_wishlist_items_from_user
 from .enums import CountryCodeEnum, CustomerEventsEnum
 from .utils import can_user_manage_group, get_groups_which_user_can_manage
 
+from firstech.drone import models as drone_models
+from firstech.SAP import models as sap_models
+from ..drone.types import DroneUserProfile
+from ..SAP.types import SAPUserProfile
+
 
 class AddressInput(graphene.InputObjectType):
     first_name = graphene.String(description="Given name.")
@@ -248,6 +253,12 @@ class User(CountableDjangoObjectType):
     language_code = graphene.Field(
         LanguageCodeEnum, description="User language code.", required=True
     )
+    drone_profile = graphene.Field(
+        DroneUserProfile, description="User Drone Profile."
+    )
+    sap_profile = graphene.Field(
+        SAPUserProfile, description="SAP profile."
+    )
 
     class Meta:
         description = "Represents user data."
@@ -265,11 +276,28 @@ class User(CountableDjangoObjectType):
             "last_login",
             "last_name",
             "note",
+            "drone_profile",
+            "sap_profile",
         ]
+
+    @staticmethod
+    def resolve_drone_profile(root: models.User, _info, **_kwargs):
+        try:
+            return root.droneuserprofile
+        except drone_models.DroneUserProfile.DoesNotExist:
+            return None
+
+    @staticmethod
+    def resolve_sap_profile(root: models.User, _info, **kwargs):
+        try:
+            return root.sapuserprofile
+        except sap_models.SAPUserProfile.DoesNotExist:
+            return None
 
     @staticmethod
     @traced_resolver
     def resolve_addresses(root: models.User, _info, **_kwargs):
+        #TODO: Include business partner addresses in this queryset?
         return root.addresses.annotate_default(root).all()
 
     @staticmethod

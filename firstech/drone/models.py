@@ -101,9 +101,9 @@ class DroneUser:
         """
         with connections['drone_db'].cursor() as cursor:
             cursor.execute("""
-                SELECT us.id as drone_user_id, us.email, us.first_name, us.last_name,
-                    us.cognito_sub, us.phone_number as id_phone_number, us.access_type,
-                    us.latest_global_logout, inst.id as installer_id,
+                SELECT us.id as drone_user_id, us.email, us.cognito_sub,
+                    us.phone_number as id_phone_number, us.first_name, us.last_name,
+                    us.access_type, us.latest_global_logout, inst.id as installer_id,
                     deal.id as dealer_id, deal.retired_date as dealer_retired_date
                 FROM bmapi_user AS us
                 LEFT JOIN bmapi_installer as inst ON inst.user_id = us.id
