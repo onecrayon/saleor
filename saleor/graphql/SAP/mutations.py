@@ -23,7 +23,6 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
     account_balance = Decimal()
     account_is_active = graphene.Boolean()
     account_purchasing_restricted = graphene.Boolean()
-    card_code = graphene.String(required=True)
     company_name = graphene.String()
     company_url = graphene.String()
     credit_limit = Decimal()
@@ -36,7 +35,7 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
     payment_terms = graphene.String()
     channel = graphene.ID(required=True)
     sales_manager = graphene.String()
-    sap_bp_code = graphene.String()
+    sap_bp_code = graphene.String(required=True)
     shipping_preference = graphene.String()
     sync_partner = graphene.Boolean()
     warranty_preference = graphene.String()
@@ -75,15 +74,15 @@ class MigrateBusinessPartner(ModelMutation):
 
         object_id = data.get("id")
         qs = data.get("qs")
-        card_code = data.get("input", {}).get("card_code")
+        sap_bp_code = data.get("input", {}).get("sap_bp_code")
         if object_id:
             model_type = cls.get_type_for_model()
             instance = cls.get_node_or_error(
                 info, object_id, only_type=model_type, qs=qs
             )
-        elif card_code:
+        elif sap_bp_code:
             try:
-                instance = models.BusinessPartner.objects.get(card_code=card_code)
+                instance = models.BusinessPartner.objects.get(sap_bp_code=sap_bp_code)
             except models.BusinessPartner.DoesNotExist:
                 instance = cls._meta.model()
         else:

@@ -31,7 +31,7 @@ class SAPQueries(graphene.ObjectType):
             graphene.ID,
             description="ID of the business partner to look up."
         ),
-        cardCode=graphene.Argument(
+        sapBpCode=graphene.Argument(
             graphene.String,
             description="SAP card code of the business partner to look up."
         )
@@ -42,15 +42,15 @@ class SAPQueries(graphene.ObjectType):
     )
 
     @permission_required(AccountPermissions.MANAGE_USERS)
-    def resolve_business_partner(self, info, id=None, cardCode=None, query=None):
-        validate_one_of_args_is_in_query("id", id, "cardCode", cardCode)
+    def resolve_business_partner(self, info, id=None, sapBpCode=None, query=None):
+        validate_one_of_args_is_in_query("id", id, "sapBpCode", sapBpCode)
         requester = get_user_or_app_from_context(info.context)
         if requester:
             filter_kwargs = {}
             if id:
                 _model, filter_kwargs["pk"] = graphene.Node.from_global_id(id)
-            elif cardCode:
-                filter_kwargs["card_code"] = cardCode
+            elif sapBpCode:
+                filter_kwargs["sap_bp_code"] = sapBpCode
 
             return models.BusinessPartner.objects.filter(**filter_kwargs).first()
 

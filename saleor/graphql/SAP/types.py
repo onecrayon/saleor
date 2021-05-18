@@ -47,7 +47,7 @@ class DroneRewardsProfile(CountableDjangoObjectType):
 
 
 @key("id")
-@key("cardCode")
+@key("sapBpCode")
 class BusinessPartner(CountableDjangoObjectType):
     """Business partners can be looked up using either their id or cardCode. """
     company_contacts = graphene.List(
