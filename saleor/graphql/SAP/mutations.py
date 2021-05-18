@@ -7,9 +7,10 @@ from saleor.graphql.account.enums import AddressTypeEnum
 from saleor.graphql.account.types import AddressInput
 from saleor.graphql.core.mutations import ModelMutation
 from saleor.graphql.core.scalars import Decimal
-from saleor.graphql.core.types.common import BusinessPartnerError, AccountError
+from saleor.graphql.core.types.common import AccountError
 from saleor.graphql.SAP.enums import DistributionTypeEnum
 from saleor.graphql.SAP.types import (
+    BusinessPartnerError,
     BusinessPartner,
     SAPUserProfile,
     SAPApprovedBrands,
