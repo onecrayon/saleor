@@ -7,9 +7,10 @@ from saleor.graphql.account.enums import AddressTypeEnum
 from saleor.graphql.account.types import AddressInput
 from saleor.graphql.core.mutations import ModelMutation
 from saleor.graphql.core.scalars import Decimal
-from saleor.graphql.core.types.common import BusinessPartnerError, AccountError
+from saleor.graphql.core.types.common import AccountError
 from saleor.graphql.SAP.enums import DistributionTypeEnum
 from saleor.graphql.SAP.types import (
+    BusinessPartnerError,
     BusinessPartner,
     SAPUserProfile,
     SAPApprovedBrands,
@@ -43,7 +44,7 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
 
 class MigrateBusinessPartner(ModelMutation):
     """Mutation for creating (i.e. migrating over) a business partner from SAP. If the
-    id argument is passed, then whis will update the existing business partner with that
+    id argument is passed, then this will update the existing business partner with that
     id."""
     business_partner = graphene.Field(
         BusinessPartner,
@@ -64,6 +65,31 @@ class MigrateBusinessPartner(ModelMutation):
         permissions = (AccountPermissions.MANAGE_USERS,)
         error_type_class = BusinessPartnerError
         error_type_field = "business_partner_errors"
+
+    @classmethod
+    def get_instance(cls, info, **data):
+        """Retrieve an instance from the supplied global id, or by the "card_code" if it
+        is supplied in the input data. This allows us to treat this mutation as a create
+        or update based on the SAP card code which is unique.
+        """
+
+        object_id = data.get("id")
+        qs = data.get("qs")
+        card_code = data.get("input", {}).get("card_code")
+        if object_id:
+            model_type = cls.get_type_for_model()
+            instance = cls.get_node_or_error(
+                info, object_id, only_type=model_type, qs=qs
+            )
+        elif card_code:
+            try:
+                instance = models.BusinessPartner.objects.get(card_code=card_code)
+            except models.BusinessPartner.DoesNotExist:
+                instance = cls._meta.model()
+        else:
+            instance = cls._meta.model()
+
+        return instance
 
 
 class BusinessPartnerAddressCreate(ModelMutation):

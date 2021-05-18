@@ -22,7 +22,6 @@ class BusinessPartner(models.Model):
     )
     account_is_active = models.BooleanField(default=True)
     account_purchasing_restricted = models.BooleanField(default=False)
-    card_code = models.CharField(max_length=256, blank=False, null=False, unique=True)
     company_name = models.CharField(max_length=256, blank=True, null=True)
     company_url = models.CharField(max_length=256, blank=True, null=True)
     credit_limit = models.DecimalField(

@@ -4,8 +4,13 @@ from graphene_federation import key
 
 from firstech.SAP import models
 from saleor.account.models import User as UserModel
+from saleor.graphql.core.types.common import Error
 
 from ..core.connection import CountableDjangoObjectType
+
+
+class BusinessPartnerError(Error):
+    code = graphene.String(description="The error code.", required=True)
 
 
 class SAPApprovedBrands(CountableDjangoObjectType):
