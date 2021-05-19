@@ -2,10 +2,13 @@ import graphene
 
 from firstech.SAP import models
 from saleor.checkout import AddressType
-from saleor.core.permissions import AccountPermissions
+from saleor.core.permissions import (
+    AccountPermissions, ChannelPermissions,
+    ProductPermissions,
+)
 from saleor.graphql.account.enums import AddressTypeEnum
 from saleor.graphql.account.types import AddressInput
-from saleor.graphql.core.mutations import ModelMutation
+from saleor.graphql.core.mutations import ModelMutation, BaseMutation
 from saleor.graphql.core.scalars import Decimal
 from saleor.graphql.core.types.common import AccountError
 from saleor.graphql.SAP.enums import DistributionTypeEnum
@@ -15,7 +18,9 @@ from saleor.graphql.SAP.types import (
     SAPUserProfile,
     SAPApprovedBrands,
     DroneRewardsProfile,
+    SAPProductError,
 )
+from saleor.graphql.product.types import ProductVariant
 
 
 class BusinessPartnerCreateInput(graphene.InputObjectType):
@@ -273,3 +278,92 @@ class AssignApprovedBrands(ModelMutation):
         approved_brands.save()
 
         return cls.success_response(approved_brands)
+
+
+class SAPProductMetadata(graphene.InputObjectType):
+    inventory_uom = graphene.String(description="Value from SAP field `OITM.InvntryUom`.")
+    manufacture = graphene.String(description="Value from SAP field `OITM.CardCode`.")
+    on_hold = graphene.Int(description="Value from SAP field `OITM.OnHldPert`.")
+    on_limited_hold = graphene.Int(description="Value from SAP field `OITM.onHldLimt`.")
+    reserved_qty = graphene.Int(description="Value from SAP field `OITW.IsCommited`.")
+    website_code = graphene.String(description="Value from SAP field `OITM.U_website_code`.")
+    bar_code = graphene.String(description="Value from SAP field `OITM.CodeBars`. Applied to the ProductVariant.")
+
+
+class SAPProductPrivateMetadata(graphene.InputObjectType):
+    last_eval_price = graphene.String(description="Value from SAP field `OITM.LstEvlPric`.")
+    last_purchase_price = graphene.String(description="Value from SAP field `OITM.LastPurPrc`.")
+    last_updated = graphene.String(description="Value from SAP field `OITM.UpdateDate`.")
+    retail_taxable = graphene.String(description="Value from SAP field `OITM.RetilrTax`.")
+    wholesale_taxable = graphene.String(description="Value from SAP field `OITM.WholSlsTax`.")
+    com_level = graphene.String(description="Value from SAP field `OITM.U_V33_COMLEVEL`.")
+    synced = graphene.String(description="Value from SAP field `OITM.U_sync`.")
+    on_order_with_vendor = graphene.Int(description="Value from SAP field `OITW.OnOrder`. Applied to the ProductVariant.")
+    best_buy_sku = graphene.String(description="Value from SAP field `OITM.U_V33_BESTBUYSKU`. Applied to the ProductVariant.")
+
+
+class SAPProductPriceList(graphene.InputObjectType):
+    name = graphene.String(
+        description="Value from SAP field `OPLN.ListName` (will be converted to a standard slug for comparison internally with Channels).",
+        required=True,
+    )
+    price = Decimal(
+        description="Value from SAP field `ITM1.Price`.",
+        required=True,
+    )
+
+
+class SAPWarehouseStock(graphene.InputObjectType):
+    warehouse_id = graphene.String(description="Value from SAP field `OITW.WhsCode`.")
+    qty = graphene.Int(description="Value from SAP field calculation of `OITW.OnHand - OITW.IsCommitted`.")
+
+
+class SAPProductInput(graphene.InputObjectType):
+    sku = graphene.String(required=True, description="Value from SAP field `OITM.ItemCode`.")
+    brand_name = graphene.String(description="Value from SAP field `OITM.U_BrandName`.")
+    metadata = graphene.Field(
+        SAPProductMetadata,
+        description="Public metadata values associated with this product and/or variant.",
+    )
+    private_metadata = graphene.Field(
+        SAPProductPrivateMetadata,
+        description="Private metadata values associated with this product and/or variant.",
+    )
+    price_lists = graphene.List(
+        graphene.NonNull(SAPProductPriceList),
+        description="Price list information for this product. Will be converted into existing Channels.",
+    )
+    stocks = graphene.List(
+        graphene.NonNull(SAPWarehouseStock),
+        description="Warehouse stock information for this product."
+    )
+
+
+class UpsertSAPProduct(BaseMutation):
+    """Mutation for performing a synchronization between SAP and Saleor
+
+    This can technically be handled through GraphQL, but SAP's Integration Framework
+    doesn't provide nearly flexible enough tools so it's much easier to just have it
+    push the information to Python and then figure things out on this end.
+    """
+    product_variant = graphene.Field(ProductVariant, description="The upserted product's details.")
+
+    class Arguments:
+        product_type = graphene.ID(
+            description="ID of the product type for this product; must be set before SAP will upsert the product but isn't technically used for updates because product types cannot be changed after the fact.",
+            required=True
+        )
+        input = SAPProductInput(required=True)
+
+    class Meta:
+        description = "Upsert a product from SAP into Saleor."
+        permissions = (
+            ChannelPermissions.MANAGE_CHANNELS,
+            ProductPermissions.MANAGE_PRODUCTS,
+        )
+        error_type_class = SAPProductError
+        error_type_field = "sap_product_errors"
+
+    @classmethod
+    def perform_mutation(cls, root, info, **data):
+        pass
