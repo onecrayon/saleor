@@ -1,4 +1,7 @@
 import graphene
+from slugify import slugify
+
+import saleor.product.models as product_models
 
 from firstech.SAP import models
 from saleor.checkout import AddressType
@@ -8,6 +11,8 @@ from saleor.core.permissions import (
 )
 from saleor.graphql.account.enums import AddressTypeEnum
 from saleor.graphql.account.types import AddressInput
+from saleor.graphql.attribute.utils import AttributeAssignmentMixin
+from saleor.graphql.channel import ChannelContext
 from saleor.graphql.core.mutations import ModelMutation, BaseMutation
 from saleor.graphql.core.scalars import Decimal
 from saleor.graphql.core.types.common import AccountError
@@ -20,7 +25,9 @@ from saleor.graphql.SAP.types import (
     DroneRewardsProfile,
     SAPProductError,
 )
+from saleor.graphql.product.mutations.products import ProductVariantCreate
 from saleor.graphql.product.types import ProductVariant
+from saleor.warehouse.models import Warehouse
 
 
 class BusinessPartnerCreateInput(graphene.InputObjectType):
@@ -287,7 +294,10 @@ class SAPProductMetadata(graphene.InputObjectType):
     on_limited_hold = graphene.Int(description="Value from SAP field `OITM.onHldLimt`.")
     reserved_qty = graphene.Int(description="Value from SAP field `OITW.IsCommited`.")
     website_code = graphene.String(description="Value from SAP field `OITM.U_website_code`.")
-    bar_code = graphene.String(description="Value from SAP field `OITM.CodeBars`. Applied to the ProductVariant.")
+
+
+class SAPVariantMetadata(graphene.InputObjectType):
+    bar_code = graphene.String(description="Value from SAP field `OITM.CodeBars`.")
 
 
 class SAPProductPrivateMetadata(graphene.InputObjectType):
@@ -298,8 +308,11 @@ class SAPProductPrivateMetadata(graphene.InputObjectType):
     wholesale_taxable = graphene.String(description="Value from SAP field `OITM.WholSlsTax`.")
     com_level = graphene.String(description="Value from SAP field `OITM.U_V33_COMLEVEL`.")
     synced = graphene.String(description="Value from SAP field `OITM.U_sync`.")
-    on_order_with_vendor = graphene.Int(description="Value from SAP field `OITW.OnOrder`. Applied to the ProductVariant.")
-    best_buy_sku = graphene.String(description="Value from SAP field `OITM.U_V33_BESTBUYSKU`. Applied to the ProductVariant.")
+
+
+class SAPVariantPrivateMetadata(graphene.InputObjectType):
+    on_order_with_vendor = graphene.Int(description="Value from SAP field `OITW.OnOrder`.")
+    best_buy_sku = graphene.String(description="Value from SAP field `OITM.U_V33_BESTBUYSKU`.")
 
 
 class SAPProductPriceList(graphene.InputObjectType):
@@ -311,11 +324,21 @@ class SAPProductPriceList(graphene.InputObjectType):
         description="Value from SAP field `ITM1.Price`.",
         required=True,
     )
+    is_published = graphene.Boolean(
+        description="Whether this product should be visible in this price list.",
+        default=False,
+    )
 
 
 class SAPWarehouseStock(graphene.InputObjectType):
-    warehouse_id = graphene.String(description="Value from SAP field `OITW.WhsCode`.")
-    qty = graphene.Int(description="Value from SAP field calculation of `OITW.OnHand - OITW.IsCommitted`.")
+    warehouse_id = graphene.String(
+        description="Value from SAP field `OITW.WhsCode`.",
+        required=True,
+    )
+    quantity = graphene.Int(
+        description="Value from SAP field calculation of `OITW.OnHand - OITW.IsCommitted`.",
+        required=True,
+    )
 
 
 class SAPProductInput(graphene.InputObjectType):
@@ -323,11 +346,19 @@ class SAPProductInput(graphene.InputObjectType):
     brand_name = graphene.String(description="Value from SAP field `OITM.U_BrandName`.")
     metadata = graphene.Field(
         SAPProductMetadata,
-        description="Public metadata values associated with this product and/or variant.",
+        description="Public metadata values associated with this product.",
     )
     private_metadata = graphene.Field(
         SAPProductPrivateMetadata,
-        description="Private metadata values associated with this product and/or variant.",
+        description="Private metadata values associated with this product.",
+    )
+    variant_metadata = graphene.Field(
+        SAPVariantMetadata,
+        description="Public metadata values associated with this product variant."
+    )
+    variant_private_metadata = graphene.Field(
+        SAPVariantPrivateMetadata,
+        description="Private metadata values associated with this product variant."
     )
     price_lists = graphene.List(
         graphene.NonNull(SAPProductPriceList),
@@ -366,4 +397,124 @@ class UpsertSAPProduct(BaseMutation):
 
     @classmethod
     def perform_mutation(cls, root, info, **data):
-        pass
+        in_data = data.get("input", {})
+        sku = in_data.get("sku")
+        variant = product_models.ProductVariant.objects.filter(sku=sku).first()
+        product_type = cls.get_node_or_error(info, data.get('product_type'))
+        if not variant:
+            # Check if we already have a base product type when working with variants
+            existing_product = None
+            if product_type.has_variants:
+                for base_product in product_models.Product.objects.filter(
+                    product_type=product_type
+                ).all():
+                    # To determine if this is the base product, we compare its default
+                    #  variant's base SKU with our current base SKU (currently all
+                    #  products with variants in the store use the pattern `BASE-SIZE`)
+                    # TODO: this is pretty fragile; should we store base SKU in metadata?
+                    if (
+                        base_product.default_variant
+                        and base_product.default_variant.sku.split('-')[:-1] == sku.split('-')[:-1]
+                    ):
+                        existing_product = base_product
+                        break
+            # Create our base product, if necessary
+            if existing_product:
+                product = existing_product
+            else:
+                # Create our base product
+                product = product_models.Product()
+                product.product_type = product_type
+                product.name = sku
+                product.slug = slugify(sku)
+                uncategorized = product_models.Category.objects.filter(
+                    slug="uncategorized"
+                ).first()
+                product.category = uncategorized
+                product.save()
+            # Create our product variant (will get saved later)
+            variant = product_models.ProductVariant()
+            variant.product = product
+            variant.sku = sku
+        else:
+            product = variant.product
+        # Populate the brand name attribute
+        if in_data.get("brand_name"):
+            attributes_qs = product_type.product_attributes
+            # Saleor's specified types are flat-out wrong for this method, so...
+            # noinspection PyTypeChecker
+            attributes = AttributeAssignmentMixin.clean_input(
+                [{
+                    "slug": "brand-name",
+                    "values": [in_data["brand_name"]],
+                }],
+                attributes_qs,
+                is_variant=False,
+            )
+            AttributeAssignmentMixin.save(product, attributes)
+        # Populate the public metadata for the product
+        metadata = {
+            key: value for key, value in in_data.get("metadata", {}).items()
+        }
+        if metadata:
+            product.store_value_in_metadata(items=metadata)
+            product.save(update_fields=["metadata"])
+        private_metadata = {
+            key: value for key, value in in_data.get("private_metadata", {}).items()
+        }
+        if private_metadata:
+            product.store_value_in_private_metadata(items=private_metadata)
+            product.save(update_fields=["private_metadata"])
+
+        # Save our information for the variant; using the native save for this because
+        #  it has a bunch of related events and things
+        clean_info = {}
+        # Try building out our stock information, if we have it
+        stocks = []
+        if in_data.get("stocks"):
+            # Map our SAP IDs to Saleor IDs
+            for warehouse_data in in_data["stocks"]:
+                warehouse = Warehouse.objects.filter(
+                    metadata__contains={"warehouse_id": warehouse_data["warehouse_id"]}
+                ).first()
+                if warehouse:
+                    stocks.append({
+                        "warehouse": warehouse.id,
+                        "quantity": warehouse_data["quantity"],
+                    })
+        if stocks:
+            clean_info["stocks"] = stocks
+        ProductVariantCreate.save(info, variant, clean_info)
+        # Add size attribute, if we have it for this product
+        if product_type.has_variants and product_type.variant_attributes:
+            attributes_qs = product_type.variant_attributes
+            # Saleor's specified types are flat-out wrong for this method, so...
+            # noinspection PyTypeChecker
+            attributes = AttributeAssignmentMixin.clean_input(
+                [{
+                    "slug": "size",
+                    "values": [sku.split("-")[-1:]],
+                }],
+                attributes_qs,
+                is_variant=True,
+            )
+            AttributeAssignmentMixin.save(variant, attributes)
+        # Update the variant metadata
+        variant_metadata = {
+            key: value for key, value in in_data.get("variant_metadata", {}).items()
+        }
+        if variant_metadata:
+            variant.store_value_in_metadata(items=variant_metadata)
+            variant.save(update_fields=["metadata"])
+        variant_private_metadata = {
+            key: value for key, value in in_data.get("variant_private_metadata", {}).items()
+        }
+        if variant_private_metadata:
+            variant.store_value_in_private_metadata(items=variant_private_metadata)
+            variant.save(update_fields=["private_metadata"])
+
+        # TODO: update channels for both product and the variant.
+        return cls(
+            product_variant=ChannelContext(node=variant, channel_slug=None),
+            errors=[],
+        )
