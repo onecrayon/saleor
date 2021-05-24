@@ -1,5 +1,8 @@
+import decimal
+
 import graphene
 from slugify import slugify
+from typing import Optional
 
 import saleor.product.models as product_models
 
@@ -14,7 +17,7 @@ from saleor.graphql.account.types import AddressInput
 from saleor.graphql.attribute.utils import AttributeAssignmentMixin
 from saleor.graphql.channel import ChannelContext
 from saleor.graphql.core.mutations import ModelMutation, BaseMutation
-from saleor.graphql.core.scalars import Decimal
+from saleor.graphql.core.scalars import Decimal, PositiveDecimal
 from saleor.graphql.core.types.common import AccountError
 from saleor.graphql.SAP.enums import DistributionTypeEnum
 from saleor.graphql.SAP.types import (
@@ -24,6 +27,10 @@ from saleor.graphql.SAP.types import (
     SAPApprovedBrands,
     DroneRewardsProfile,
     SAPProductError,
+)
+from saleor.graphql.product.mutations.channels import (
+    ProductChannelListingUpdate,
+    ProductVariantChannelListingUpdate,
 )
 from saleor.graphql.product.mutations.products import ProductVariantCreate
 from saleor.graphql.product.types import ProductVariant
@@ -320,7 +327,7 @@ class SAPProductPriceList(graphene.InputObjectType):
         description="Value from SAP field `OPLN.ListName` (will be converted to a standard slug for comparison internally with Channels).",
         required=True,
     )
-    price = Decimal(
+    price = PositiveDecimal(
         description="Value from SAP field `ITM1.Price`.",
         required=True,
     )
@@ -363,11 +370,21 @@ class SAPProductInput(graphene.InputObjectType):
     price_lists = graphene.List(
         graphene.NonNull(SAPProductPriceList),
         description="Price list information for this product. Will be converted into existing Channels.",
+        required=True,
     )
     stocks = graphene.List(
         graphene.NonNull(SAPWarehouseStock),
         description="Warehouse stock information for this product."
     )
+
+
+def round_money(value: Optional[decimal.Decimal]) -> Optional[decimal.Decimal]:
+    """Ensure money value is a Decimal to two points of precision."""
+    if value is None:
+        return None
+    if not isinstance(value, decimal.Decimal):
+        value = decimal.Decimal(value)
+    return value.quantize(decimal.Decimal(".01"), decimal.ROUND_HALF_UP)
 
 
 class UpsertSAPProduct(BaseMutation):
@@ -513,7 +530,45 @@ class UpsertSAPProduct(BaseMutation):
             variant.store_value_in_private_metadata(items=variant_private_metadata)
             variant.save(update_fields=["private_metadata"])
 
-        # TODO: update channels for both product and the variant.
+        # Look up all channels
+        channel_slugs = set()
+        for price_list in in_data["price_lists"]:
+            price_list["slug"] = slugify(price_list["name"])
+            channel_slugs.add(price_list["slug"])
+        channel_map = {
+            x.slug: x
+            for x in product_models.Channel.objects.filter(slug__in=channel_slugs).all()
+        }
+        # Make sure that our price lists are attached to the product
+        update_channels = []
+        for price_list in in_data["price_lists"]:
+            # We only support price lists that are already defined in Saleor, so check
+            #  for a pre-existing channel
+            channel = channel_map.get(price_list["slug"])
+            if not channel:
+                continue
+            update_channels.append({
+                "channel": channel,
+                "is_published": price_list["is_published"],
+            })
+        if update_channels:
+            ProductChannelListingUpdate.update_channels(
+                product, update_channels=update_channels
+            )
+        # And then adjust the prices for the variant in those channels
+        price_updates = []
+        for price_list in in_data["price_lists"]:
+            # Just like products, we only use pre-defined channels
+            channel = channel_map.get(price_list["slug"])
+            if not channel:
+                continue
+            price_updates.append({
+                "channel": channel,
+                "price": round_money(price_list["price"]),
+            })
+        if price_updates:
+            ProductVariantChannelListingUpdate.save(info, variant, price_updates)
+
         return cls(
             product_variant=ChannelContext(node=variant, channel_slug=None),
             errors=[],
