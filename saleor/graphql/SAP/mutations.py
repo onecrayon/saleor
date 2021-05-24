@@ -497,7 +497,7 @@ class UpsertSAPProduct(BaseMutation):
                     metadata__contains={"warehouse_id": warehouse_data["warehouse_id"]}
                 ).first()
                 if warehouse:
-                    warehouses.append( warehouse)
+                    warehouses.append(warehouse)
         if warehouses:
             ProductVariantStocksUpdate.update_or_create_variant_stocks(
                 variant, in_data["stocks"], warehouses
@@ -510,7 +510,7 @@ class UpsertSAPProduct(BaseMutation):
             attributes = AttributeAssignmentMixin.clean_input(
                 [{
                     "slug": "size",
-                    "values": [sku.split("-")[-1:]],
+                    "values": [sku.split("-")[-1]],
                 }],
                 attributes_qs,
                 is_variant=True,
