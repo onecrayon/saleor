@@ -28,6 +28,7 @@ from saleor.graphql.SAP.types import (
     DroneRewardsProfile,
     SAPProductError,
 )
+from saleor.graphql.product.bulk_mutations.products import ProductVariantStocksUpdate
 from saleor.graphql.product.mutations.channels import (
     ProductChannelListingUpdate,
     ProductVariantChannelListingUpdate,
@@ -394,7 +395,9 @@ class UpsertSAPProduct(BaseMutation):
     doesn't provide nearly flexible enough tools so it's much easier to just have it
     push the information to Python and then figure things out on this end.
     """
-    product_variant = graphene.Field(ProductVariant, description="The upserted product's details.")
+    product_variant = graphene.Field(
+        ProductVariant, description="The upserted product's details."
+    )
 
     class Arguments:
         product_type = graphene.ID(
@@ -484,10 +487,10 @@ class UpsertSAPProduct(BaseMutation):
             product.save(update_fields=["private_metadata"])
 
         # Save our information for the variant; using the native save for this because
-        #  it has a bunch of related events and things
-        clean_info = {}
-        # Try building out our stock information, if we have it
-        stocks = []
+        #  it has some related events that I don't want to mess with
+        ProductVariantCreate.save(info, variant, {})
+        # Now that we have a variant, update our stock information
+        warehouses = []
         if in_data.get("stocks"):
             # Map our SAP IDs to Saleor IDs
             for warehouse_data in in_data["stocks"]:
@@ -495,13 +498,11 @@ class UpsertSAPProduct(BaseMutation):
                     metadata__contains={"warehouse_id": warehouse_data["warehouse_id"]}
                 ).first()
                 if warehouse:
-                    stocks.append({
-                        "warehouse": warehouse.id,
-                        "quantity": warehouse_data["quantity"],
-                    })
-        if stocks:
-            clean_info["stocks"] = stocks
-        ProductVariantCreate.save(info, variant, clean_info)
+                    warehouses.append( warehouse)
+        if warehouses:
+            ProductVariantStocksUpdate.update_or_create_variant_stocks(
+                variant, in_data["stocks"], warehouses
+            )
         # Add size attribute, if we have it for this product
         if product_type.has_variants and product_type.variant_attributes:
             attributes_qs = product_type.variant_attributes
