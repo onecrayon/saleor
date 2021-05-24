@@ -62,7 +62,7 @@ class BusinessPartner(models.Model):
         default=DEFAULT_CHANNEL_ID,
     )
     sales_manager = models.CharField(max_length=256, blank=True, null=True)
-    sap_bp_code = models.CharField(max_length=256, blank=True, null=True)
+    sap_bp_code = models.CharField(max_length=256, blank=True, null=True, unique=True)
     shipping_preference = models.CharField(max_length=256, blank=True, null=True)
     sync_partner = models.BooleanField(default=True)
     warranty_preference = models.CharField(max_length=256, blank=True, null=True)
