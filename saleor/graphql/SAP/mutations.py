@@ -18,8 +18,34 @@ from saleor.graphql.SAP.types import (
 )
 
 
+class GetBusinessPartnerFromCardCodeMixin:
+
+    @classmethod
+    def get_business_partner(cls, data: dict, info):
+        """Gets a business partner model object from either the base-64 encoded
+        business partner id, or from an SAP card code. If both are provided, this will
+        default to using the business partner ID."""
+        print(f"ALL THE DATA {data}")
+        if business_partner_id := data.get("business_partner_id"):
+            business_partner = cls.get_node_or_error(
+                info,
+                business_partner_id,
+                field="business_partner_id",
+                only_type=BusinessPartner
+            )
+        elif sap_bp_code := data.get("sap_bp_code"):
+            business_partner = models.BusinessPartner.objects.filter(
+                sap_bp_code=sap_bp_code
+            ).first()
+        else:
+            return None
+
+        return business_partner
+
+
 class BusinessPartnerCreateInput(graphene.InputObjectType):
     addresses = graphene.List(of_type=graphene.ID)
+    address_objects = graphene.List(of_type=AddressInput)
     account_balance = Decimal()
     account_is_active = graphene.Boolean()
     account_purchasing_restricted = graphene.Boolean()
@@ -33,7 +59,8 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
     outside_sales_rep = graphene.String()
     outside_sales_rep_emails = graphene.List(of_type=graphene.String)
     payment_terms = graphene.String()
-    channel = graphene.ID(required=True)
+    channel = graphene.ID()
+    channel_name = graphene.String()
     sales_manager = graphene.String()
     sap_bp_code = graphene.String(required=True)
     shipping_preference = graphene.String()
@@ -90,8 +117,20 @@ class MigrateBusinessPartner(ModelMutation):
 
         return instance
 
+    @classmethod
+    def clean_input(cls, info, instance, data, input_cls=None):
+        """To avoid needing to make multiple queries with SAP integration framework,
+        we're going to step in front of this method and try to resolve channel names
+        and such into their IDs.
+        """
+        print(f"HERES THE DATA{data}")
+        address_objects = data.pop("address_objects", None)
+        channel_name = data.pop("channel_name", None)
 
-class BusinessPartnerAddressCreate(ModelMutation):
+        return super().clean_input(info, instance, data, input_cls=input_cls)
+
+
+class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerFromCardCodeMixin):
     business_partner = graphene.Field(
         BusinessPartner,
         description="A business partner instance for which the address was created."
@@ -100,8 +139,8 @@ class BusinessPartnerAddressCreate(ModelMutation):
     class Arguments:
         business_partner_id = graphene.ID(
             description="ID of a business partner to create address for.",
-            required=True
         )
+        sap_bp_code = graphene.String(description="Create Address for Card Code")
         input = AddressInput(
             description="Fields required to create address.", required=True
         )
@@ -124,13 +163,7 @@ class BusinessPartnerAddressCreate(ModelMutation):
     @classmethod
     def perform_mutation(cls, root, info, **data):
         address_type = data.get("type", None)
-        business_partner_id = data["business_partner_id"]
-        business_partner = cls.get_node_or_error(
-            info,
-            business_partner_id,
-            field="business_partner_id",
-            only_type=BusinessPartner
-        )
+        business_partner = cls.get_business_partner(data, info)
         response = super().perform_mutation(root, info, **data)
         if not response.errors:
             business_partner.addresses.add(response.address)
@@ -206,7 +239,6 @@ class CreateSAPUserProfile(ModelMutation):
 
 
 class SAPApprovedBrandsInput(graphene.InputObjectType):
-    # TODO: Should this be a list of enum types instead?
     momento = graphene.Boolean()
     tesa = graphene.Boolean()
     idatalink = graphene.Boolean()
@@ -219,7 +251,7 @@ class SAPApprovedBrandsInput(graphene.InputObjectType):
     replacements = graphene.Boolean()
 
 
-class AssignApprovedBrands(ModelMutation):
+class AssignApprovedBrands(ModelMutation, GetBusinessPartnerFromCardCodeMixin):
     """Mutation for assigning approved brands to a business partner"""
     approved_brands = graphene.Field(
         SAPApprovedBrands,
@@ -229,7 +261,10 @@ class AssignApprovedBrands(ModelMutation):
     class Arguments:
         business_partner_id = graphene.ID(
             description="ID of a business partner to create address for.",
-            required=True
+            required=False
+        )
+        sap_bp_code = graphene.String(
+            description="SAP card code for the business partner."
         )
         input = SAPApprovedBrandsInput(
             description="List of approved brands to assign.",
@@ -249,13 +284,7 @@ class AssignApprovedBrands(ModelMutation):
         """Update the existing approved-brands for the business partner if it already
         exists. If one does not exist already, create one."""
 
-        business_partner_id = data["business_partner_id"]
-        business_partner = cls.get_node_or_error(
-            info,
-            business_partner_id,
-            field="business_partner_id",
-            only_type=BusinessPartner
-        )
+        business_partner = cls.get_business_partner(data, info)
 
         # Get or create the approved brands
         try:
