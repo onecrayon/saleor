@@ -1,8 +1,9 @@
 import decimal
 
 import graphene
-from slugify import slugify
 from typing import Optional
+
+from django.utils.text import slugify
 
 import saleor.product.models as product_models
 
