@@ -281,6 +281,7 @@ class User(CountableDjangoObjectType):
         ]
 
     @staticmethod
+    @traced_resolver
     def resolve_drone_profile(root: models.User, _info, **_kwargs):
         try:
             return root.droneuserprofile
@@ -288,6 +289,7 @@ class User(CountableDjangoObjectType):
             return None
 
     @staticmethod
+    @traced_resolver
     def resolve_sap_profile(root: models.User, _info, **kwargs):
         try:
             return root.sapuserprofile
