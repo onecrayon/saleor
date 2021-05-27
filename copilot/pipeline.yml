@@ -14,7 +14,7 @@ source:
   # the artifacts should be sourced from. For example, the GitHub provider
   # has the following properties: repository, branch.
   properties:
-    branch: master
+    branch: oe/copilot
     repository: https://git@bitbucket.org:firstech-drone@bitbucket.org/git@bitbucket.org:firstech-drone/ft-saleor
     # Optional: specify the name of an existing CodeStar Connections connection.
     # connection_name: a-connection
