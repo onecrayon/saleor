@@ -7,6 +7,7 @@ from saleor.account.models import User as UserModel
 from saleor.graphql.core.types.common import Error
 
 from ..core.connection import CountableDjangoObjectType
+from ..core.types import Error
 
 
 class BusinessPartnerError(Error):
@@ -109,3 +110,7 @@ class SAPUserProfile(CountableDjangoObjectType):
             "is_company_owner",
             "business_partner",
         ]
+
+
+class SAPProductError(Error):
+    code = graphene.String(description="The error code.", required=True)

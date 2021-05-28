@@ -7,7 +7,8 @@ from saleor.graphql.SAP.mutations import (
     BusinessPartnerAddressCreate,
     BulkBusinessPartnerAddressCreate,
     AssignApprovedBrands,
-    CreateDroneRewardsProfile
+    CreateDroneRewardsProfile,
+    UpsertSAPProduct,
 )
 from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions
@@ -75,3 +76,4 @@ class SAPMutations(graphene.ObjectType):
     bulk_business_partner_address_create = BulkBusinessPartnerAddressCreate.Field()
     business_partner_assign_approved_brands = AssignApprovedBrands.Field()
     business_partner_drone_rewards_profile_create = CreateDroneRewardsProfile.Field()
+    upsert_sap_product = UpsertSAPProduct.Field()
