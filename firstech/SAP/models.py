@@ -3,6 +3,7 @@ from django.db import models
 
 from saleor.account.models import Address, User
 from saleor.channel.models import Channel
+from saleor.checkout import AddressType
 
 from . import DroneDistribution
 
@@ -12,7 +13,10 @@ DEFAULT_CHANNEL_ID = 1
 
 class BusinessPartner(models.Model):
     addresses = models.ManyToManyField(
-        Address, blank=True, related_name="business_partner_addresses"
+        Address,
+        blank=True,
+        related_name="business_partner_addresses",
+        through="BusinessPartnerAddresses"
     )
     account_balance = models.DecimalField(
         decimal_places=2,
@@ -103,4 +107,15 @@ class DroneRewardsProfile(models.Model):
         choices=DroneDistribution.CHOICES,
         max_length=20,
         default=DroneDistribution.STRIPE,
+    )
+
+
+class BusinessPartnerAddresses(models.Model):
+    # Intermediary table for business partner to address m2m relationship
+    business_partner = models.ForeignKey(BusinessPartner, on_delete=models.CASCADE)
+    address = models.ForeignKey(Address, on_delete=models.CASCADE)
+    type = models.CharField(
+        choices=AddressType.CHOICES,
+        max_length=10,
+        default=AddressType.SHIPPING
     )

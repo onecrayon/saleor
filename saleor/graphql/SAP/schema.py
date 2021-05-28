@@ -5,6 +5,7 @@ from saleor.graphql.SAP.mutations import (
     CreateSAPUserProfile,
     MigrateBusinessPartner,
     BusinessPartnerAddressCreate,
+    BulkBusinessPartnerAddressCreate,
     AssignApprovedBrands,
     CreateDroneRewardsProfile,
     UpsertSAPProduct,
@@ -72,6 +73,7 @@ class SAPMutations(graphene.ObjectType):
     business_partner_migrate = MigrateBusinessPartner.Field()
     create_sap_profile = CreateSAPUserProfile.Field()
     business_partner_address_create = BusinessPartnerAddressCreate.Field()
+    bulk_business_partner_address_create = BulkBusinessPartnerAddressCreate.Field()
     business_partner_assign_approved_brands = AssignApprovedBrands.Field()
     business_partner_drone_rewards_profile_create = CreateDroneRewardsProfile.Field()
     upsert_sap_product = UpsertSAPProduct.Field()
