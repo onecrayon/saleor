@@ -168,7 +168,12 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
         error_type_field = "account_errors"
 
     @classmethod
-    def get_instance(cls, info, business_partner, **data):
+    def get_instance(cls, info, business_partner, **data) -> models.Address:
+        """Get a django address model instance from information provided in data. If
+        And address with the provided company_name, type (billing vs shipping), and
+        business partner already exists, then returns that address. Otherwise returns
+        a new address object.
+        """
         address_type = data.get("type")
         company_name = data.get("input", {}).get("company_name")
 
@@ -183,15 +188,21 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
         ).first()
 
         if existing_address:
-            return existing_address, True
+            return existing_address
         else:
-            return cls._meta.model(), False
+            return cls._meta.model()
 
     @classmethod
     def perform_mutation(cls, root, info, **data):
         address_type = data.get("type", None)
         business_partner: models.BusinessPartner = cls.get_business_partner(data, info)
-        instance, is_existing = cls.get_instance(info, business_partner, **data)
+        instance = cls.get_instance(info, business_partner, **data)
+        # Check if the instance we got is an existing address or a new one
+        # we will create. (This works because pk isn't set until saved to the db)
+        if instance.pk:
+            is_existing = True
+        else:
+            is_existing = False
         data = data.get("input")
         cleaned_input = cls.clean_input(info, instance, data, input_cls=AddressInput)
         instance = cls.construct_instance(instance, cleaned_input)
