@@ -209,11 +209,17 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
                 address_id=instance.id
             )
             response.business_partner = business_partner
-            # TODO: when should we change defaults?
+            # If this BP doesn't have default billing or shipping addresses, set them
             if address_type:
-                if address_type == AddressType.BILLING:
+                if (
+                    address_type == AddressType.BILLING and
+                    not business_partner.default_billing_address
+                ):
                     business_partner.default_billing_address = response.address
-                elif address_type == AddressType.SHIPPING:
+                elif (
+                    address_type == AddressType.SHIPPING and
+                    not business_partner.default_shipping_address
+                ):
                     business_partner.default_shipping_address = response.address
                 business_partner.save()
         return response
