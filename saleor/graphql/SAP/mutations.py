@@ -97,7 +97,12 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
     )
 
     class Arguments:
-        id = graphene.ID()
+        business_partner_id = graphene.ID(
+            description="ID of an existing business partner to update.",
+        )
+        sap_bp_code = graphene.String(
+            description="SAP Card code of an existing business partner to update."
+        )
         input = BusinessPartnerCreateInput(
             description="Fields required to create business partner.",
             required=True
