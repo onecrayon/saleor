@@ -36,12 +36,13 @@ storage:
 # Optional fields for more advanced use-cases.
 #
 variables:                    # Pass environment variables as key value pairs.
-  DEBUG: True
-  SECRET_KEY: 'c8tmw615x-t5+-7y&_!04z%+2zop^v7osa)t1+!h!q210f#4jn'
+  CELERY_BROKER_URL: redis://redis.:6379/1
+  DEFAULT_FROM_EMAIL: noreply@saleor.dronemobile.com
+  REDIS_URL: redis://redis.saleor.local:6379/0
 
 secrets:                      # Pass secrets from AWS Systems Manager (SSM) Parameter Store.
   DATABASE_URL: /saleor/dev/DATABASE_URL
-  REDIS_URL: /saleor/dev/REDIS_URL
+  SECRET_KEY: /saleor/dev/SECRET_KEY
 
 # You can override any of the values defined above by environment.
 environments:
