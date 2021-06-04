@@ -49,3 +49,5 @@ environments:
   dev:
     variables:
       ALLOWED_HOSTS: 'localhost,127.0.0.1,api.dev.saleor.firstech.dev'
+      AWS_MEDIA_BUCKET_NAME: saleor-dev-media
+      AWS_STORAGE_BUCKET_NAME: saleor-dev-static

@@ -37,6 +37,7 @@ secrets:                      # Pass secrets from AWS Systems Manager (SSM) Para
   SECRET_KEY: /saleor/dev/SECRET_KEY
 
 # You can override any of the values defined above by environment.
-#environments:
-#  test:
-#    count: 2               # Number of tasks to run for the "test" environment.
+environments:
+  dev:
+    AWS_MEDIA_BUCKET_NAME: saleor-dev-media
+    AWS_STORAGE_BUCKET_NAME: saleor-dev-static
