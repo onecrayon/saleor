@@ -4,7 +4,6 @@ from graphene_federation import key
 
 from firstech.SAP import models
 from saleor.account.models import User as UserModel
-from saleor.graphql.core.types.common import Error
 
 from ..core.connection import CountableDjangoObjectType
 from ..core.types import Error
@@ -72,14 +71,7 @@ class BusinessPartner(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_company_contacts(root: models.BusinessPartner, _info, **kwargs):
-        try:
-            contact_ids = models.SAPUserProfile.objects.filter(
-                business_partner=root
-            ).values_list('user_id', flat=True)
-            return UserModel.objects.filter(id__in=contact_ids).all()
-
-        except models.SAPUserProfile.DoesNotExist:
-            return None
+        return UserModel.objects.filter(sapuserprofile__business_partners=root)
 
     @staticmethod
     def resolve_approved_brands(root: models.BusinessPartner, _info, **kwargs):
@@ -100,6 +92,11 @@ class BusinessPartner(CountableDjangoObjectType):
 
 @key("id")
 class SAPUserProfile(CountableDjangoObjectType):
+    business_partners = graphene.List(
+        BusinessPartner,
+        description="List of business partners this user belongs to."
+    )
+
     class Meta:
         description = "SAP User Profile"
         model = models.SAPUserProfile
@@ -108,8 +105,11 @@ class SAPUserProfile(CountableDjangoObjectType):
             "user",
             "date_of_birth",
             "is_company_owner",
-            "business_partner",
         ]
+
+    @staticmethod
+    def resolve_business_partners(root: models.SAPUserProfile, _info, **kwargs):
+        return root.business_partners.all()
 
 
 class SAPProductError(Error):

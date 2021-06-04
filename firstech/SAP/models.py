@@ -90,9 +90,12 @@ class SAPUserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     date_of_birth = models.DateField(null=True, blank=True)
     is_company_owner = models.BooleanField(default=False)
-    business_partner = models.ForeignKey(
-        BusinessPartner, related_name="business_partner", null=True, blank=True,
-        on_delete=models.SET_NULL
+    # Most of the time a user will only be associated with 1 business partner, but there
+    # are some examples where a user can have more.
+    business_partners = models.ManyToManyField(
+        BusinessPartner,
+        related_name="sapuserprofiles",
+        blank=True,
     )
     middle_name = models.CharField(max_length=256, blank=True, null=True)
 

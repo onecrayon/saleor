@@ -8,13 +8,15 @@ from django.utils.text import slugify
 import saleor.product.models as product_models
 
 from firstech.SAP import models
+from saleor.account import models as user_models
 from saleor.checkout import AddressType
 from saleor.core.permissions import (
     AccountPermissions, ChannelPermissions,
     ProductPermissions,
 )
 from saleor.graphql.account.enums import AddressTypeEnum
-from saleor.graphql.account.types import AddressInput
+from saleor.graphql.account.mutations.staff import CustomerCreate
+from saleor.graphql.account.types import AddressInput, User
 from saleor.graphql.attribute.utils import AttributeAssignmentMixin
 from saleor.graphql.channel import ChannelContext
 from saleor.graphql.core.mutations import ModelMutation, BaseMutation
@@ -175,7 +177,7 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
     @classmethod
     def get_instance(cls, info, business_partner, **data) -> models.Address:
         """Get a django address model instance from information provided in data. If
-        And address with the provided company_name, type (billing vs shipping), and
+        an address with the provided company_name, type (billing vs shipping), and
         business partner already exists, then returns that address. Otherwise returns
         a new address object.
         """
@@ -348,7 +350,7 @@ class SAPUserProfileCreateInput(graphene.InputObjectType):
     business_partner = graphene.ID()
 
 
-class CreateSAPUserProfile(ModelMutation):
+class CreateSAPUserProfile(ModelMutation, GetBusinessPartnerMixin):
     """Mutation for creating a user's SAP user profile. If the id argument is passed
     then this mutation updates the existing SAP user profile with that id."""
     sap_user_profile = graphene.Field(
@@ -362,6 +364,10 @@ class CreateSAPUserProfile(ModelMutation):
             description="Fields required to create SAP user profile.",
             required=True
         )
+        business_partner_id = graphene.ID(
+            description="ID of a business partner to create address for.",
+        )
+        sap_bp_code = graphene.String(description="Card code of a business partner.")
 
     class Meta:
         description = "Create a new SAP user profile."
@@ -370,6 +376,102 @@ class CreateSAPUserProfile(ModelMutation):
         permissions = (AccountPermissions.MANAGE_USERS,)
         error_type_class = BusinessPartnerError
         error_type_field = "business_partner_errors"
+
+
+class MigrateContactInput(graphene.InputObjectType):
+    email = graphene.String(required=True)
+    first_name = graphene.String()
+    last_name = graphene.String()
+    date_of_birth = graphene.String()
+    middle_name = graphene.String()
+    is_company_owner = graphene.Boolean(default=False)
+
+
+class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
+
+    class Arguments:
+        input = graphene.List(of_type=MigrateContactInput)
+
+        business_partner_id = graphene.ID(
+            description="ID of a business partner to create address for.",
+        )
+        sap_bp_code = graphene.String(description="Create Address for Card Code")
+
+    class Meta:
+        description = "Updates or creates many business partner contacts."
+        exclude = ["password"]
+        model = models.User
+        permissions = (AccountPermissions.MANAGE_USERS,)
+        error_type_class = AccountError
+        error_type_field = "account_errors"
+
+    @classmethod
+    def clean_input(cls, info, instance, data, input_cls=None):
+        """ This needs to clean the input for the create user mutation. We're using the
+        `CustomerCreate` class as a base class to ensure that all of the appropriate
+        events/triggers that should occur when a new user is created happen. But since
+        the input for this mutation is actually a graphene List as opposed to the
+        CustomerInput type, the usual clean input method will fail. Overriding this
+        method ensures that we grab the correct input class.
+        """
+        if not input_cls:
+            input_cls = User
+
+        cleaned_input = {}
+        for field_name, field_item in input_cls._meta.fields.items():
+            if field_name in data:
+                value = data[field_name]
+
+                cleaned_input[field_name] = value
+        return cleaned_input
+
+    @classmethod
+    def perform_mutation(cls, root, info, **data):
+        contact_inputs = data.get("input")
+        business_partner: models.BusinessPartner = cls.get_business_partner(data, info)
+        responses = []
+
+        # Grab all of the users we'll need and organize them by email address
+        contact_cache = {}
+        contacts = user_models.User.objects.filter(
+            email__in=set(contact["email"] for contact in contact_inputs)
+        ).prefetch_related("sapuserprofile__business_partners")
+        for contact in contacts:
+            contact_cache[contact.email] = contact
+
+        for contact in contact_inputs:
+            user = contact_cache.get(contact["email"])
+            if not user:
+                # Create a new user
+                create_user_data = {
+                    "email": contact["email"],
+                    "first_name": contact.get("first_name"),
+                    "last_name": contact.get("last_name")
+                }
+                response = super().perform_mutation(root, info, input=create_user_data)
+                user = response.user
+            else:
+                # Update an existing user
+                cleaned_input = cls.clean_input(info, user, data)
+                user = cls.construct_instance(user, cleaned_input)
+                cls.clean_instance(info, user)
+                cls.save(info, user, cleaned_input)
+                cls._save_m2m(info, user, cleaned_input)
+
+            sap_profile, created = models.SAPUserProfile.objects.update_or_create(
+                user=user,
+                defaults={
+                    "date_of_birth": contact.get("date_of_birth"),
+                    "is_company_owner": contact.get("is_company_owner", False),
+                    "middle_name": contact.get("middle_name"),
+                }
+            )
+
+            responses.append(sap_profile)
+
+        business_partner.sapuserprofiles.set(responses)
+
+        return cls(**{cls._meta.return_field_name: responses, "errors": []})
 
 
 class SAPApprovedBrandsInput(graphene.InputObjectType):
