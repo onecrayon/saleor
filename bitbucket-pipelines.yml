@@ -1,0 +1,56 @@
+# bitbucket-pipelines.yml
+
+# Place this at the root of your repository
+
+# custom build image from AWS ECR: https://bitbucket.org/firstech-drone/www-cicd/src/master/bitbucket-pipeline-image/
+image:
+  name: 741267758119.dkr.ecr.us-east-1.amazonaws.com/www-cicd/bitbucket-pipeline:latest
+  aws:
+    access-key: $AWS_ACCESS_KEY_ID
+    secret-key: $AWS_SECRET_ACCESS_KEY
+
+clone:
+  depth: full
+
+options:
+  docker: true
+  size: 2x
+
+deploy-to-aws: &deploy-to-aws
+  caches:
+    - docker
+    - node
+    - pip
+  name: Build and Publish to AWS
+  script:
+    # deploy
+    - copilot svc deploy --name api --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
+    - copilot svc deploy --name worker --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
+  services:
+    - docker
+  size: 2x
+
+pipelines:
+  # Whenever a pull-request is opened or updated, create/update a Heroku app for the pull-request.
+  branches:
+    ft-develop:
+      - step:
+          <<: *deploy-to-aws
+          deployment: dev
+    ft-staging:
+      - step:
+          <<: *deploy-to-aws
+          deployment: staging
+    ft-production:
+      - step:
+          <<: *deploy-to-aws
+          deployment: prod
+    oe/copilot:
+      - step:
+          <<: *deploy-to-aws
+          deployment: dev
+
+definitions:
+  services:
+    docker:
+      memory: 4096
