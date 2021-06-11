@@ -26,17 +26,10 @@ memory: 5120   # Amount of memory in MiB used by the task.
 count: 1       # Number of tasks that should be running in your service.
 exec: true     # Enable running commands in your container.
 
-storage:
-  volumes:
-    media:
-      efs: true
-      path: /app/media
-      read_only: false
-
 # Optional fields for more advanced use-cases.
 #
 variables:                    # Pass environment variables as key value pairs.
-  CELERY_BROKER_URL: redis://redis.:6379/1
+  CELERY_BROKER_URL: redis://redis.saleor.local:6379/1
   DEFAULT_FROM_EMAIL: noreply@saleor.dronemobile.com
   REDIS_URL: redis://redis.saleor.local:6379/0
 
