@@ -33,8 +33,10 @@ variables:                    # Pass environment variables as key value pairs.
   DEFAULT_FROM_EMAIL: noreply@saleor.dronemobile.com
   REDIS_URL: redis://redis.saleor.local:6379/0
 
+# DATABASE_URL and EMAIL_URL must be commented out for first infrastructure provision before initial Terraform run. Please see README.
 secrets:                      # Pass secrets from AWS Systems Manager (SSM) Parameter Store.
   DATABASE_URL: /saleor/dev/DATABASE_URL
+  EMAIL_URL: /saleor/dev/EMAIL_URL
   SECRET_KEY: /saleor/dev/SECRET_KEY
 
 # You can override any of the values defined above by environment.
