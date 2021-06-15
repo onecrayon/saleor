@@ -942,7 +942,15 @@ class UpsertSAPOrder(DraftOrderUpdate):
             del draft_order_input["channel_id"]
 
         # Update the draft Order
-        cleaned_input = cls.clean_input(info, order, draft_order_input)
+        # Ok...so. We can't use cls.clean_input for this because we would need to be
+        # able to pass in the `input_cls` argument to make sure the
+        # BaseMutation.clean_input method is referring to the right input class.
+        # (We want to clean theDraftOrderCreateInput not the SAPOrderInput).
+        # But the DraftOrderUpdate class doesn't pass the `input_cls` argument through
+        # to the BaseMutation class. So we either need to edit the stock saleor code to
+        # pass that argument through OR explicitly call a fresh DraftOrderUpdate class
+        # to make sure the right input class gets used.
+        cleaned_input = DraftOrderUpdate.clean_input(info, order, draft_order_input)
         order = cls.construct_instance(order, cleaned_input)
         cls.clean_instance(info, order)
         cls.save(info, order, cleaned_input)
