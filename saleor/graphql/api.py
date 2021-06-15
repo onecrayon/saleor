@@ -5,6 +5,7 @@ from .app.schema import AppMutations, AppQueries
 from .attribute.schema import AttributeMutations, AttributeQueries
 from .channel.schema import ChannelMutations, ChannelQueries
 from .checkout.schema import CheckoutMutations, CheckoutQueries
+from .core.enums import unit_enums
 from .core.schema import CoreMutations, CoreQueries
 from .csv.schema import CsvMutations, CsvQueries
 from .discount.schema import DiscountMutations, DiscountQueries
@@ -22,6 +23,10 @@ from .shop.schema import ShopMutations, ShopQueries
 from .translations.schema import TranslationQueries
 from .warehouse.schema import StockQueries, WarehouseMutations, WarehouseQueries
 from .webhook.schema import WebhookMutations, WebhookQueries
+
+# Firstech Custom
+from .drone.schema import DroneQueries
+from .SAP.schema import SAPQueries, SAPMutations
 
 
 class Query(
@@ -46,6 +51,10 @@ class Query(
     TranslationQueries,
     WarehouseQueries,
     WebhookQueries,
+
+    #Firstech Custom
+    DroneQueries,
+    SAPQueries,
 ):
     pass
 
@@ -72,8 +81,11 @@ class Mutation(
     ShopMutations,
     WarehouseMutations,
     WebhookMutations,
+
+    #Firstech Custom
+    SAPMutations,
 ):
     pass
 
 
-schema = build_schema(Query, mutation=Mutation)
+schema = build_schema(Query, mutation=Mutation, types=unit_enums)

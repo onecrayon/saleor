@@ -14,11 +14,8 @@ CHANNEL_UPDATE_MUTATION = """
                 name
                 slug
                 currencyCode
-                shippingZones{
-                    id
-                }
             }
-            channelErrors{
+            errors{
                 field
                 code
                 message
@@ -48,7 +45,7 @@ def test_channel_update_mutation_as_staff_user(
 
     # then
     data = content["data"]["channelUpdate"]
-    assert not data["channelErrors"]
+    assert not data["errors"]
     channel_data = data["channel"]
     channel_USD.refresh_from_db()
     assert channel_data["name"] == channel_USD.name == name
@@ -75,7 +72,7 @@ def test_channel_update_mutation_as_app(
 
     # then
     data = content["data"]["channelUpdate"]
-    assert not data["channelErrors"]
+    assert not data["errors"]
     channel_data = data["channel"]
     channel_USD.refresh_from_db()
     assert channel_data["name"] == channel_USD.name == name
@@ -159,7 +156,7 @@ def test_channel_update_mutation_with_duplicated_slug(
     content = get_graphql_content(response)
 
     # then
-    error = content["data"]["channelUpdate"]["channelErrors"][0]
+    error = content["data"]["channelUpdate"]["errors"][0]
     assert error["field"] == "slug"
     assert error["code"] == ChannelErrorCode.UNIQUE.name
 
@@ -183,7 +180,7 @@ def test_channel_update_mutation_only_name(
 
     # then
     data = content["data"]["channelUpdate"]
-    assert not data["channelErrors"]
+    assert not data["errors"]
     channel_data = data["channel"]
     channel_USD.refresh_from_db()
     assert channel_data["name"] == channel_USD.name == name
@@ -210,7 +207,7 @@ def test_channel_update_mutation_only_slug(
 
     # then
     data = content["data"]["channelUpdate"]
-    assert not data["channelErrors"]
+    assert not data["errors"]
     channel_data = data["channel"]
     channel_USD.refresh_from_db()
     assert channel_data["name"] == channel_USD.name == name
@@ -241,13 +238,15 @@ def test_channel_update_mutation_add_shipping_zone(
 
     # then
     data = content["data"]["channelUpdate"]
-    assert not data["channelErrors"]
+    assert not data["errors"]
     channel_data = data["channel"]
     channel_USD.refresh_from_db()
+    shipping_zone.refresh_from_db()
     assert channel_data["name"] == channel_USD.name == name
     assert channel_data["slug"] == channel_USD.slug == slug
     assert channel_data["currencyCode"] == channel_USD.currency_code == "USD"
-    assert [zone["id"] for zone in channel_data["shippingZones"]] == [shipping_zone_id]
+    actual_shipping_zone = channel_USD.shipping_zones.first()
+    assert actual_shipping_zone == shipping_zone
 
 
 @patch(
@@ -292,15 +291,12 @@ def test_channel_update_mutation_remove_shipping_zone(
 
     # then
     data = content["data"]["channelUpdate"]
-    assert not data["channelErrors"]
+    assert not data["errors"]
     channel_data = data["channel"]
     channel_USD.refresh_from_db()
     assert channel_data["name"] == channel_USD.name == name
     assert channel_data["slug"] == channel_USD.slug == slug
     assert channel_data["currencyCode"] == channel_USD.currency_code == "USD"
-    zones = [zone["id"] for zone in channel_data["shippingZones"]]
-    assert len(zones) == len(shipping_zones) - 1
-    assert remove_shipping_zone not in zones
     assert not channel_USD.shipping_method_listings.filter(
         shipping_method__shipping_zone=shipping_zone
     )
@@ -345,16 +341,14 @@ def test_channel_update_mutation_add_and_remove_shipping_zone(
 
     # then
     data = content["data"]["channelUpdate"]
-    assert not data["channelErrors"]
+    assert not data["errors"]
     channel_data = data["channel"]
     channel_USD.refresh_from_db()
     assert channel_data["name"] == channel_USD.name == name
     assert channel_data["slug"] == channel_USD.slug == slug
     assert channel_data["currencyCode"] == channel_USD.currency_code == "USD"
-    zones = [zone["id"] for zone in channel_data["shippingZones"]]
+    zones = channel_USD.shipping_zones.all()
     assert len(zones) == len(shipping_zones)
-    assert remove_shipping_zone not in zones
-    assert add_shipping_zone in zones
 
 
 def test_channel_update_mutation_duplicated_shipping_zone(
@@ -394,7 +388,7 @@ def test_channel_update_mutation_duplicated_shipping_zone(
     # then
     data = content["data"]["channelUpdate"]
     assert not data["channel"]
-    errors = data["channelErrors"]
+    errors = data["errors"]
     assert len(errors) == 1
     assert errors[0]["field"] == "shippingZones"
     assert errors[0]["code"] == ChannelErrorCode.DUPLICATED_INPUT_ITEM.name

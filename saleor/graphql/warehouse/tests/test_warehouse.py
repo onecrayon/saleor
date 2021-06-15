@@ -112,7 +112,7 @@ mutation createWarehouse($input: WarehouseCreateInput!) {
                 id
             }
         }
-        warehouseErrors {
+        errors {
             message
             field
             code
@@ -125,7 +125,7 @@ mutation createWarehouse($input: WarehouseCreateInput!) {
 MUTATION_UPDATE_WAREHOUSE = """
 mutation updateWarehouse($input: WarehouseUpdateInput!, $id: ID!) {
     updateWarehouse(id: $id, input: $input) {
-        warehouseErrors {
+        errors {
             message
             field
             code
@@ -148,7 +148,7 @@ mutation updateWarehouse($input: WarehouseUpdateInput!, $id: ID!) {
 MUTATION_DELETE_WAREHOUSE = """
 mutation deleteWarehouse($id: ID!) {
     deleteWarehouse(id: $id) {
-        warehouseErrors {
+        errors {
             message
             field
             code
@@ -161,7 +161,7 @@ mutation deleteWarehouse($id: ID!) {
 MUTATION_ASSIGN_SHIPPING_ZONE_WAREHOUSE = """
 mutation assignWarehouseShippingZone($id: ID!, $shippingZoneIds: [ID!]!) {
   assignWarehouseShippingZone(id: $id, shippingZoneIds: $shippingZoneIds) {
-    warehouseErrors {
+    errors {
       field
       message
       code
@@ -175,7 +175,7 @@ mutation assignWarehouseShippingZone($id: ID!, $shippingZoneIds: [ID!]!) {
 MUTATION_UNASSIGN_SHIPPING_ZONE_WAREHOUSE = """
 mutation unassignWarehouseShippingZone($id: ID!, $shippingZoneIds: [ID!]!) {
   unassignWarehouseShippingZone(id: $id, shippingZoneIds: $shippingZoneIds) {
-    warehouseErrors {
+    errors {
       field
       message
       code
@@ -242,6 +242,35 @@ def test_warehouse_query_as_staff_with_manage_orders(
     assert queried_address["postalCode"] == address.postal_code
 
 
+def test_warehouse_query_as_staff_with_manage_shipping(
+    staff_api_client, warehouse, permission_manage_shipping
+):
+    warehouse_id = graphene.Node.to_global_id("Warehouse", warehouse.pk)
+
+    response = staff_api_client.post_graphql(
+        QUERY_WAREHOUSE,
+        variables={"id": warehouse_id},
+        permissions=[permission_manage_shipping],
+    )
+    content = get_graphql_content(response)
+
+    queried_warehouse = content["data"]["warehouse"]
+    assert queried_warehouse["name"] == warehouse.name
+    assert queried_warehouse["email"] == warehouse.email
+
+    shipping_zones = queried_warehouse["shippingZones"]["edges"]
+    assert len(shipping_zones) == warehouse.shipping_zones.count()
+    queried_shipping_zone = shipping_zones[0]["node"]
+    shipipng_zone = warehouse.shipping_zones.first()
+    assert queried_shipping_zone["name"] == shipipng_zone.name
+    assert len(queried_shipping_zone["countries"]) == len(shipipng_zone.countries)
+
+    address = warehouse.address
+    queried_address = queried_warehouse["address"]
+    assert queried_address["streetAddress1"] == address.street_address_1
+    assert queried_address["postalCode"] == address.postal_code
+
+
 def test_warehouse_query_as_staff_with_manage_apps(
     staff_api_client, warehouse, permission_manage_apps
 ):
@@ -272,6 +301,25 @@ def test_query_warehouses_as_staff_with_manage_orders(
 ):
     response = staff_api_client.post_graphql(
         QUERY_WAREHOUSES, permissions=[permission_manage_orders]
+    )
+    content = get_graphql_content(response)["data"]
+    assert content["warehouses"]["totalCount"] == Warehouse.objects.count()
+    warehouses = content["warehouses"]["edges"]
+    warehouse_id = graphene.Node.to_global_id("Warehouse", warehouse.pk)
+    warehouse_first = warehouses[0]["node"]
+    assert warehouse_first["id"] == warehouse_id
+    assert warehouse_first["name"] == warehouse.name
+    assert (
+        len(warehouse_first["shippingZones"]["edges"])
+        == warehouse.shipping_zones.count()
+    )
+
+
+def test_query_warehouses_as_staff_with_manage_shipping(
+    staff_api_client, warehouse, permission_manage_shipping
+):
+    response = staff_api_client.post_graphql(
+        QUERY_WAREHOUSES, permissions=[permission_manage_shipping]
     )
     content = get_graphql_content(response)["data"]
     assert content["warehouses"]["totalCount"] == Warehouse.objects.count()
@@ -490,7 +538,7 @@ def test_mutation_create_warehouse_does_not_create_when_name_is_empty_string(
     )
     content = get_graphql_content(response)
     data = content["data"]["createWarehouse"]
-    errors = data["warehouseErrors"]
+    errors = data["errors"]
     assert Warehouse.objects.count() == 0
     assert len(errors) == 1
     assert errors[0]["field"] == "name"
@@ -523,7 +571,7 @@ def test_create_warehouse_creates_address(
         permissions=[permission_manage_products],
     )
     content = get_graphql_content(response)
-    errors = content["data"]["createWarehouse"]["warehouseErrors"]
+    errors = content["data"]["createWarehouse"]["errors"]
     assert len(errors) == 0
     assert Address.objects.count() == 1
     address = Address.objects.get(street_address_1="Teczowa 8", city="WROCLAW")
@@ -565,7 +613,7 @@ def test_create_warehouse_with_given_slug(
     )
     content = get_graphql_content(response)
     data = content["data"]["createWarehouse"]
-    assert not data["warehouseErrors"]
+    assert not data["errors"]
     assert data["warehouse"]["slug"] == expected_slug
 
 
@@ -654,7 +702,7 @@ def test_update_warehouse_slug(
     )
     content = get_graphql_content(response)
     data = content["data"]["updateWarehouse"]
-    errors = data["warehouseErrors"]
+    errors = data["errors"]
     if not error_message:
         assert not errors
         assert data["warehouse"]["slug"] == expected_slug
@@ -684,7 +732,7 @@ def test_update_warehouse_slug_exists(
     )
     content = get_graphql_content(response)
     data = content["data"]["updateWarehouse"]
-    errors = data["warehouseErrors"]
+    errors = data["errors"]
     assert errors
     assert errors[0]["field"] == "slug"
     assert errors[0]["code"] == WarehouseErrorCode.UNIQUE.name
@@ -737,7 +785,7 @@ def test_update_warehouse_slug_and_name(
     content = get_graphql_content(response)
     warehouse.refresh_from_db()
     data = content["data"]["updateWarehouse"]
-    errors = data["warehouseErrors"]
+    errors = data["errors"]
     if not error_message:
         assert data["warehouse"]["name"] == expected_name == warehouse.name
         assert (
@@ -760,7 +808,7 @@ def test_delete_warehouse_mutation(
         permissions=[permission_manage_products],
     )
     content = get_graphql_content(response)
-    errors = content["data"]["deleteWarehouse"]["warehouseErrors"]
+    errors = content["data"]["deleteWarehouse"]["errors"]
     assert len(errors) == 0
     assert not Warehouse.objects.exists()
 
@@ -776,7 +824,7 @@ def test_delete_warehouse_deletes_associated_address(
         permissions=[permission_manage_products],
     )
     content = get_graphql_content(response)
-    errors = content["data"]["deleteWarehouse"]["warehouseErrors"]
+    errors = content["data"]["deleteWarehouse"]["errors"]
     assert len(errors) == 0
     assert not Address.objects.exists()
 
@@ -810,7 +858,7 @@ def test_shipping_zone_can_be_assigned_only_to_one_warehouse(
         permissions=[permission_manage_products],
     )
     content = get_graphql_content(response)
-    errors = content["data"]["createWarehouse"]["warehouseErrors"]
+    errors = content["data"]["createWarehouse"]["errors"]
     assert len(errors) == 1
     assert (
         errors[0]["message"] == "Shipping zone can be assigned only to one warehouse."
@@ -859,7 +907,7 @@ def test_empty_shipping_zone_assign_to_warehouse(
         MUTATION_ASSIGN_SHIPPING_ZONE_WAREHOUSE, variables=variables
     )
     content = get_graphql_content(response)
-    errors = content["data"]["assignWarehouseShippingZone"]["warehouseErrors"]
+    errors = content["data"]["assignWarehouseShippingZone"]["errors"]
     warehouse_no_shipping_zone.refresh_from_db()
     shipping_zone.refresh_from_db()
 

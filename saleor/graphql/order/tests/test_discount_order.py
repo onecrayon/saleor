@@ -29,7 +29,7 @@ mutation OrderDiscountAdd($orderId: ID!, $input: OrderDiscountCommonInput!){
         }
       }
     }
-    orderErrors{
+    errors{
       field
       code
       message
@@ -58,9 +58,9 @@ def test_add_order_discount_incorrect_values(
     content = get_graphql_content(response)
     data = content["data"]["orderDiscountAdd"]
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
 
-    error = data["orderErrors"][0]
+    error = data["errors"][0]
     assert error["field"] == "value"
     assert error["code"] == OrderErrorCode.INVALID.name
 
@@ -80,9 +80,9 @@ def test_add_fixed_order_discount_order_is_not_draft(
     content = get_graphql_content(response)
     data = content["data"]["orderDiscountAdd"]
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 1
-    error = data["orderErrors"][0]
+    error = data["errors"][0]
     assert error["field"] == "orderId"
     assert error["code"] == OrderErrorCode.CANNOT_DISCOUNT.name
 
@@ -109,7 +109,7 @@ def test_add_fixed_order_discount_to_order(
     expected_gross = total_before_order_discount.gross.amount - value
     expected_net = total_before_order_discount.net.amount - value
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 0
 
     assert expected_gross == order.total.gross.amount
@@ -164,7 +164,7 @@ def test_add_percentage_order_discount_to_order(
     expected_gross_total = discount(total_before_order_discount.gross)
     expected_total = TaxedMoney(expected_net_total, expected_gross_total)
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 0
 
     assert expected_total == order.total
@@ -204,7 +204,7 @@ mutation OrderDiscountUpdate($discountId: ID!, $input: OrderDiscountCommonInput!
         }
       }
     }
-    orderErrors{
+    errors{
         field
         message
         code
@@ -249,7 +249,7 @@ def test_update_percentage_order_discount_to_order(
     expected_gross_total = discount(current_undiscounted_total.gross)
     expected_total = TaxedMoney(expected_net_total, expected_gross_total)
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 0
 
     assert order.undiscounted_total == current_undiscounted_total
@@ -304,7 +304,7 @@ def test_update_fixed_order_discount_to_order(
     discount = partial(fixed_discount, discount=Money(value, currency=order.currency))
     expected_total = discount(current_undiscounted_total)
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 0
 
     assert order.undiscounted_total == current_undiscounted_total
@@ -348,10 +348,10 @@ def test_update_order_discount_order_is_not_draft(
     content = get_graphql_content(response)
     data = content["data"]["orderDiscountUpdate"]
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 1
 
-    error = data["orderErrors"][0]
+    error = data["errors"][0]
     assert error["field"] == "orderId"
     assert error["code"] == OrderErrorCode.CANNOT_DISCOUNT.name
 
@@ -384,7 +384,7 @@ def test_update_order_discount_incorrect_values(
     content = get_graphql_content(response)
     data = content["data"]["orderDiscountUpdate"]
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 1
 
     error = errors[0]
@@ -398,7 +398,7 @@ mutation OrderDiscountDelete($discountId: ID!){
     order{
       id
     }
-    orderErrors{
+    errors{
       field
       message
       code
@@ -431,7 +431,7 @@ def test_delete_order_discount_from_order(
 
     order.refresh_from_db()
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 0
 
     assert order.undiscounted_total == current_undiscounted_total
@@ -457,12 +457,12 @@ def test_delete_order_discount_order_is_not_draft(
     content = get_graphql_content(response)
     data = content["data"]["orderDiscountDelete"]
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 1
 
     assert draft_order_with_fixed_discount_order.discounts.get()
 
-    error = data["orderErrors"][0]
+    error = data["errors"][0]
     assert error["field"] == "orderId"
     assert error["code"] == OrderErrorCode.CANNOT_DISCOUNT.name
 
@@ -477,7 +477,7 @@ mutation OrderLineDiscountUpdate($input: OrderDiscountCommonInput!, $orderLineId
         }
       }
     }
-    orderErrors{
+    errors{
       field
       message
       code
@@ -500,6 +500,10 @@ def test_update_order_line_discount(
     line_to_discount = order.lines.first()
     unit_price = Money(Decimal(7.3), currency="USD")
     line_to_discount.unit_price = TaxedMoney(unit_price, unit_price)
+    line_to_discount.undiscounted_unit_price = line_to_discount.unit_price
+    total_price = line_to_discount.unit_price * line_to_discount.quantity
+    line_to_discount.total_price = total_price
+    line_to_discount.undiscounted_total_price = total_price
     line_to_discount.save()
 
     line_price_before_discount = line_to_discount.unit_price
@@ -521,7 +525,7 @@ def test_update_order_line_discount(
 
     line_to_discount.refresh_from_db()
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert not errors
 
     discount = partial(
@@ -566,6 +570,19 @@ def test_update_order_line_discount_line_with_discount(
     line_to_discount.unit_discount_amount = Decimal("2.500")
     line_to_discount.unit_discount_type = DiscountValueType.FIXED
     line_to_discount.unit_discount_value = Decimal("2.500")
+    line_to_discount.undiscounted_unit_price_gross_amount = (
+        line_to_discount.unit_price_gross_amount + line_to_discount.unit_discount_amount
+    )
+    line_to_discount.undiscounted_unit_price_net_amount = (
+        line_to_discount.unit_price_net_amount + line_to_discount.unit_discount_amount
+    )
+    line_to_discount.undiscounted_total_price_gross_amount = (
+        line_to_discount.undiscounted_unit_price_gross_amount
+        * line_to_discount.quantity
+    )
+    line_to_discount.undiscounted_total_price_net_amount = (
+        line_to_discount.undiscounted_unit_price_net_amount * line_to_discount.quantity
+    )
     line_to_discount.save()
 
     line_discount_amount_before_update = line_to_discount.unit_discount_amount
@@ -591,7 +608,7 @@ def test_update_order_line_discount_line_with_discount(
 
     line_to_discount.refresh_from_db()
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert not errors
 
     discount = partial(
@@ -646,10 +663,10 @@ def test_update_order_line_discount_order_is_not_draft(
 
     line_to_discount.refresh_from_db()
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 1
 
-    error = data["orderErrors"][0]
+    error = data["errors"][0]
     assert error["field"] == "orderId"
     assert error["code"] == OrderErrorCode.CANNOT_DISCOUNT.name
 
@@ -662,7 +679,7 @@ mutation OrderLineDiscountRemove($orderLineId: ID!){
     orderLine{
       id
     }
-    orderErrors{
+    errors{
       field
       message
       code
@@ -674,7 +691,9 @@ mutation OrderLineDiscountRemove($orderLineId: ID!){
 
 @pytest.mark.parametrize("status", (OrderStatus.DRAFT, OrderStatus.UNCONFIRMED))
 @patch("saleor.plugins.manager.PluginsManager.calculate_order_line_unit")
+@patch("saleor.plugins.manager.PluginsManager.calculate_order_line_total")
 def test_delete_discount_from_order_line(
+    mocked_calculate_order_line_total,
     mocked_calculate_order_line_unit,
     status,
     draft_order_with_fixed_discount_order,
@@ -687,8 +706,10 @@ def test_delete_discount_from_order_line(
     line = order.lines.first()
 
     line_undiscounted_price = line.undiscounted_unit_price
+    line_undiscounted_total_price = line.undiscounted_total_price
 
     mocked_calculate_order_line_unit.return_value = line_undiscounted_price
+    mocked_calculate_order_line_total.return_value = line_undiscounted_total_price
 
     line.unit_discount_amount = Decimal("2.5")
     line.unit_discount_type = DiscountValueType.FIXED
@@ -703,12 +724,13 @@ def test_delete_discount_from_order_line(
     content = get_graphql_content(response)
     data = content["data"]["orderLineDiscountRemove"]
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 0
 
     line.refresh_from_db()
 
     assert line.unit_price == line_undiscounted_price
+    assert line.total_price == line_undiscounted_total_price
     unit_discount = line.unit_discount
     currency = order.currency
     assert unit_discount == Money(Decimal(0), currency=currency)
@@ -744,12 +766,12 @@ def test_delete_order_line_discount_order_is_not_draft(
     content = get_graphql_content(response)
     data = content["data"]["orderLineDiscountRemove"]
 
-    errors = data["orderErrors"]
+    errors = data["errors"]
     assert len(errors) == 1
 
     assert draft_order_with_fixed_discount_order.discounts.get()
 
-    error = data["orderErrors"][0]
+    error = data["errors"][0]
     assert error["field"] == "orderId"
     assert error["code"] == OrderErrorCode.CANNOT_DISCOUNT.name
 

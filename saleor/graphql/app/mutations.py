@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 
 from ...app import models
 from ...app.error_codes import AppErrorCode
+from ...app.installation_utils import REQUEST_TIMEOUT
 from ...app.tasks import install_app_task
 from ...app.validators import AppURLValidator
 from ...core import JobStatus
@@ -29,10 +30,6 @@ from .utils import ensure_can_manage_permissions
 
 class AppInput(graphene.InputObjectType):
     name = graphene.String(description="Name of the app.")
-    is_active = graphene.Boolean(
-        description="DEPRECATED: Use the `appActivate` and `appDeactivate` mutations "
-        "instead. This field will be removed after 2020-07-31.",
-    )
     permissions = graphene.List(
         PermissionEnum,
         description="List of permission code names to assign to this app.",
@@ -425,9 +422,13 @@ class AppFetchManifest(BaseMutation):
     @classmethod
     def fetch_manifest(cls, manifest_url):
         try:
-            response = requests.get(manifest_url)
+            response = requests.get(manifest_url, timeout=REQUEST_TIMEOUT)
             response.raise_for_status()
             return response.json()
+        except requests.Timeout:
+            msg = "The request to fetch manifest data timed out."
+            code = AppErrorCode.MANIFEST_URL_CANT_CONNECT.value
+            raise ValidationError({"manifest_url": ValidationError(msg, code=code)})
         except requests.HTTPError:
             msg = "Unable to fetch manifest data."
             code = AppErrorCode.MANIFEST_URL_CANT_CONNECT.value

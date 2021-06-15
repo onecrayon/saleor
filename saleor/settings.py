@@ -87,6 +87,7 @@ if not os.getenv('IS_TEST', False):
         }
     })
 
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
 TIME_ZONE = "UTC"
 LANGUAGE_CODE = "en"
@@ -290,8 +291,8 @@ INSTALLED_APPS = [
     'health_check.contrib.migrations',
     # Custom local apps
     "firstech.drone",
+    "firstech.SAP",
 ]
-
 
 ENABLE_DJANGO_EXTENSIONS = get_bool_from_env("ENABLE_DJANGO_EXTENSIONS", False)
 if ENABLE_DJANGO_EXTENSIONS:
@@ -547,7 +548,6 @@ GRAPHENE = {
     "RELAY_CONNECTION_ENFORCE_FIRST_OR_LAST": True,
     "RELAY_CONNECTION_MAX_LIMIT": 100,
     "MIDDLEWARE": [
-        "saleor.graphql.middleware.OpentracingGrapheneMiddleware",
         "saleor.graphql.middleware.JWTMiddleware",
         "saleor.graphql.middleware.app_middleware",
     ],

@@ -34,10 +34,14 @@ def get_attribute_value(assigned_attribute):
         return ""
     attribute = assigned_attribute.attribute
     if attribute.input_type == AttributeInputType.FILE:
-        value = value_instance.file_url
+        value = "http://mirumee.com/media/" + value_instance.file_url
     elif attribute.input_type == AttributeInputType.REFERENCE:
         ref_id = value_instance.slug.split("_")[1]
         value = f"{attribute.entity_type}_{ref_id}"
+    elif attribute.input_type == AttributeInputType.NUMERIC:
+        value = f"{value_instance.name}"
+        if attribute.unit:
+            value += f" {attribute.unit}"
     elif attribute.input_type == AttributeInputType.RICH_TEXT:
         value = clean_editor_js(value_instance.rich_text, to_string=True)
     else:

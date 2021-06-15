@@ -1,12 +1,18 @@
+from decimal import Decimal
+from unittest.mock import Mock
+
 import pytest
+from prices import Money, TaxedMoney
 
 from .. import OrderLineData, OrderStatus
 from ..events import OrderEvents
 from ..models import Order, OrderEvent
 from ..utils import (
+    add_variant_to_order,
     change_order_line_quantity,
     get_valid_shipping_methods_for_order,
     match_orders_with_new_user,
+    update_taxes_for_order_lines,
 )
 
 
@@ -71,6 +77,36 @@ def test_change_quantity_generates_proper_event(
             {"quantity": expected_quantity, "line_pk": line.pk, "item": str(line)}
         ]
     }
+
+
+def test_change_quantity_update_line_fields(
+    order_with_lines,
+    staff_user,
+):
+    # given
+    line = order_with_lines.lines.last()
+    line_info = OrderLineData(
+        line=line,
+        quantity=line.quantity,
+        variant=line.variant,
+        warehouse_pk=line.allocations.first().stock.warehouse.pk,
+    )
+    new_quantity = 5
+
+    # when
+    change_order_line_quantity(
+        staff_user,
+        line_info,
+        line.quantity,
+        new_quantity,
+        order_with_lines.channel.slug,
+    )
+
+    # then
+    line.refresh_from_db()
+    assert line.quantity == new_quantity
+    assert line.total_price == line.unit_price * new_quantity
+    assert line.undiscounted_total_price == line.undiscounted_unit_price * new_quantity
 
 
 def test_match_orders_with_new_user(customer_user, channel_USD):
@@ -173,3 +209,61 @@ def test_get_valid_shipping_methods_for_order_shipping_not_required(
 
     # then
     assert valid_shipping_methods is None
+
+
+def test_update_taxes_for_order_lines(order_with_lines):
+    # given
+    line_with_discount = order_with_lines.lines.first()
+    line_with_discount.unit_discount_amount = Decimal("2.00")
+    line_with_discount.save(update_fields=["unit_discount_amount"])
+
+    unit_price = TaxedMoney(net=Money("10.23", "USD"), gross=Money("15.80", "USD"))
+    total_price = TaxedMoney(net=Money("30.34", "USD"), gross=Money("36.49", "USD"))
+    tax_rate = Decimal("0.23")
+    manager = Mock(
+        calculate_order_line_unit=Mock(return_value=unit_price),
+        calculate_order_line_total=Mock(return_value=total_price),
+        get_order_line_tax_rate=Mock(return_value=tax_rate),
+    )
+
+    # when
+    update_taxes_for_order_lines(
+        order_with_lines.lines.all(), order_with_lines, manager, True
+    )
+
+    # then
+    for line in order_with_lines.lines.all():
+        assert line.unit_price == unit_price
+        assert line.total_price == total_price
+        assert line.tax_rate == tax_rate
+        if line.pk != line_with_discount.pk:
+            assert line.undiscounted_unit_price == unit_price
+            assert line.undiscounted_total_price == total_price
+        else:
+            assert line.undiscounted_unit_price == unit_price + line.unit_discount
+            assert (
+                line.undiscounted_total_price
+                == (unit_price + line.unit_discount) * line.quantity
+            )
+
+
+def test_add_variant_to_order(order, customer_user, variant):
+    # given
+    unit_price = TaxedMoney(net=Money("10.23", "USD"), gross=Money("15.80", "USD"))
+    total_price = TaxedMoney(net=Money("30.34", "USD"), gross=Money("36.49", "USD"))
+    tax_rate = Decimal("0.23")
+    manager = Mock(
+        calculate_order_line_unit=Mock(return_value=unit_price),
+        calculate_order_line_total=Mock(return_value=total_price),
+        get_order_line_tax_rate=Mock(return_value=tax_rate),
+    )
+
+    # when
+    line = add_variant_to_order(order, variant, 4, customer_user, manager)
+
+    # then
+    assert line.unit_price == unit_price
+    assert line.total_price == total_price
+    assert line.undiscounted_unit_price == unit_price
+    assert line.undiscounted_total_price == total_price
+    assert line.tax_rate == tax_rate

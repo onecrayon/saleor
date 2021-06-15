@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import graphene
 import pytest
+from django.core.exceptions import ValidationError
 
 from ....core.error_codes import MetadataErrorCode
 from ....core.models import ModelWithMetadata
@@ -25,7 +26,7 @@ mutation UpdatePublicMetadata($id: ID!, $input: [MetadataInput!]!) {
         id: $id
         input: $input
     ) {
-        metadataErrors{
+        errors{
             field
             code
             message
@@ -121,6 +122,22 @@ def item_contains_multiple_proper_public_metadata(
             item.get_value_from_metadata(key2) == value2,
         ]
     )
+
+
+@patch("saleor.plugins.manager.PluginsManager.checkout_updated")
+def test_base_metadata_mutation_handles_errors_from_extra_action(
+    mock_checkout_updated, api_client, checkout
+):
+    error_field = "field"
+    error_msg = "boom"
+    mock_checkout_updated.side_effect = ValidationError({error_field: error_msg})
+    checkout_id = graphene.Node.to_global_id("Checkout", checkout.pk)
+    response = execute_update_public_metadata_for_item(
+        api_client, None, checkout_id, "Checkout"
+    )
+    errors = response["data"]["updateMetadata"]["errors"]
+    assert errors[0]["field"] == error_field
+    assert errors[0]["message"] == error_msg
 
 
 def test_add_public_metadata_for_customer_as_staff(
@@ -236,7 +253,7 @@ def test_staff_update_metadata_empty_key(
 
     # then
     data = response["data"]["updateMetadata"]
-    errors = data["metadataErrors"]
+    errors = data["errors"]
 
     assert not data["item"]
     assert len(errors) == 1
@@ -321,6 +338,18 @@ def test_add_public_metadata_for_checkout(api_client, checkout):
     assert item_contains_proper_public_metadata(
         response["data"]["updateMetadata"]["item"], checkout, checkout_id
     )
+
+
+@patch("saleor.plugins.manager.PluginsManager.checkout_updated")
+def test_add_metadata_for_checkout_triggers_checkout_updated_hook(
+    mock_checkout_updated, api_client, checkout
+):
+    checkout_id = graphene.Node.to_global_id("Checkout", checkout.pk)
+    response = execute_update_public_metadata_for_item(
+        api_client, None, checkout_id, "Checkout"
+    )
+    assert response["data"]["updateMetadata"]["errors"] == []
+    mock_checkout_updated.assert_called_once_with(checkout)
 
 
 def test_add_public_metadata_for_order(api_client, order):
@@ -680,7 +709,7 @@ def test_update_public_metadata_for_non_exist_item(api_client):
     )
 
     # then
-    errors = response["data"]["updateMetadata"]["metadataErrors"]
+    errors = response["data"]["updateMetadata"]["errors"]
     assert errors[0]["field"] == "id"
     assert errors[0]["code"] == MetadataErrorCode.NOT_FOUND.name
 
@@ -698,7 +727,7 @@ def test_update_public_metadata_for_item_without_meta(api_client, address):
     )
 
     # then
-    errors = response["data"]["updateMetadata"]["metadataErrors"]
+    errors = response["data"]["updateMetadata"]["errors"]
     assert errors[0]["field"] == "id"
     assert errors[0]["code"] == MetadataErrorCode.NOT_FOUND.name
 
@@ -709,7 +738,7 @@ mutation DeletePublicMetadata($id: ID!, $keys: [String!]!) {
         id: $id
         keys: $keys
     ) {
-        metadataErrors{
+        errors{
             field
             code
         }
@@ -1326,7 +1355,7 @@ def test_delete_public_metadata_for_non_exist_item(api_client):
     )
 
     # then
-    errors = response["data"]["deleteMetadata"]["metadataErrors"]
+    errors = response["data"]["deleteMetadata"]["errors"]
     assert errors[0]["field"] == "id"
     assert errors[0]["code"] == MetadataErrorCode.NOT_FOUND.name
 
@@ -1344,7 +1373,7 @@ def test_delete_public_metadata_for_item_without_meta(api_client, address):
     )
 
     # then
-    errors = response["data"]["deleteMetadata"]["metadataErrors"]
+    errors = response["data"]["deleteMetadata"]["errors"]
     assert errors[0]["field"] == "id"
     assert errors[0]["code"] == MetadataErrorCode.NOT_FOUND.name
 
@@ -1397,7 +1426,7 @@ mutation UpdatePrivateMetadata($id: ID!, $input: [MetadataInput!]!) {
         id: $id
         input: $input
     ) {
-        metadataErrors{
+        errors{
             field
             code
         }
@@ -1625,7 +1654,7 @@ def test_staff_update_private_metadata_empty_key(
 
     # then
     data = response["data"]["updatePrivateMetadata"]
-    errors = data["metadataErrors"]
+    errors = data["errors"]
 
     assert not data["item"]
     assert len(errors) == 1
@@ -2047,7 +2076,7 @@ def test_update_private_metadata_for_non_exist_item(
     )
 
     # then
-    errors = response["data"]["updatePrivateMetadata"]["metadataErrors"]
+    errors = response["data"]["updatePrivateMetadata"]["errors"]
     assert errors[0]["field"] == "id"
     assert errors[0]["code"] == MetadataErrorCode.NOT_FOUND.name
 
@@ -2065,7 +2094,7 @@ def test_update_private_metadata_for_item_without_meta(api_client, address):
     )
 
     # then
-    errors = response["data"]["updatePrivateMetadata"]["metadataErrors"]
+    errors = response["data"]["updatePrivateMetadata"]["errors"]
     assert errors[0]["field"] == "id"
     assert errors[0]["code"] == MetadataErrorCode.NOT_FOUND.name
 
@@ -2076,7 +2105,7 @@ mutation DeletePrivateMetadata($id: ID!, $keys: [String!]!) {
         id: $id
         keys: $keys
     ) {
-        metadataErrors{
+        errors{
             field
             code
         }
@@ -2715,7 +2744,7 @@ def test_delete_private_metadata_for_non_exist_item(
     )
 
     # then
-    errors = response["data"]["deletePrivateMetadata"]["metadataErrors"]
+    errors = response["data"]["deletePrivateMetadata"]["errors"]
     assert errors[0]["field"] == "id"
     assert errors[0]["code"] == MetadataErrorCode.NOT_FOUND.name
 
@@ -2733,7 +2762,7 @@ def test_delete_private_metadata_for_item_without_meta(api_client, address):
     )
 
     # then
-    errors = response["data"]["deletePrivateMetadata"]["metadataErrors"]
+    errors = response["data"]["deletePrivateMetadata"]["errors"]
     assert errors[0]["field"] == "id"
     assert errors[0]["code"] == MetadataErrorCode.NOT_FOUND.name
 

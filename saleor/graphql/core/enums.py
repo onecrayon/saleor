@@ -9,7 +9,13 @@ from ...checkout import error_codes as checkout_error_codes
 from ...core import JobStatus
 from ...core import error_codes as core_error_codes
 from ...core.permissions import get_permissions_enum_list
-from ...core.weight import WeightUnits
+from ...core.units import (
+    AreaUnits,
+    DistanceUnits,
+    MeasurementUnits,
+    VolumeUnits,
+    WeightUnits,
+)
 from ...csv import error_codes as csv_error_codes
 from ...discount import error_codes as discount_error_codes
 from ...giftcard import error_codes as giftcard_error_codes
@@ -19,7 +25,6 @@ from ...order import error_codes as order_error_codes
 from ...page import error_codes as page_error_codes
 from ...payment import error_codes as payment_error_codes
 from ...plugins import error_codes as plugin_error_codes
-from ...plugins.vatlayer import TaxRateType as CoreTaxRateType
 from ...product import error_codes as product_error_codes
 from ...shipping import error_codes as shipping_error_codes
 from ...warehouse import error_codes as warehouse_error_codes
@@ -27,9 +32,6 @@ from ...webhook import error_codes as webhook_error_codes
 from ...wishlist import error_codes as wishlist_error_codes
 from ..shop import error_codes as shop_error_codes
 from .utils import str_to_enum
-
-# FIXME CoreTaxRateType should be removed after we will drop old api fields dedicated
-#  to taxes
 
 
 class OrderDirection(graphene.Enum):
@@ -84,16 +86,17 @@ LanguageCodeEnum = graphene.Enum(
     [(lang[0].replace("-", "_").upper(), lang[0]) for lang in settings.LANGUAGES],
 )
 
-TaxRateType = graphene.Enum(
-    "TaxRateType", [(str_to_enum(rate[0]), rate[0]) for rate in CoreTaxRateType.CHOICES]
-)
 
 JobStatusEnum = to_enum(JobStatus)
 PermissionEnum = graphene.Enum("PermissionEnum", get_permissions_enum_list())
-WeightUnitsEnum = graphene.Enum(
-    "WeightUnitsEnum", [(str_to_enum(unit[0]), unit[0]) for unit in WeightUnits.CHOICES]
-)
 
+# unit enums
+MeasurementUnitsEnum = to_enum(MeasurementUnits)
+DistanceUnitsEnum = to_enum(DistanceUnits)
+AreaUnitsEnum = to_enum(AreaUnits)
+VolumeUnitsEnum = to_enum(VolumeUnits)
+WeightUnitsEnum = to_enum(WeightUnits)
+unit_enums = [DistanceUnitsEnum, AreaUnitsEnum, VolumeUnitsEnum, WeightUnitsEnum]
 
 AccountErrorCode = graphene.Enum.from_enum(account_error_codes.AccountErrorCode)
 AppErrorCode = graphene.Enum.from_enum(app_error_codes.AppErrorCode)

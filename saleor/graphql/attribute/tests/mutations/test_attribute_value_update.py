@@ -9,7 +9,7 @@ mutation AttributeValueUpdate(
         $id: ID!, $name: String!) {
     attributeValueUpdate(
     id: $id, input: {name: $name}) {
-        attributeErrors {
+        errors {
             field
             message
             code
@@ -19,8 +19,12 @@ mutation AttributeValueUpdate(
             slug
         }
         attribute {
-            values {
-                name
+            choices(first: 10) {
+                edges {
+                    node {
+                        name
+                    }
+                }
             }
         }
     }
@@ -51,7 +55,9 @@ def test_update_attribute_value(
     value.refresh_from_db()
     assert data["attributeValue"]["name"] == name == value.name
     assert data["attributeValue"]["slug"] == slugify(name)
-    assert name in [value["name"] for value in data["attribute"]["values"]]
+    assert name in [
+        value["node"]["name"] for value in data["attribute"]["choices"]["edges"]
+    ]
 
 
 def test_update_attribute_value_name_not_unique(
@@ -75,7 +81,7 @@ def test_update_attribute_value_name_not_unique(
     # then
     content = get_graphql_content(response)
     data = content["data"]["attributeValueUpdate"]
-    assert data["attributeErrors"]
-    assert data["attributeErrors"][0]["message"]
-    assert data["attributeErrors"][0]["field"] == "name"
-    assert data["attributeErrors"][0]["code"] == AttributeErrorCode.ALREADY_EXISTS.name
+    assert data["errors"]
+    assert data["errors"][0]["message"]
+    assert data["errors"][0]["field"] == "name"
+    assert data["errors"][0]["code"] == AttributeErrorCode.ALREADY_EXISTS.name

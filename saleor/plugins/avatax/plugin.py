@@ -7,6 +7,7 @@ from urllib.parse import urljoin
 import opentracing
 import opentracing.tags
 from django.core.exceptions import ValidationError
+from django_countries import countries
 from prices import Money, TaxedMoney, TaxedMoneyRange
 
 from ...checkout import base_calculations
@@ -61,6 +62,11 @@ class AvataxPlugin(BasePlugin):
         {"name": "Use sandbox", "value": True},
         {"name": "Company name", "value": "DEFAULT"},
         {"name": "Autocommit", "value": False},
+        {"name": "from_street_address", "value": None},
+        {"name": "from_city", "value": None},
+        {"name": "from_country", "value": None},
+        {"name": "from_country_area", "value": None},
+        {"name": "from_postal_code", "value": None},
     ]
     CONFIG_STRUCTURE = {
         "Username or account": {
@@ -92,18 +98,53 @@ class AvataxPlugin(BasePlugin):
             "should be committed by default.",
             "label": "Autocommit",
         },
+        "from_street_address": {
+            "type": ConfigurationTypeField.STRING,
+            "help_text": "To calculate taxes we need to provide `ship from` details.",
+            "label": "Ship from - street",
+        },
+        "from_city": {
+            "type": ConfigurationTypeField.STRING,
+            "help_text": "To calculate taxes we need to provide `ship from` details.",
+            "label": "Ship from - city",
+        },
+        "from_country": {
+            "type": ConfigurationTypeField.STRING,
+            "help_text": "To calculate taxes we need to provide `ship from` details. "
+            "Country code in ISO format. ",
+            "label": "Ship from - country",
+        },
+        "from_country_area": {
+            "type": ConfigurationTypeField.STRING,
+            "help_text": "To calculate taxes we need to provide `ship from` details.",
+            "label": "Ship from - country area",
+        },
+        "from_postal_code": {
+            "type": ConfigurationTypeField.STRING,
+            "help_text": "To calculate taxes we need to provide `ship from` details.",
+            "label": "Ship from - postal code",
+        },
     }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Convert to dict to easier take config elements
         configuration = {item["name"]: item["value"] for item in self.configuration}
+
+        if from_country := configuration["from_country"]:
+            from_country = countries.alpha2(from_country.strip())
+
         self.config = AvataxConfiguration(
             username_or_account=configuration["Username or account"],
             password_or_license=configuration["Password or license"],
             use_sandbox=configuration["Use sandbox"],
             company_name=configuration["Company name"],
             autocommit=configuration["Autocommit"],
+            from_street_address=configuration["from_street_address"],
+            from_city=configuration["from_city"],
+            from_country=from_country,
+            from_country_area=configuration["from_country_area"],
+            from_postal_code=configuration["from_postal_code"],
         )
 
     def _skip_plugin(
@@ -134,7 +175,7 @@ class AvataxPlugin(BasePlugin):
         discounts: Iterable[DiscountInfo],
     ):
         for line_info in lines:
-            if line_info.variant.product.charge_taxes:
+            if line_info.product.charge_taxes:
                 continue
             line_price = base_calculations.base_checkout_line_total(
                 line_info,
@@ -305,19 +346,50 @@ class AvataxPlugin(BasePlugin):
             return base_total
 
         taxes_data = get_checkout_tax_data(checkout_info, lines, discounts, self.config)
+        return self._calculate_line_total_price(
+            taxes_data, checkout_line_info.variant.sku, previous_value
+        )
+
+    def calculate_order_line_total(
+        self,
+        order: "Order",
+        order_line: "OrderLine",
+        variant: "ProductVariant",
+        product: "Product",
+        previous_value: TaxedMoney,
+    ) -> TaxedMoney:
+        if self._skip_plugin(previous_value):
+            return previous_value
+
+        if not product.charge_taxes:
+            return previous_value
+
+        if not _validate_order(order):
+            return zero_taxed_money(order.total.currency)
+
+        taxes_data = self._get_order_tax_data(order, previous_value)
+        return self._calculate_line_total_price(taxes_data, variant.sku, previous_value)
+
+    @staticmethod
+    def _calculate_line_total_price(
+        taxes_data: Dict[str, Any],
+        item_code: str,
+        base_value: TaxedMoney,
+    ):
         if not taxes_data or "error" in taxes_data:
-            return base_total
+            return base_value
 
         currency = taxes_data.get("currencyCode")
         for line in taxes_data.get("lines", []):
-            if line.get("itemCode") == checkout_line_info.variant.sku:
+            if line.get("itemCode") == item_code:
                 tax = Decimal(line.get("tax", 0.0))
-                line_net = Decimal(line["lineAmount"])
-                line_gross = Money(amount=line_net + tax, currency=currency)
-                line_net = Money(amount=line_net, currency=currency)
+                net = Decimal(line["lineAmount"])
+
+                line_gross = Money(amount=net + tax, currency=currency)
+                line_net = Money(amount=net, currency=currency)
                 return TaxedMoney(net=line_net, gross=line_gross)
 
-        return base_total
+        return base_value
 
     def calculate_checkout_line_unit_price(
         self,
@@ -624,6 +696,19 @@ class AvataxPlugin(BasePlugin):
             missing_fields.append("Username or account")
         if not configuration["Password or license"]:
             missing_fields.append("Password or license")
+
+        required_from_address_fields = [
+            "from_street_address",
+            "from_city",
+            "from_country",
+            "from_postal_code",
+        ]
+
+        all_address_fields = all(
+            [configuration[field] for field in required_from_address_fields]
+        )
+        if not all_address_fields:
+            missing_fields.extend(required_from_address_fields)
 
         if plugin_configuration.active:
             if missing_fields:

@@ -66,13 +66,19 @@ query($id: ID!) {
         inputType
         entityType
         type
-        values {
-            slug
-            inputType
-            file {
-                url
-                contentType
+        unit
+        choices(first: 10) {
+            edges {
+                node {
+                    slug
+                    inputType
+                    file {
+                        url
+                        contentType
+                    }
+                }
             }
+
         }
         valueRequired
         visibleInStorefront
@@ -235,18 +241,7 @@ def test_get_single_product_attribute_with_file_value(
         attribute_data["storefrontSearchPosition"]
         == file_attribute.storefront_search_position
     )
-    assert len(attribute_data["values"]) == file_attribute.values.count()
-    attribute_value_data = []
-    for value in file_attribute.values.all():
-        data = {
-            "slug": value.slug,
-            "inputType": value.input_type.upper(),
-            "file": {"url": value.file_url, "contentType": value.content_type},
-        }
-        attribute_value_data.append(data)
-
-    for data in attribute_value_data:
-        assert data in attribute_data["values"]
+    assert attribute_data["choices"]["edges"] == []
 
 
 def test_get_single_reference_attribute_by_staff(
@@ -297,6 +292,50 @@ def test_get_single_reference_attribute_by_staff(
     )
 
 
+def test_get_single_numeric_attribute_by_staff(
+    staff_api_client, numeric_attribute, permission_manage_products
+):
+    staff_api_client.user.user_permissions.add(permission_manage_products)
+    attribute_gql_id = graphene.Node.to_global_id("Attribute", numeric_attribute.id)
+    query = QUERY_ATTRIBUTE
+    content = get_graphql_content(
+        staff_api_client.post_graphql(query, {"id": attribute_gql_id})
+    )
+
+    assert content["data"]["attribute"], "Should have found an attribute"
+    assert content["data"]["attribute"]["id"] == attribute_gql_id
+    assert content["data"]["attribute"]["slug"] == numeric_attribute.slug
+    assert (
+        content["data"]["attribute"]["inputType"]
+        == numeric_attribute.input_type.upper()
+    )
+    assert content["data"]["attribute"]["unit"] == numeric_attribute.unit.upper()
+    assert (
+        content["data"]["attribute"]["valueRequired"]
+        == numeric_attribute.value_required
+    )
+    assert (
+        content["data"]["attribute"]["visibleInStorefront"]
+        == numeric_attribute.visible_in_storefront
+    )
+    assert (
+        content["data"]["attribute"]["filterableInStorefront"]
+        == numeric_attribute.filterable_in_storefront
+    )
+    assert (
+        content["data"]["attribute"]["filterableInDashboard"]
+        == numeric_attribute.filterable_in_dashboard
+    )
+    assert (
+        content["data"]["attribute"]["availableInGrid"]
+        == numeric_attribute.available_in_grid
+    )
+    assert (
+        content["data"]["attribute"]["storefrontSearchPosition"]
+        == numeric_attribute.storefront_search_position
+    )
+
+
 QUERY_ATTRIBUTES = """
     query {
         attributes(first: 20) {
@@ -305,10 +344,14 @@ QUERY_ATTRIBUTES = """
                     id
                     name
                     slug
-                    values {
-                        id
-                        name
-                        slug
+                    choices(first: 10) {
+                        edges {
+                            node {
+                                id
+                                name
+                                slug
+                            }
+                        }
                     }
                 }
             }

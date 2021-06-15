@@ -24,7 +24,7 @@ mutation AppFetchManifest($manifest_url: String!){
         code
       }
     }
-    appErrors{
+    errors{
       field
       message
       code
@@ -47,7 +47,7 @@ def test_app_fetch_manifest(staff_api_client, staff_user, permission_manage_apps
         variables=variables,
     )
     content = get_graphql_content(response)
-    errors = content["data"]["appFetchManifest"]["appErrors"]
+    errors = content["data"]["appFetchManifest"]["errors"]
     manifest = content["data"]["appFetchManifest"]["manifest"]
     assert not errors
     assert manifest["identifier"] == "app2"
@@ -95,7 +95,7 @@ def test_app_fetch_manifest_incorrect_permission_in_manifest(
         variables=variables,
     )
     content = get_graphql_content(response)
-    errors = content["data"]["appFetchManifest"]["appErrors"]
+    errors = content["data"]["appFetchManifest"]["errors"]
     manifest = content["data"]["appFetchManifest"]["manifest"]
     assert len(errors) == 1
     assert errors[0] == {
@@ -121,12 +121,39 @@ def test_app_fetch_manifest_unable_to_connect(
         variables=variables,
     )
     content = get_graphql_content(response)
-    errors = content["data"]["appFetchManifest"]["appErrors"]
+    errors = content["data"]["appFetchManifest"]["errors"]
 
     assert len(errors) == 1
     assert errors[0] == {
         "field": "manifestUrl",
         "message": "Unable to fetch manifest data.",
+        "code": "MANIFEST_URL_CANT_CONNECT",
+    }
+
+
+def test_app_fetch_manifest_timeout(
+    staff_user, staff_api_client, permission_manage_apps, monkeypatch
+):
+    mocked_request = Mock()
+    mocked_request.side_effect = requests.Timeout()
+    monkeypatch.setattr("saleor.graphql.app.mutations.requests.get", mocked_request)
+    manifest_url = "http://localhost:3000/manifest-doesnt-exist"
+    query = APP_FETCH_MANIFEST_MUTATION
+    variables = {
+        "manifest_url": manifest_url,
+    }
+    staff_user.user_permissions.set([permission_manage_apps])
+    response = staff_api_client.post_graphql(
+        query,
+        variables=variables,
+    )
+    content = get_graphql_content(response)
+    errors = content["data"]["appFetchManifest"]["errors"]
+
+    assert len(errors) == 1
+    assert errors[0] == {
+        "field": "manifestUrl",
+        "message": "The request to fetch manifest data timed out.",
         "code": "MANIFEST_URL_CANT_CONNECT",
     }
 
@@ -146,7 +173,7 @@ def test_app_fetch_manifest_wrong_format_of_response(
         variables=variables,
     )
     content = get_graphql_content(response)
-    errors = content["data"]["appFetchManifest"]["appErrors"]
+    errors = content["data"]["appFetchManifest"]["errors"]
 
     assert len(errors) == 1
     assert errors[0] == {
@@ -174,7 +201,7 @@ def test_app_fetch_manifest_handle_exception(
         variables=variables,
     )
     content = get_graphql_content(response)
-    errors = content["data"]["appFetchManifest"]["appErrors"]
+    errors = content["data"]["appFetchManifest"]["errors"]
 
     assert len(errors) == 1
     assert errors[0] == {

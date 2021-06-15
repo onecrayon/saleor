@@ -4,12 +4,13 @@ from graphene_django import DjangoObjectType
 
 from ...channel import models
 from ...core.permissions import ChannelPermissions
+from ...core.tracing import traced_resolver
 from ..core.connection import CountableDjangoObjectType
 from ..decorators import permission_required
 from ..meta.types import ObjectWithMetadata
 from ..translations.resolvers import resolve_translation
 from . import ChannelContext
-from .dataloaders import ChannelWithHasOrdersByIdLoader, ShippingZonesByChannelIdLoader
+from .dataloaders import ChannelWithHasOrdersByIdLoader
 
 
 class ChannelContextType(DjangoObjectType):
@@ -64,11 +65,6 @@ class Channel(CountableDjangoObjectType):
     has_orders = graphene.Boolean(
         required=True, description="Whether a channel has associated orders."
     )
-    shipping_zones = graphene.List(
-        graphene.NonNull("saleor.graphql.shipping.types.ShippingZone"),
-        description="List of channel shipping zones.",
-        required=True,
-    )
 
     class Meta:
         description = "Represents channel."
@@ -78,21 +74,10 @@ class Channel(CountableDjangoObjectType):
 
     @staticmethod
     @permission_required(ChannelPermissions.MANAGE_CHANNELS)
+    @traced_resolver
     def resolve_has_orders(root: models.Channel, info):
         return (
             ChannelWithHasOrdersByIdLoader(info.context)
             .load(root.id)
             .then(lambda channel: channel.has_orders)
-        )
-
-    @staticmethod
-    def resolve_shipping_zones(root: models.Channel, info, **_kwargs):
-        return (
-            ShippingZonesByChannelIdLoader(info.context)
-            .load(root.id)
-            .then(
-                lambda zones: [
-                    ChannelContext(node=zone, channel_slug=root.slug) for zone in zones
-                ]
-            )
         )

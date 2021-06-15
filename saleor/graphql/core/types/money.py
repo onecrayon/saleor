@@ -2,29 +2,23 @@ import graphene
 from django_prices.templatetags import prices
 
 from ....core.prices import quantize_price
-from ..enums import TaxRateType
+from ....core.tracing import traced_resolver
 
 
 class Money(graphene.ObjectType):
     currency = graphene.String(description="Currency code.", required=True)
     amount = graphene.Float(description="Amount of money.", required=True)
-    localized = graphene.String(
-        description="Money formatted according to the current locale.",
-        required=True,
-        deprecation_reason=(
-            "Price formatting according to the current locale should be handled by the "
-            "frontend client. This field will be removed after 2020-07-31."
-        ),
-    )
 
     class Meta:
         description = "Represents amount of money in specific currency."
 
     @staticmethod
+    @traced_resolver
     def resolve_amount(root, _info):
         return quantize_price(root.amount, root.currency)
 
     @staticmethod
+    @traced_resolver
     def resolve_localized(root, _info):
         return prices.amount(root)
 
@@ -75,10 +69,12 @@ class VAT(graphene.ObjectType):
         description = "Represents a VAT rate for a country."
 
     @staticmethod
+    @traced_resolver
     def resolve_standard_rate(root, _info):
         return root.data.get("standard_rate")
 
     @staticmethod
+    @traced_resolver
     def resolve_reduced_rates(root, _info):
         reduced_rates = root.data.get("reduced_rates", {}) or {}
         return [
@@ -89,7 +85,7 @@ class VAT(graphene.ObjectType):
 
 class ReducedRate(graphene.ObjectType):
     rate = graphene.Float(description="Reduced VAT rate in percent.", required=True)
-    rate_type = TaxRateType(description="A type of goods.", required=True)
+    rate_type = graphene.String(description="A type of goods.", required=True)
 
     class Meta:
         description = "Represents a reduced VAT rate for a particular type of goods."

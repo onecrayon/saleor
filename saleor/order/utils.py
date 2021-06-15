@@ -4,12 +4,12 @@ from functools import partial, wraps
 from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple, Union
 
 from django.conf import settings
-from django.db import transaction
 from django.utils import timezone
 from prices import Money, TaxedMoney, fixed_discount, percentage_discount
 
 from ..account.models import User
 from ..core.taxes import zero_money
+from ..core.tracing import traced_atomic_transaction
 from ..core.weight import zero_weight
 from ..discount import DiscountValueType, OrderDiscountType
 from ..discount.models import NotApplicable, OrderDiscount, Voucher, VoucherType
@@ -193,12 +193,19 @@ def update_taxes_for_order_line(
     line_price = line.unit_price.gross if tax_included else line.unit_price.net
     line.unit_price = TaxedMoney(line_price, line_price)
 
-    price = manager.calculate_order_line_unit(order, line, variant, product)
-    line.unit_price = price
-    line.total_price = line.unit_price * line.quantity
-    if price.tax and price.net:
+    unit_price = manager.calculate_order_line_unit(order, line, variant, product)
+    total_price = manager.calculate_order_line_total(order, line, variant, product)
+    line.unit_price = unit_price
+    line.total_price = total_price
+    line.undiscounted_unit_price = line.unit_price + line.unit_discount
+    line.undiscounted_total_price = (
+        line.undiscounted_unit_price * line.quantity
+        if line.unit_discount
+        else total_price
+    )
+    if unit_price.tax and unit_price.net:
         line.tax_rate = manager.get_order_line_tax_rate(
-            order, product, variant, None, price
+            order, product, variant, None, unit_price
         )
 
 
@@ -215,6 +222,10 @@ def update_taxes_for_order_lines(
             "unit_price_gross_amount",
             "total_price_net_amount",
             "total_price_gross_amount",
+            "undiscounted_unit_price_gross_amount",
+            "undiscounted_unit_price_net_amount",
+            "undiscounted_total_price_gross_amount",
+            "undiscounted_total_price_net_amount",
         ],
     )
 
@@ -295,7 +306,7 @@ def update_order_status(order):
         order.save(update_fields=["status"])
 
 
-@transaction.atomic
+@traced_atomic_transaction()
 def add_variant_to_order(
     order, variant, quantity, user, manager, discounts=None, allocate_stock=False
 ):
@@ -342,12 +353,14 @@ def add_variant_to_order(
             variant=variant,
         )
         unit_price = manager.calculate_order_line_unit(order, line, variant, product)
+        total_price = manager.calculate_order_line_total(order, line, variant, product)
         line.unit_price = unit_price
-        line.total_price = unit_price * quantity
+        line.total_price = total_price
+        line.undiscounted_unit_price = unit_price
+        line.undiscounted_total_price = total_price
         line.tax_rate = manager.get_order_line_tax_rate(
             order, product, variant, None, unit_price
         )
-        line.total_price = unit_price * quantity
         line.save(
             update_fields=[
                 "currency",
@@ -355,6 +368,10 @@ def add_variant_to_order(
                 "unit_price_gross_amount",
                 "total_price_net_amount",
                 "total_price_gross_amount",
+                "undiscounted_unit_price_gross_amount",
+                "undiscounted_unit_price_net_amount",
+                "undiscounted_total_price_gross_amount",
+                "undiscounted_total_price_net_amount",
                 "tax_rate",
             ]
         )
@@ -432,11 +449,25 @@ def change_order_line_quantity(
         line.total_price_gross_amount = total_price_gross_amount.quantize(
             Decimal("0.001")
         )
+        undiscounted_total_price_gross_amount = (
+            line.quantity * line.undiscounted_unit_price_gross_amount
+        )
+        undiscounted_total_price_net_amount = (
+            line.quantity * line.undiscounted_unit_price_net_amount
+        )
+        line.undiscounted_total_price_gross_amount = (
+            undiscounted_total_price_gross_amount.quantize(Decimal("0.001"))
+        )
+        line.undiscounted_total_price_net_amount = (
+            undiscounted_total_price_net_amount.quantize(Decimal("0.001"))
+        )
         line.save(
             update_fields=[
                 "quantity",
                 "total_price_net_amount",
                 "total_price_gross_amount",
+                "undiscounted_total_price_gross_amount",
+                "undiscounted_total_price_net_amount",
             ]
         )
     else:
@@ -749,6 +780,12 @@ def update_discount_for_order_line(
         order_line.unit_discount_type = value_type
         order_line.unit_discount_value = value
         order_line.total_price = order_line.unit_price * order_line.quantity
+        order_line.undiscounted_unit_price = (
+            order_line.unit_price + order_line.unit_discount
+        )
+        order_line.undiscounted_total_price = (
+            order_line.quantity * order_line.undiscounted_unit_price
+        )
         fields_to_update.extend(
             [
                 "tax_rate",
@@ -760,6 +797,10 @@ def update_discount_for_order_line(
                 "unit_price_net_amount",
                 "total_price_net_amount",
                 "total_price_gross_amount",
+                "undiscounted_unit_price_gross_amount",
+                "undiscounted_unit_price_net_amount",
+                "undiscounted_total_price_gross_amount",
+                "undiscounted_total_price_net_amount",
             ]
         )
 

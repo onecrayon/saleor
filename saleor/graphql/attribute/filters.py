@@ -3,13 +3,13 @@ from django.db.models import Q
 from graphene_django.filter import GlobalIDFilter, GlobalIDMultipleChoiceFilter
 
 from ...account.utils import requestor_is_staff_member_or_app
-from ...attribute.models import Attribute
+from ...attribute.models import Attribute, AttributeValue
 from ...product.models import Category, Product
 from ..attribute.enums import AttributeTypeEnum
 from ..channel.filters import get_channel_slug_from_filter_data
 from ..core.filters import EnumFilter, MetadataFilterBase
-from ..core.types import ChannelFilterInputObjectType
-from ..core.utils import from_global_id_strict_type
+from ..core.types import ChannelFilterInputObjectType, FilterInputObjectType
+from ..core.utils import from_global_id_or_error
 from ..utils import get_user_or_app_from_context
 from ..utils.filters import filter_fields_containing_value
 
@@ -21,7 +21,7 @@ def filter_attributes_by_product_types(qs, field, value, requestor, channel_slug
     product_qs = Product.objects.visible_to_user(requestor, channel_slug)
 
     if field == "in_category":
-        category_id = from_global_id_strict_type(
+        _type, category_id = from_global_id_or_error(
             value, only_type="Category", field=field
         )
         category = Category.objects.filter(pk=category_id).first()
@@ -38,7 +38,7 @@ def filter_attributes_by_product_types(qs, field, value, requestor, channel_slug
             )
 
     elif field == "in_collection":
-        collection_id = from_global_id_strict_type(
+        _type, collection_id = from_global_id_or_error(
             value, only_type="Collection", field=field
         )
         product_qs = product_qs.filter(collections__id=collection_id)
@@ -56,6 +56,22 @@ def filter_attribute_type(qs, _, value):
     if not value:
         return qs
     return qs.filter(type=value)
+
+
+class AttributeValueFilter(django_filters.FilterSet):
+    search = django_filters.CharFilter(method="filter_search")
+
+    class Meta:
+        model = AttributeValue
+        fields = ["search"]
+
+    @classmethod
+    def filter_search(cls, queryset, _name, value):
+        if not value:
+            return queryset
+        name_slug_qs = Q(name__trigram_similar=value) | Q(slug__trigram_similar=value)
+
+        return queryset.filter(name_slug_qs)
 
 
 class AttributeFilter(MetadataFilterBase):
@@ -98,3 +114,8 @@ class AttributeFilter(MetadataFilterBase):
 class AttributeFilterInput(ChannelFilterInputObjectType):
     class Meta:
         filterset_class = AttributeFilter
+
+
+class AttributeValueFilterInput(FilterInputObjectType):
+    class Meta:
+        filterset_class = AttributeValueFilter

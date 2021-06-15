@@ -10,7 +10,7 @@ from ....checkout.fetch import fetch_checkout_info, fetch_checkout_lines
 from ....checkout.models import Checkout
 from ....core.exceptions import InsufficientStock, InsufficientStockData
 from ....core.taxes import zero_money
-from ....order import OrderStatus
+from ....order import OrderOrigin, OrderStatus
 from ....order.models import Order
 from ....payment import ChargeStatus, PaymentError, TransactionKind
 from ....payment.gateways.dummy_credit_card import TOKEN_VALIDATION_MAPPING
@@ -26,8 +26,10 @@ MUTATION_CHECKOUT_COMPLETE = """
             order {
                 id,
                 token
+                original
+                origin
             },
-            checkoutErrors {
+            errors {
                 field,
                 message,
                 variants,
@@ -63,6 +65,32 @@ ACTION_REQUIRED_GATEWAY_RESPONSE = GatewayResponse(
 )
 
 
+def test_checkout_complete_unconfirmed_order_already_exists(
+    user_api_client,
+    order_with_lines,
+    checkout_with_gift_card,
+):
+    checkout = checkout_with_gift_card
+    orders_count = Order.objects.count()
+    order_with_lines.status = OrderStatus.UNCONFIRMED
+    order_with_lines.checkout_token = checkout.pk
+    order_with_lines.save()
+    checkout_id = graphene.Node.to_global_id("Checkout", checkout.pk)
+    variables = {"checkoutId": checkout_id, "redirectUrl": "https://www.example.com"}
+    checkout.delete()
+    response = user_api_client.post_graphql(MUTATION_CHECKOUT_COMPLETE, variables)
+
+    content = get_graphql_content(response)
+    data = content["data"]["checkoutComplete"]
+    assert not data["errors"]
+
+    order_data = data["order"]
+    assert Order.objects.count() == orders_count
+    assert order_with_lines.token == order_data["token"]
+    assert order_data["origin"] == order_with_lines.origin.upper()
+    assert not order_data["original"]
+
+
 def test_checkout_complete_order_already_exists(
     user_api_client,
     order_with_lines,
@@ -79,11 +107,13 @@ def test_checkout_complete_order_already_exists(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
 
-    order_token = data["order"]["token"]
+    order_data = data["order"]
     assert Order.objects.count() == orders_count
-    assert order_with_lines.token == order_token
+    assert order_with_lines.token == order_data["token"]
+    assert order_data["origin"] == order_with_lines.origin.upper()
+    assert not order_data["original"]
 
 
 def test_checkout_complete_with_inactive_channel_order_already_exists(
@@ -105,8 +135,8 @@ def test_checkout_complete_with_inactive_channel_order_already_exists(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert data["checkoutErrors"][0]["code"] == CheckoutErrorCode.CHANNEL_INACTIVE.name
-    assert data["checkoutErrors"][0]["field"] == "channel"
+    assert data["errors"][0]["code"] == CheckoutErrorCode.CHANNEL_INACTIVE.name
+    assert data["errors"][0]["field"] == "channel"
 
 
 def test_checkout_complete_with_inactive_channel(
@@ -156,8 +186,8 @@ def test_checkout_complete_with_inactive_channel(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert data["checkoutErrors"][0]["code"] == CheckoutErrorCode.CHANNEL_INACTIVE.name
-    assert data["checkoutErrors"][0]["field"] == "channel"
+    assert data["errors"][0]["code"] == CheckoutErrorCode.CHANNEL_INACTIVE.name
+    assert data["errors"][0]["field"] == "channel"
 
 
 @pytest.mark.integration
@@ -212,12 +242,14 @@ def test_checkout_complete(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
 
     order_token = data["order"]["token"]
     assert Order.objects.count() == orders_count + 1
     order = Order.objects.first()
     assert order.status == OrderStatus.UNFULFILLED
+    assert order.origin == OrderOrigin.CHECKOUT
+    assert not order.original
     assert order.token == order_token
     assert order.redirect_url == redirect_url
     assert order.total.gross == total.gross
@@ -244,7 +276,7 @@ def test_checkout_complete(
     order_confirmed_mock.assert_called_once_with(order)
 
 
-def test_checkout_complete_with_unavailable_variant(
+def test_checkout_complete_with_variant_without_price(
     site_settings,
     user_api_client,
     checkout_with_item,
@@ -273,7 +305,7 @@ def test_checkout_complete_with_unavailable_variant(
     response = user_api_client.post_graphql(MUTATION_CHECKOUT_COMPLETE, variables)
 
     content = get_graphql_content(response)
-    errors = content["data"]["checkoutComplete"]["checkoutErrors"]
+    errors = content["data"]["checkoutComplete"]["errors"]
     assert errors[0]["code"] == CheckoutErrorCode.UNAVAILABLE_VARIANT_IN_CHANNEL.name
     assert errors[0]["field"] == "lines"
     assert errors[0]["variants"] == [variant_id]
@@ -354,7 +386,7 @@ def test_checkout_with_voucher_complete(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
 
     order_token = data["order"]["token"]
     assert Order.objects.count() == orders_count + 1
@@ -423,7 +455,7 @@ def test_checkout_complete_without_inventory_tracking(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
 
     order_token = data["order"]["token"]
     assert Order.objects.count() == orders_count + 1
@@ -499,8 +531,8 @@ def test_checkout_complete_error_in_gateway_response_for_dummy_credit_card(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert len(data["checkoutErrors"])
-    assert data["checkoutErrors"][0]["message"] == error
+    assert len(data["errors"])
+    assert data["errors"][0]["message"] == error
     assert payment.transactions.count() == 1
     assert Order.objects.count() == orders_count
 
@@ -596,10 +628,8 @@ def test_checkout_complete_invalid_checkout_id(user_api_client):
     response = user_api_client.post_graphql(MUTATION_CHECKOUT_COMPLETE, variables)
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert (
-        data["checkoutErrors"][0]["message"] == "Couldn't resolve to a node: invalidId"
-    )
-    assert data["checkoutErrors"][0]["field"] == "checkoutId"
+    assert data["errors"][0]["message"] == "Couldn't resolve id: invalidId."
+    assert data["errors"][0]["field"] == "checkoutId"
     assert orders_count == Order.objects.count()
 
 
@@ -617,7 +647,7 @@ def test_checkout_complete_no_payment(
     response = user_api_client.post_graphql(MUTATION_CHECKOUT_COMPLETE, variables)
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert data["checkoutErrors"][0]["message"] == (
+    assert data["errors"][0]["message"] == (
         "Provided payment methods can not cover the checkout's total amount"
     )
     assert orders_count == Order.objects.count()
@@ -661,7 +691,7 @@ def test_checkout_complete_confirmation_needed(
     response = user_api_client.post_graphql(MUTATION_CHECKOUT_COMPLETE, variables)
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
     assert data["confirmationNeeded"] is True
     assert data["confirmationData"]
 
@@ -716,7 +746,7 @@ def test_checkout_confirm(
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
 
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
     assert not data["confirmationNeeded"]
 
     mocked_confirm_payment.assert_called_once()
@@ -759,7 +789,7 @@ def test_checkout_complete_insufficient_stock(
     response = user_api_client.post_graphql(MUTATION_CHECKOUT_COMPLETE, variables)
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert data["checkoutErrors"][0]["message"] == "Insufficient product stock: 123"
+    assert data["errors"][0]["message"] == "Insufficient product stock: 123"
     assert orders_count == Order.objects.count()
 
 
@@ -812,10 +842,12 @@ def test_checkout_complete_insufficient_stock_payment_refunded(
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
 
-    assert data["checkoutErrors"][0]["message"] == "Insufficient product stock: 123"
+    assert data["errors"][0]["message"] == "Insufficient product stock: 123"
     assert orders_count == Order.objects.count()
 
-    gateway_refund_mock.assert_called_once_with(payment, ANY)
+    gateway_refund_mock.assert_called_once_with(
+        payment, ANY, channel_slug=checkout_info.channel.slug
+    )
 
 
 @patch("saleor.checkout.complete_checkout.gateway.void")
@@ -867,10 +899,12 @@ def test_checkout_complete_insufficient_stock_payment_voided(
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
 
-    assert data["checkoutErrors"][0]["message"] == "Insufficient product stock: 123"
+    assert data["errors"][0]["message"] == "Insufficient product stock: 123"
     assert orders_count == Order.objects.count()
 
-    gateway_void_mock.assert_called_once_with(payment, ANY)
+    gateway_void_mock.assert_called_once_with(
+        payment, ANY, channel_slug=checkout_info.channel.slug
+    )
 
 
 def test_checkout_complete_without_redirect_url(
@@ -916,7 +950,7 @@ def test_checkout_complete_without_redirect_url(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
 
     order_token = data["order"]["token"]
     assert Order.objects.count() == orders_count + 1
@@ -986,13 +1020,12 @@ def test_checkout_complete_payment_payment_total_different_than_checkout(
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
 
-    assert (
-        data["checkoutErrors"][0]["code"]
-        == CheckoutErrorCode.CHECKOUT_NOT_FULLY_PAID.name
-    )
+    assert data["errors"][0]["code"] == CheckoutErrorCode.CHECKOUT_NOT_FULLY_PAID.name
     assert orders_count == Order.objects.count()
 
-    gateway_refund_or_void_mock.assert_called_with(payment, ANY)
+    gateway_refund_or_void_mock.assert_called_with(
+        payment, ANY, channel_slug=checkout_info.channel.slug
+    )
 
 
 def test_order_already_exists(
@@ -1010,7 +1043,7 @@ def test_order_already_exists(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
 
     order_token = data["order"]["token"]
     assert Order.objects.count() == 1
@@ -1048,9 +1081,7 @@ def test_create_order_raises_insufficient_stock(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert (
-        data["checkoutErrors"][0]["code"] == CheckoutErrorCode.INSUFFICIENT_STOCK.name
-    )
+    assert data["errors"][0]["code"] == CheckoutErrorCode.INSUFFICIENT_STOCK.name
     assert mocked_create_order.called
 
     payment.refresh_from_db()
@@ -1090,7 +1121,7 @@ def test_checkout_complete_with_digital(
     # Send the creation request
     response = api_client.post_graphql(MUTATION_CHECKOUT_COMPLETE, variables)
     content = get_graphql_content(response)["data"]["checkoutComplete"]
-    assert not content["checkoutErrors"]
+    assert not content["errors"]
 
     # Ensure the order was actually created
     assert (
@@ -1152,7 +1183,7 @@ def test_checkout_complete_0_total_value(
 
     content = get_graphql_content(response)
     data = content["data"]["checkoutComplete"]
-    assert not data["checkoutErrors"]
+    assert not data["errors"]
 
     order_token = data["order"]["token"]
     assert Order.objects.count() == orders_count + 1

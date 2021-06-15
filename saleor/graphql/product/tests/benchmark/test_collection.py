@@ -93,10 +93,14 @@ def test_collection_view(api_client, published_collection, count_queries, channe
                 id
                 name
                 slug
-                values {
-                  id
-                  name
-                  slug
+                choices(first: 10) {
+                  edges {
+                    node {
+                      id
+                      name
+                      slug
+                    }
+                  }
                 }
               }
             }
@@ -186,7 +190,7 @@ def test_create_collection(
                         alt
                     }
                 }
-                collectionErrors {
+                errors {
                     field
                     message
                     code
@@ -211,7 +215,7 @@ def test_create_collection(
         query, variables, permissions=[permission_manage_products]
     )
     content = get_graphql_content(response)
-    errors = content["data"]["collectionCreate"]["collectionErrors"]
+    errors = content["data"]["collectionCreate"]["errors"]
     assert not errors
 
 
@@ -230,7 +234,7 @@ def test_delete_collection(
                 collection {
                     name
                 }
-                collectionErrors {
+                errors {
                     field
                     message
                     code
@@ -250,7 +254,7 @@ def test_delete_collection(
         query, variables, permissions=[permission_manage_products]
     )
     content = get_graphql_content(response)
-    errors = content["data"]["collectionDelete"]["collectionErrors"]
+    errors = content["data"]["collectionDelete"]["errors"]
     assert not errors
 
 
@@ -273,7 +277,7 @@ def test_collection_add_products(
                         totalCount
                     }
                 }
-                collectionErrors {
+                errors {
                     field
                     message
                     code
@@ -292,7 +296,7 @@ def test_collection_add_products(
         query, variables, permissions=[permission_manage_products]
     )
     content = get_graphql_content(response)
-    errors = content["data"]["collectionAddProducts"]["collectionErrors"]
+    errors = content["data"]["collectionAddProducts"]["errors"]
     assert not errors
 
 
@@ -314,7 +318,7 @@ def test_remove_products_from_collection(
                         totalCount
                     }
                 }
-                collectionErrors {
+                errors {
                     field
                     message
                     code
@@ -336,7 +340,7 @@ def test_remove_products_from_collection(
     )
 
     content = get_graphql_content(response)
-    errors = content["data"]["collectionRemoveProducts"]["collectionErrors"]
+    errors = content["data"]["collectionRemoveProducts"]["errors"]
     assert not errors
 
 
@@ -352,7 +356,7 @@ def test_collection_bulk_delete(
     mutation collectionBulkDelete($ids: [ID]!) {
         collectionBulkDelete(ids: $ids) {
             count
-            collectionErrors {
+            errors {
                 field
                 message
                 code
@@ -374,4 +378,4 @@ def test_collection_bulk_delete(
     )
     content = get_graphql_content(response)
 
-    assert not content["data"]["collectionBulkDelete"]["collectionErrors"]
+    assert not content["data"]["collectionBulkDelete"]["errors"]

@@ -40,7 +40,7 @@ def test_product_variant_delete_updates_discounted_price(
     assert data["errors"] == []
 
     mock_update_product_discounted_price_task.delay.assert_called_once_with(product.pk)
-    mocked_recalculate_orders_task.assert_not_called
+    mocked_recalculate_orders_task.assert_not_called()
 
 
 @patch("saleor.product.utils.update_products_discounted_prices_task")
@@ -323,7 +323,7 @@ def test_sale_add_catalogues_updates_products_discounted_prices(
                 sale {
                     name
                 }
-                discountErrors {
+                errors {
                     field
                     message
                 }
@@ -349,7 +349,7 @@ def test_sale_add_catalogues_updates_products_discounted_prices(
     assert response.status_code == 200
 
     content = get_graphql_content(response)
-    assert not content["data"]["saleCataloguesAdd"]["discountErrors"]
+    assert not content["data"]["saleCataloguesAdd"]["errors"]
 
     mock_update_products_discounted_prices_of_catalogues.delay.assert_called_once_with(
         product_ids=[product.pk],
@@ -380,7 +380,7 @@ def test_sale_remove_catalogues_updates_products_discounted_prices(
                 sale {
                     name
                 }
-                discountErrors {
+                errors {
                     field
                     message
                 }
@@ -406,7 +406,7 @@ def test_sale_remove_catalogues_updates_products_discounted_prices(
     assert response.status_code == 200
 
     content = get_graphql_content(response)
-    assert not content["data"]["saleCataloguesRemove"]["discountErrors"]
+    assert not content["data"]["saleCataloguesRemove"]["errors"]
 
     mock_update_products_discounted_prices_of_catalogues.delay.assert_called_once_with(
         product_ids=[product.pk],

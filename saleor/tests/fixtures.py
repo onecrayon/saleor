@@ -41,6 +41,7 @@ from ..checkout.models import Checkout
 from ..checkout.utils import add_variant_to_checkout
 from ..core import JobStatus
 from ..core.payments import PaymentInterface
+from ..core.units import MeasurementUnits
 from ..core.utils.editorjs import clean_editor_js
 from ..csv.events import ExportEvents
 from ..csv.models import ExportEvent, ExportFile
@@ -56,7 +57,7 @@ from ..discount.models import (
 )
 from ..giftcard.models import GiftCard
 from ..menu.models import Menu, MenuItem, MenuItemTranslation
-from ..order import OrderLineData, OrderStatus
+from ..order import OrderLineData, OrderOrigin, OrderStatus
 from ..order.actions import cancel_fulfillment, fulfill_order_lines
 from ..order.events import (
     OrderEvents,
@@ -72,6 +73,7 @@ from ..payment.models import Payment
 from ..plugins.manager import get_plugins_manager
 from ..plugins.models import PluginConfiguration
 from ..plugins.vatlayer.plugin import VatlayerPlugin
+from ..plugins.webhook.utils import to_payment_app_id
 from ..product import ProductMediaTypes
 from ..product.models import (
     Category,
@@ -102,7 +104,7 @@ from ..shipping.models import (
 from ..site.models import SiteSettings
 from ..warehouse.models import Allocation, Stock, Warehouse
 from ..webhook.event_types import WebhookEventType
-from ..webhook.models import Webhook
+from ..webhook.models import Webhook, WebhookEvent
 from ..wishlist.models import Wishlist
 from .utils import dummy_editorjs
 
@@ -193,10 +195,11 @@ def assert_max_num_queries(capture_queries):
 
 
 @pytest.fixture
-def setup_vatlayer(settings):
+def setup_vatlayer(settings, channel_USD):
     settings.PLUGINS = ["saleor.plugins.vatlayer.plugin.VatlayerPlugin"]
     data = {
         "active": True,
+        "channel": channel_USD,
         "configuration": [
             {"name": "Access key", "value": "vatlayer_access_key"},
         ],
@@ -575,6 +578,7 @@ def order(customer_user, channel_USD):
         shipping_address=address,
         user_email=customer_user.email,
         user=customer_user,
+        origin=OrderOrigin.CHECKOUT,
     )
 
 
@@ -792,6 +796,22 @@ def color_attribute(db):
 
 
 @pytest.fixture
+def attribute_choices_for_sorting(db):
+    attribute = Attribute.objects.create(
+        slug="sorting",
+        name="Sorting",
+        type=AttributeType.PRODUCT_TYPE,
+        filterable_in_storefront=True,
+        filterable_in_dashboard=True,
+        available_in_grid=True,
+    )
+    AttributeValue.objects.create(attribute=attribute, name="Global", slug="summer")
+    AttributeValue.objects.create(attribute=attribute, name="Apex", slug="zet")
+    AttributeValue.objects.create(attribute=attribute, name="Police", slug="absorb")
+    return attribute
+
+
+@pytest.fixture
 def rich_text_attribute(db):
     attribute = Attribute.objects.create(
         slug="text",
@@ -865,6 +885,23 @@ def weight_attribute(db):
 
 
 @pytest.fixture
+def numeric_attribute(db):
+    attribute = Attribute.objects.create(
+        slug="length",
+        name="Length",
+        type=AttributeType.PRODUCT_TYPE,
+        input_type=AttributeInputType.NUMERIC,
+        unit=MeasurementUnits.CM,
+        filterable_in_storefront=True,
+        filterable_in_dashboard=True,
+        available_in_grid=True,
+    )
+    AttributeValue.objects.create(attribute=attribute, name="10", slug="10")
+    AttributeValue.objects.create(attribute=attribute, name="15", slug="15")
+    return attribute
+
+
+@pytest.fixture
 def file_attribute(db):
     attribute = Attribute.objects.create(
         slug="image",
@@ -876,14 +913,14 @@ def file_attribute(db):
         attribute=attribute,
         name="test_file.txt",
         slug="test_filetxt",
-        file_url="http://mirumee.com/test_media/test_file.txt",
+        file_url="test_file.txt",
         content_type="text/plain",
     )
     AttributeValue.objects.create(
         attribute=attribute,
         name="test_file.jpeg",
         slug="test_filejpeg",
-        file_url="http://mirumee.com/test_media/test_file.jpeg",
+        file_url="test_file.jpeg",
         content_type="image/jpeg",
     )
     return attribute
@@ -999,14 +1036,14 @@ def page_file_attribute(db):
         attribute=attribute,
         name="test_file.txt",
         slug="test_filetxt",
-        file_url="http://mirumee.com/test_media/test_file.txt",
+        file_url="test_file.txt",
         content_type="text/plain",
     )
     AttributeValue.objects.create(
         attribute=attribute,
         name="test_file.jpeg",
         slug="test_filejpeg",
-        file_url="http://mirumee.com/test_media/test_file.jpeg",
+        file_url="test_file.jpeg",
         content_type="image/jpeg",
     )
     return attribute
@@ -1717,7 +1754,6 @@ def product_list(product_type, category, warehouse, channel_USD, channel_PLN):
         Product.objects.bulk_create(
             [
                 Product(
-                    pk=1486,
                     name="Test product 1",
                     slug="test-product-a",
                     description_plaintext="big blue product",
@@ -1725,7 +1761,6 @@ def product_list(product_type, category, warehouse, channel_USD, channel_PLN):
                     product_type=product_type,
                 ),
                 Product(
-                    pk=1487,
                     name="Test product 2",
                     slug="test-product-b",
                     description_plaintext="big orange product",
@@ -1733,7 +1768,6 @@ def product_list(product_type, category, warehouse, channel_USD, channel_PLN):
                     product_type=product_type,
                 ),
                 Product(
-                    pk=1489,
                     name="Test product 3",
                     slug="test-product-c",
                     description_plaintext="small red",
@@ -1836,21 +1870,18 @@ def product_list_with_variants_many_channel(
         Product.objects.bulk_create(
             [
                 Product(
-                    pk=1486,
                     name="Test product 1",
                     slug="test-product-a",
                     category=category,
                     product_type=product_type,
                 ),
                 Product(
-                    pk=1487,
                     name="Test product 2",
                     slug="test-product-b",
                     category=category,
                     product_type=product_type,
                 ),
                 Product(
-                    pk=1489,
                     name="Test product 3",
                     slug="test-product-c",
                     category=category,
@@ -1986,6 +2017,7 @@ def order_list(customer_user, channel_USD):
         "user": customer_user,
         "user_email": customer_user.email,
         "channel": channel_USD,
+        "origin": OrderOrigin.CHECKOUT,
     }
     order = Order.objects.create(**data)
     order1 = Order.objects.create(**data)
@@ -2183,6 +2215,8 @@ def order_line(order, variant):
         variant=variant,
         unit_price=unit_price,
         total_price=unit_price * quantity,
+        undiscounted_unit_price=unit_price,
+        undiscounted_total_price=unit_price * quantity,
         tax_rate=Decimal("0.23"),
     )
 
@@ -2200,6 +2234,7 @@ def order_line_with_allocation_in_many_stocks(
         user_email=customer_user.email,
         user=customer_user,
         channel=channel_USD,
+        origin=OrderOrigin.CHECKOUT,
     )
 
     product = variant.product
@@ -2218,6 +2253,8 @@ def order_line_with_allocation_in_many_stocks(
         variant=variant,
         unit_price=unit_price,
         total_price=unit_price * quantity,
+        undiscounted_unit_price=unit_price,
+        undiscounted_total_price=unit_price * quantity,
         tax_rate=Decimal("0.23"),
     )
 
@@ -2244,6 +2281,7 @@ def order_line_with_one_allocation(
         user_email=customer_user.email,
         user=customer_user,
         channel=channel_USD,
+        origin=OrderOrigin.CHECKOUT,
     )
 
     product = variant.product
@@ -2262,6 +2300,8 @@ def order_line_with_one_allocation(
         variant=variant,
         unit_price=unit_price,
         total_price=unit_price * quantity,
+        undiscounted_unit_price=unit_price,
+        undiscounted_total_price=unit_price * quantity,
         tax_rate=Decimal("0.23"),
     )
 
@@ -2342,6 +2382,8 @@ def order_with_lines(
         variant=variant,
         unit_price=unit_price,
         total_price=unit_price * quantity,
+        undiscounted_unit_price=unit_price,
+        undiscounted_total_price=unit_price * quantity,
         tax_rate=Decimal("0.23"),
     )
     Allocation.objects.create(
@@ -2387,6 +2429,8 @@ def order_with_lines(
         variant=variant,
         unit_price=unit_price,
         total_price=unit_price * quantity,
+        undiscounted_unit_price=unit_price,
+        undiscounted_total_price=unit_price * quantity,
         tax_rate=Decimal("0.23"),
     )
     Allocation.objects.create(
@@ -2467,6 +2511,7 @@ def order_with_lines_channel_PLN(
         shipping_address=address,
         user_email=customer_user.email,
         user=customer_user,
+        origin=OrderOrigin.CHECKOUT,
     )
     product = Product.objects.create(
         name="Test product in PLN channel",
@@ -2506,6 +2551,8 @@ def order_with_lines_channel_PLN(
         variant=variant,
         unit_price=unit_price,
         total_price=unit_price * quantity,
+        undiscounted_unit_price=unit_price,
+        undiscounted_total_price=unit_price * quantity,
         tax_rate=Decimal("0.23"),
     )
     Allocation.objects.create(
@@ -2551,6 +2598,8 @@ def order_with_lines_channel_PLN(
         variant=variant,
         unit_price=unit_price,
         total_price=unit_price * quantity,
+        undiscounted_unit_price=unit_price,
+        undiscounted_total_price=unit_price * quantity,
         tax_rate=Decimal("0.23"),
     )
     Allocation.objects.create(
@@ -2599,6 +2648,8 @@ def order_with_line_without_inventory_tracking(
         variant=variant,
         unit_price=unit_price,
         total_price=unit_price * quantity,
+        undiscounted_unit_price=unit_price,
+        undiscounted_total_price=unit_price * quantity,
         tax_rate=Decimal("0.23"),
     )
 
@@ -2695,7 +2746,8 @@ def fulfillment(fulfilled_order):
 def draft_order(order_with_lines):
     Allocation.objects.filter(order_line__order=order_with_lines).delete()
     order_with_lines.status = OrderStatus.DRAFT
-    order_with_lines.save(update_fields=["status"])
+    order_with_lines.origin = OrderOrigin.DRAFT
+    order_with_lines.save(update_fields=["status", "origin"])
     return order_with_lines
 
 
@@ -2718,7 +2770,8 @@ def draft_order_with_fixed_discount_order(draft_order):
 @pytest.fixture
 def draft_order_without_inventory_tracking(order_with_line_without_inventory_tracking):
     order_with_line_without_inventory_tracking.status = OrderStatus.DRAFT
-    order_with_line_without_inventory_tracking.save(update_fields=["status"])
+    order_with_line_without_inventory_tracking.origin = OrderStatus.DRAFT
+    order_with_line_without_inventory_tracking.save(update_fields=["status", "origin"])
     return order_with_line_without_inventory_tracking
 
 
@@ -2840,6 +2893,7 @@ def dummy_gateway_config():
 @pytest.fixture
 def dummy_payment_data(payment_dummy):
     return PaymentData(
+        gateway=payment_dummy.gateway,
         amount=Decimal(10),
         currency="USD",
         graphql_payment_id=graphene.Node.to_global_id("Payment", payment_dummy.pk),
@@ -2850,6 +2904,12 @@ def dummy_payment_data(payment_dummy):
         customer_ip_address=None,
         customer_email="example@test.com",
     )
+
+
+@pytest.fixture
+def dummy_webhook_app_payment_data(dummy_payment_data, payment_app):
+    dummy_payment_data.gateway = to_payment_app_id(payment_app, "credit-card")
+    return dummy_payment_data
 
 
 @pytest.fixture
@@ -2971,6 +3031,11 @@ def permission_manage_webhooks():
 @pytest.fixture
 def permission_manage_channels():
     return Permission.objects.get(codename="manage_channels")
+
+
+@pytest.fixture
+def permission_manage_payments():
+    return Permission.objects.get(codename="handle_payments")
 
 
 @pytest.fixture
@@ -3580,6 +3645,26 @@ def other_description_json():
 def app(db):
     app = App.objects.create(name="Sample app objects", is_active=True)
     app.tokens.create(name="Default")
+    return app
+
+
+@pytest.fixture
+def payment_app(db, permission_manage_payments):
+    app = App.objects.create(name="Payment App", is_active=True)
+    app.tokens.create(name="Default")
+    app.permissions.add(permission_manage_payments)
+
+    webhook = Webhook.objects.create(
+        name="payment-webhook-1",
+        app=app,
+        target_url="https://payment-gateway.com/api/",
+    )
+    webhook.events.bulk_create(
+        [
+            WebhookEvent(event_type=event_type, webhook=webhook)
+            for event_type in WebhookEventType.PAYMENT_EVENTS
+        ]
+    )
     return app
 
 

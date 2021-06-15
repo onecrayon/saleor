@@ -3,7 +3,9 @@ from urllib.parse import urljoin
 import graphene
 from django.conf import settings
 
+from ....core.tracing import traced_resolver
 from ....product.product_images import get_thumbnail
+from ...account.enums import AddressTypeEnum
 from ..enums import (
     AccountErrorCode,
     AppErrorCode,
@@ -79,6 +81,9 @@ class Error(graphene.ObjectType):
 
 class AccountError(Error):
     code = AccountErrorCode(description="The error code.", required=True)
+    address_type = AddressTypeEnum(
+        description="A type of address that causes the error.", required=False
+    )
 
 
 class AppError(Error):
@@ -128,6 +133,9 @@ class CheckoutError(Error):
         description="List of varint IDs which causes the error.",
         required=False,
     )
+    address_type = AddressTypeEnum(
+        description="A type of address that causes the error.", required=False
+    )
 
 
 class ProductWithoutVariantError(Error):
@@ -176,6 +184,9 @@ class OrderError(Error):
         graphene.NonNull(graphene.ID),
         description="List of product variants that are associated with the error",
         required=False,
+    )
+    address_type = AddressTypeEnum(
+        description="A type of address that causes the error.", required=False
     )
 
 
@@ -369,6 +380,7 @@ class File(graphene.ObjectType):
     )
 
     @staticmethod
+    @traced_resolver
     def resolve_url(root, info):
         return info.context.build_absolute_uri(urljoin(settings.MEDIA_URL, root.url))
 
@@ -413,6 +425,7 @@ class Job(graphene.Interface):
     message = graphene.String(description="Job message.")
 
     @classmethod
+    @traced_resolver
     def resolve_type(cls, instance, _info):
         """Map a data object to a Graphene type."""
         MODEL_TO_TYPE_MAP = {

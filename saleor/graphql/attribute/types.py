@@ -2,19 +2,25 @@ import re
 
 import graphene
 
-from ...attribute import AttributeInputType, models
+from ...attribute import AttributeInputType, AttributeType, models
+from ...core.exceptions import PermissionDenied
+from ...core.permissions import PagePermissions, ProductPermissions
+from ...core.tracing import traced_resolver
+from ...graphql.utils import get_user_or_app_from_context
 from ..core.connection import CountableDjangoObjectType
+from ..core.enums import MeasurementUnitsEnum
+from ..core.fields import FilterInputConnectionField
 from ..core.types import File
-from ..decorators import (
-    check_attribute_required_permissions,
-    check_attribute_value_required_permissions,
-)
+from ..core.types.common import IntRangeInput
+from ..decorators import check_attribute_required_permissions
 from ..meta.types import ObjectWithMetadata
 from ..translations.fields import TranslationField
 from ..translations.types import AttributeTranslation, AttributeValueTranslation
-from .dataloaders import AttributesByAttributeId, AttributeValuesByAttributeIdLoader
+from .dataloaders import AttributesByAttributeId
 from .descriptions import AttributeDescriptions, AttributeValueDescriptions
 from .enums import AttributeEntityTypeEnum, AttributeInputTypeEnum, AttributeTypeEnum
+from .filters import AttributeValueFilterInput
+from .sorters import AttributeChoicesSortingInput
 
 COLOR_PATTERN = r"^(#[0-9a-fA-F]{3}|#(?:[0-9a-fA-F]{2}){2,4}|(rgb|hsl)a?\((-?\d+%?[,\s]+){2,3}\s*[\d\.]+%?\))$"  # noqa
 color_pattern = re.compile(COLOR_PATTERN)
@@ -43,17 +49,32 @@ class AttributeValue(CountableDjangoObjectType):
         model = models.AttributeValue
 
     @staticmethod
-    @check_attribute_value_required_permissions()
-    def resolve_input_type(root: models.AttributeValue, *_args):
-        return root.input_type
+    def resolve_input_type(root: models.AttributeValue, info, *_args):
+        def _resolve_input_type(attribute):
+            requester = get_user_or_app_from_context(info.context)
+            if attribute.type == AttributeType.PAGE_TYPE:
+                if requester.has_perm(PagePermissions.MANAGE_PAGES):
+                    return attribute.input_type
+                raise PermissionDenied()
+            elif requester.has_perm(ProductPermissions.MANAGE_PRODUCTS):
+                return attribute.input_type
+            raise PermissionDenied()
+
+        return (
+            AttributesByAttributeId(info.context)
+            .load(root.attribute_id)
+            .then(_resolve_input_type)
+        )
 
     @staticmethod
+    @traced_resolver
     def resolve_file(root: models.AttributeValue, *_args):
         if not root.file_url:
             return
         return File(url=root.file_url, content_type=root.content_type)
 
     @staticmethod
+    @traced_resolver
     def resolve_reference(root: models.AttributeValue, info, **_kwargs):
         def prepare_reference(attribute):
             if attribute.input_type != AttributeInputType.REFERENCE:
@@ -80,8 +101,15 @@ class Attribute(CountableDjangoObjectType):
     name = graphene.String(description=AttributeDescriptions.NAME)
     slug = graphene.String(description=AttributeDescriptions.SLUG)
     type = AttributeTypeEnum(description=AttributeDescriptions.TYPE)
-
-    values = graphene.List(AttributeValue, description=AttributeDescriptions.VALUES)
+    unit = MeasurementUnitsEnum(description=AttributeDescriptions.UNIT)
+    choices = FilterInputConnectionField(
+        AttributeValue,
+        sort_by=AttributeChoicesSortingInput(description="Sort attribute choices."),
+        filter=AttributeValueFilterInput(
+            description="Filtering options for attribute choices."
+        ),
+        description=AttributeDescriptions.VALUES,
+    )
 
     value_required = graphene.Boolean(
         description=AttributeDescriptions.VALUE_REQUIRED, required=True
@@ -115,8 +143,11 @@ class Attribute(CountableDjangoObjectType):
         model = models.Attribute
 
     @staticmethod
-    def resolve_values(root: models.Attribute, info):
-        return AttributeValuesByAttributeIdLoader(info.context).load(root.id)
+    @traced_resolver
+    def resolve_choices(root: models.Attribute, info, **_kwargs):
+        if root.input_type in AttributeInputType.TYPES_WITH_CHOICES:
+            return root.values.all()
+        return []
 
     @staticmethod
     @check_attribute_required_permissions()
@@ -166,13 +197,36 @@ class SelectedAttribute(graphene.ObjectType):
 
 class AttributeInput(graphene.InputObjectType):
     slug = graphene.String(required=True, description=AttributeDescriptions.SLUG)
-    value = graphene.String(
-        required=False,
-        description=(
-            "[Deprecated] Internal representation of a value (unique per attribute). "
-            "This field will be removed after 2020-07-31."
-        ),
-    )  # deprecated
     values = graphene.List(
         graphene.String, required=False, description=AttributeValueDescriptions.SLUG
+    )
+    values_range = graphene.Field(
+        IntRangeInput,
+        required=False,
+        description=AttributeValueDescriptions.VALUES_RANGE,
+    )
+
+
+class AttributeValueInput(graphene.InputObjectType):
+    id = graphene.ID(description="ID of the selected attribute.")
+    values = graphene.List(
+        graphene.String,
+        required=False,
+        description=(
+            "The value or slug of an attribute to resolve. "
+            "If the passed value is non-existent, it will be created."
+        ),
+    )
+    file = graphene.String(
+        required=False,
+        description="URL of the file attribute. Every time, a new value is created.",
+    )
+    content_type = graphene.String(required=False, description="File content type.")
+    references = graphene.List(
+        graphene.NonNull(graphene.ID),
+        description="List of entity IDs that will be used as references.",
+        required=False,
+    )
+    rich_text = graphene.JSONString(
+        required=False, description="Text content in JSON format."
     )

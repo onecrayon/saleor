@@ -96,7 +96,7 @@ CREATE_PAYMENT_MUTATION = """
                 }
                 chargeStatus
             }
-            paymentErrors {
+            errors {
                 code
                 field
             }
@@ -130,7 +130,7 @@ def test_checkout_add_payment_without_shipping_method_and_not_shipping_required(
     response = user_api_client.post_graphql(CREATE_PAYMENT_MUTATION, variables)
     content = get_graphql_content(response)
     data = content["data"]["checkoutPaymentCreate"]
-    assert not data["paymentErrors"]
+    assert not data["errors"]
     transactions = data["payment"]["transactions"]
     assert not transactions
     payment = Payment.objects.get()
@@ -172,8 +172,8 @@ def test_checkout_add_payment_without_shipping_method_with_shipping_required(
     content = get_graphql_content(response)
     data = content["data"]["checkoutPaymentCreate"]
 
-    assert data["paymentErrors"][0]["code"] == "SHIPPING_METHOD_NOT_SET"
-    assert data["paymentErrors"][0]["field"] == "shippingMethod"
+    assert data["errors"][0]["code"] == "SHIPPING_METHOD_NOT_SET"
+    assert data["errors"][0]["field"] == "shippingMethod"
 
 
 def test_checkout_add_payment_with_shipping_method_and_shipping_required(
@@ -204,7 +204,7 @@ def test_checkout_add_payment_with_shipping_method_and_shipping_required(
     content = get_graphql_content(response)
     data = content["data"]["checkoutPaymentCreate"]
 
-    assert not data["paymentErrors"]
+    assert not data["errors"]
     transactions = data["payment"]["transactions"]
     assert not transactions
     payment = Payment.objects.get()
@@ -247,7 +247,7 @@ def test_checkout_add_payment(
     content = get_graphql_content(response)
     data = content["data"]["checkoutPaymentCreate"]
 
-    assert not data["paymentErrors"]
+    assert not data["errors"]
     transactions = data["payment"]["transactions"]
     assert not transactions
     payment = Payment.objects.get()
@@ -285,7 +285,7 @@ def test_checkout_add_payment_default_amount(
     response = user_api_client.post_graphql(CREATE_PAYMENT_MUTATION, variables)
     content = get_graphql_content(response)
     data = content["data"]["checkoutPaymentCreate"]
-    assert not data["paymentErrors"]
+    assert not data["errors"]
     transactions = data["payment"]["transactions"]
     assert not transactions
     payment = Payment.objects.get()
@@ -324,8 +324,7 @@ def test_checkout_add_payment_bad_amount(
     content = get_graphql_content(response)
     data = content["data"]["checkoutPaymentCreate"]
     assert (
-        data["paymentErrors"][0]["code"]
-        == PaymentErrorCode.PARTIAL_PAYMENT_NOT_ALLOWED.name
+        data["errors"][0]["code"] == PaymentErrorCode.PARTIAL_PAYMENT_NOT_ALLOWED.name
     )
 
 
@@ -345,10 +344,8 @@ def test_checkout_add_payment_not_supported_gateways(
     response = user_api_client.post_graphql(CREATE_PAYMENT_MUTATION, variables)
     content = get_graphql_content(response)
     data = content["data"]["checkoutPaymentCreate"]
-    assert (
-        data["paymentErrors"][0]["code"] == PaymentErrorCode.NOT_SUPPORTED_GATEWAY.name
-    )
-    assert data["paymentErrors"][0]["field"] == "gateway"
+    assert data["errors"][0]["code"] == PaymentErrorCode.NOT_SUPPORTED_GATEWAY.name
+    assert data["errors"][0]["field"] == "gateway"
 
 
 def test_use_checkout_billing_address_as_payment_billing(
@@ -375,11 +372,8 @@ def test_use_checkout_billing_address_as_payment_billing(
     data = content["data"]["checkoutPaymentCreate"]
 
     # check if proper error is returned if address is missing
-    assert data["paymentErrors"][0]["field"] == "billingAddress"
-    assert (
-        data["paymentErrors"][0]["code"]
-        == PaymentErrorCode.BILLING_ADDRESS_NOT_SET.name
-    )
+    assert data["errors"][0]["field"] == "billingAddress"
+    assert data["errors"][0]["code"] == PaymentErrorCode.BILLING_ADDRESS_NOT_SET.name
 
     # assign the address and try again
     address.street_address_1 = "spanish-inqusition"
@@ -435,7 +429,7 @@ def test_create_payment_for_checkout_with_active_payments(
     # then
     data = content["data"]["checkoutPaymentCreate"]
 
-    assert not data["paymentErrors"]
+    assert not data["errors"]
     checkout.refresh_from_db()
     assert checkout.payments.all().count() == payments_count + 1
     active_payments = checkout.payments.all().filter(is_active=True)
@@ -881,7 +875,7 @@ def set_dummy_customer_id(customer_user, dummy_customer_id):
 
 
 def test_list_payment_sources(
-    mocker, dummy_customer_id, set_dummy_customer_id, user_api_client
+    mocker, dummy_customer_id, set_dummy_customer_id, user_api_client, channel_USD
 ):
     gateway = DUMMY_GATEWAY
     query = """
@@ -905,7 +899,7 @@ def test_list_payment_sources(
     )
     response = user_api_client.post_graphql(query)
 
-    mock_get_source_list.assert_called_once_with(gateway, dummy_customer_id, ANY)
+    mock_get_source_list.assert_called_once_with(gateway, dummy_customer_id, ANY, None)
     content = get_graphql_content(response)["data"]["me"]["storedPaymentSources"]
     assert content is not None and len(content) == 1
     assert content[0] == {"gateway": gateway, "creditCardInfo": {"lastDigits": "5678"}}
@@ -943,15 +937,16 @@ def test_stored_payment_sources_restriction(
 
 
 PAYMENT_INITIALIZE_MUTATION = """
-mutation PaymentInitialize($gateway: String!, $paymentData: JSONString){
-      paymentInitialize(gateway: $gateway, paymentData: $paymentData)
+mutation PaymentInitialize(
+    $gateway: String!,$channel: String!, $paymentData: JSONString){
+      paymentInitialize(gateway: $gateway, channel: $channel, paymentData: $paymentData)
       {
         initializedPayment{
           gateway
           name
           data
         }
-        paymentErrors{
+        errors{
           field
           message
         }
@@ -961,7 +956,7 @@ mutation PaymentInitialize($gateway: String!, $paymentData: JSONString){
 
 
 @patch.object(PluginsManager, "initialize_payment")
-def test_payment_initialize(mocked_initialize_payment, api_client):
+def test_payment_initialize(mocked_initialize_payment, api_client, channel_USD):
     exected_initialize_payment_response = InitializedPaymentResponse(
         gateway="gateway.id",
         name="PaymentPluginName",
@@ -976,6 +971,7 @@ def test_payment_initialize(mocked_initialize_payment, api_client):
     query = PAYMENT_INITIALIZE_MUTATION
     variables = {
         "gateway": exected_initialize_payment_response.gateway,
+        "channel": channel_USD.slug,
         "paymentData": json.dumps(
             {"paymentMethod": "applepay", "validationUrl": "https://127.0.0.1/valid"}
         ),
@@ -991,10 +987,11 @@ def test_payment_initialize(mocked_initialize_payment, api_client):
     )
 
 
-def test_payment_initialize_gateway_doesnt_exist(api_client):
+def test_payment_initialize_gateway_doesnt_exist(api_client, channel_USD):
     query = PAYMENT_INITIALIZE_MUTATION
     variables = {
         "gateway": "wrong.gateway",
+        "channel": channel_USD.slug,
         "paymentData": json.dumps(
             {"paymentMethod": "applepay", "validationUrl": "https://127.0.0.1/valid"}
         ),
@@ -1005,13 +1002,16 @@ def test_payment_initialize_gateway_doesnt_exist(api_client):
 
 
 @patch.object(PluginsManager, "initialize_payment")
-def test_payment_initialize_plugin_raises_error(mocked_initialize_payment, api_client):
+def test_payment_initialize_plugin_raises_error(
+    mocked_initialize_payment, api_client, channel_USD
+):
     error_msg = "Missing paymentMethod field."
     mocked_initialize_payment.side_effect = PaymentError(error_msg)
 
     query = PAYMENT_INITIALIZE_MUTATION
     variables = {
         "gateway": "gateway.id",
+        "channel": channel_USD.slug,
         "paymentData": json.dumps({"validationUrl": "https://127.0.0.1/valid"}),
     }
     response = api_client.post_graphql(query, variables)
@@ -1019,7 +1019,7 @@ def test_payment_initialize_plugin_raises_error(mocked_initialize_payment, api_c
     initialized_payment_data = content["data"]["paymentInitialize"][
         "initializedPayment"
     ]
-    errors = content["data"]["paymentInitialize"]["paymentErrors"]
+    errors = content["data"]["paymentInitialize"]["errors"]
     assert initialized_payment_data is None
     assert len(errors) == 1
     assert errors[0]["field"] == "paymentData"

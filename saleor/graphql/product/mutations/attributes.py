@@ -3,12 +3,12 @@ from typing import List
 
 import graphene
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db import transaction
 from django.db.models import Q
 
 from ....attribute import AttributeType
 from ....attribute import models as attribute_models
 from ....core.permissions import ProductPermissions, ProductTypePermissions
+from ....core.tracing import traced_atomic_transaction
 from ....product import models
 from ....product.error_codes import ProductErrorCode
 from ...attribute.mutations import (
@@ -20,7 +20,7 @@ from ...channel import ChannelContext
 from ...core.inputs import ReorderInput
 from ...core.mutations import BaseMutation
 from ...core.types.common import ProductError
-from ...core.utils import from_global_id_strict_type
+from ...core.utils import from_global_id_or_error
 from ...core.utils.reordering import perform_reordering
 from ...product.types import Product, ProductType, ProductVariant
 from ..enums import ProductAttributeType
@@ -65,7 +65,7 @@ class ProductAttributeAssign(BaseMutation):
         variant_attrs_pks = []
 
         for operation in operations:
-            pk = from_global_id_strict_type(
+            _type, pk = from_global_id_or_error(
                 operation.id, only_type=Attribute, field="operations"
             )
             if operation.type == ProductAttributeType.PRODUCT:
@@ -179,7 +179,7 @@ class ProductAttributeAssign(BaseMutation):
             model.objects.create(product_type=product_type, attribute_id=pk)
 
     @classmethod
-    @transaction.atomic()
+    @traced_atomic_transaction()
     def perform_mutation(cls, _root, info, **data):
         product_type_id: str = data["product_type_id"]
         operations: List[ProductAttributeAssignInput] = data["operations"]
@@ -254,9 +254,9 @@ class ProductAttributeUnassign(BaseMutation):
 
         # Resolve all the passed IDs to ints
         attribute_pks = [
-            from_global_id_strict_type(
+            from_global_id_or_error(
                 attribute_id, only_type=Attribute, field="attribute_id"
-            )
+            )[1]
             for attribute_id in attribute_ids
         ]
 
@@ -293,7 +293,7 @@ class ProductTypeReorderAttributes(BaseReorderAttributesMutation):
 
     @classmethod
     def perform_mutation(cls, _root, info, product_type_id, type, moves):
-        pk = from_global_id_strict_type(
+        _type, pk = from_global_id_or_error(
             product_type_id, only_type=ProductType, field="product_type_id"
         )
 
@@ -324,7 +324,7 @@ class ProductTypeReorderAttributes(BaseReorderAttributesMutation):
             error.code = ProductErrorCode.NOT_FOUND.value
             raise ValidationError({"moves": error})
 
-        with transaction.atomic():
+        with traced_atomic_transaction():
             perform_reordering(attributes_m2m, operations)
 
         return ProductTypeReorderAttributes(product_type=product_type)
@@ -367,7 +367,7 @@ class ProductReorderAttributeValues(BaseReorderAttributeValuesMutation):
 
     @staticmethod
     def get_instance(instance_id: str):
-        pk = from_global_id_strict_type(
+        _type, pk = from_global_id_or_error(
             instance_id, only_type=Product, field="product_id"
         )
 
@@ -423,7 +423,7 @@ class ProductVariantReorderAttributeValues(BaseReorderAttributeValuesMutation):
 
     @staticmethod
     def get_instance(instance_id: str):
-        pk = from_global_id_strict_type(
+        _type, pk = from_global_id_or_error(
             instance_id, only_type=ProductVariant, field="variant_id"
         )
 

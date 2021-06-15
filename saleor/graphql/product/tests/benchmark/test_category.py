@@ -108,10 +108,14 @@ def test_category_view(api_client, category_with_products, count_queries, channe
                 id
                 name
                 slug
-                values {
-                  id
-                  name
-                  slug
+                choices(first: 10) {
+                  edges {
+                    node {
+                      id
+                      name
+                      slug
+                    }
+                  }
                 }
               }
             }
@@ -174,7 +178,7 @@ def test_category_delete(
                 category {
                     name
                 }
-                productErrors {
+                errors {
                     field
                     message
                 }
@@ -188,5 +192,5 @@ def test_category_delete(
         query, variables, permissions=[permission_manage_products]
     )
     content = get_graphql_content(response)
-    errors = content["data"]["categoryDelete"]["productErrors"]
+    errors = content["data"]["categoryDelete"]["errors"]
     assert not errors

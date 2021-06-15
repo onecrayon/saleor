@@ -214,7 +214,7 @@ CREATE_PAGE_MUTATION = """
                     }
                 }
             }
-            pageErrors {
+            errors {
                 field
                 code
                 message
@@ -261,7 +261,7 @@ def test_page_create_mutation(staff_api_client, permission_manage_pages, page_ty
     )
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    assert data["pageErrors"] == []
+    assert data["errors"] == []
     assert data["page"]["title"] == page_title
     assert data["page"]["content"] == page_content
     assert data["page"]["slug"] == page_slug
@@ -305,7 +305,7 @@ def test_page_create_trigger_page_webhook(
     )
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    assert data["pageErrors"] == []
+    assert data["errors"] == []
     assert data["page"]["title"] == page_title
     assert data["page"]["content"] == page_content
     assert data["page"]["slug"] == page_slug
@@ -327,7 +327,7 @@ def test_page_create_required_fields(
         CREATE_PAGE_MUTATION, variables, permissions=[permission_manage_pages]
     )
     content = get_graphql_content(response)
-    errors = content["data"]["pageCreate"]["pageErrors"]
+    errors = content["data"]["pageCreate"]["errors"]
 
     assert len(errors) == 1
     assert errors[0]["field"] == "title"
@@ -346,7 +346,7 @@ def test_create_default_slug(staff_api_client, permission_manage_pages, page_typ
     )
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]["title"] == title
     assert data["page"]["slug"] == slugify(title)
 
@@ -389,7 +389,7 @@ def test_page_create_mutation_missing_required_attributes(
     # then
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
 
     assert not data["page"]
     assert len(errors) == 1
@@ -432,7 +432,7 @@ def test_page_create_mutation_empty_attribute_value(
     # then
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
 
     assert not data["page"]
     assert len(errors) == 1
@@ -480,7 +480,7 @@ def test_create_page_with_file_attribute(
     # then
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
 
     assert not errors
     assert data["page"]["title"] == page_title
@@ -495,7 +495,10 @@ def test_create_page_with_file_attribute(
             {
                 "slug": f"{attr_value.slug}-2",
                 "name": attr_value.name,
-                "file": {"url": attr_value.file_url, "contentType": None},
+                "file": {
+                    "url": f"http://testserver/media/{attr_value.file_url}",
+                    "contentType": None,
+                },
                 "reference": None,
             }
         ],
@@ -550,7 +553,7 @@ def test_create_page_with_file_attribute_new_attribute_value(
     # then
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
 
     assert not errors
     assert data["page"]["title"] == page_title
@@ -615,7 +618,7 @@ def test_create_page_with_file_attribute_not_required_no_file_url_given(
 
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    assert data["pageErrors"] == []
+    assert data["errors"] == []
     assert data["page"]["title"] == page_title
     assert data["page"]["content"] == page_content
     assert data["page"]["slug"] == page_slug
@@ -661,7 +664,7 @@ def test_create_page_with_file_attribute_required_no_file_url_given(
 
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
     assert not data["page"]
     assert len(errors) == 1
     assert errors[0]["code"] == PageErrorCode.REQUIRED.name
@@ -712,7 +715,7 @@ def test_create_page_with_page_reference_attribute(
     # then
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
 
     assert not errors
     assert data["page"]["title"] == page_title
@@ -781,7 +784,7 @@ def test_create_page_with_page_reference_attribute_not_required_no_references_gi
 
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    assert data["pageErrors"] == []
+    assert data["errors"] == []
     assert data["page"]["title"] == page_title
     assert data["page"]["content"] == page_content
     assert data["page"]["slug"] == page_slug
@@ -832,7 +835,7 @@ def test_create_page_with_page_reference_attribute_required_no_references_given(
 
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
     assert not data["page"]
     assert len(errors) == 1
     assert errors[0]["code"] == PageErrorCode.REQUIRED.name
@@ -883,7 +886,7 @@ def test_create_page_with_product_reference_attribute(
     # then
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
 
     assert not errors
     assert data["page"]["title"] == page_title
@@ -952,7 +955,7 @@ def test_create_page_with_product_reference_attribute_not_required_no_references
 
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    assert data["pageErrors"] == []
+    assert data["errors"] == []
     assert data["page"]["title"] == page_title
     assert data["page"]["content"] == page_content
     assert data["page"]["slug"] == page_slug
@@ -1003,7 +1006,7 @@ def test_create_page_with_product_reference_attribute_required_no_references_giv
 
     content = get_graphql_content(response)
     data = content["data"]["pageCreate"]
-    errors = data["pageErrors"]
+    errors = data["errors"]
     assert not data["page"]
     assert len(errors) == 1
     assert errors[0]["code"] == PageErrorCode.REQUIRED.name
@@ -1018,7 +1021,7 @@ PAGE_DELETE_MUTATION = """
                 title
                 id
             }
-            pageErrors {
+            errors {
                 field
                 code
                 message
@@ -1062,6 +1065,38 @@ def test_page_delete_trigger_webhook(
     )
 
 
+@mock.patch("saleor.attribute.signals.delete_from_storage_task.delay")
+def test_page_delete_with_file_attribute(
+    delete_from_storage_task_mock,
+    staff_api_client,
+    page,
+    permission_manage_pages,
+    page_file_attribute,
+):
+    # given
+    page_type = page.page_type
+    page_type.page_attributes.add(page_file_attribute)
+    existing_value = page_file_attribute.values.first()
+    associate_attribute_values_to_instance(page, page_file_attribute, existing_value)
+
+    variables = {"id": graphene.Node.to_global_id("Page", page.id)}
+
+    # when
+    response = staff_api_client.post_graphql(
+        PAGE_DELETE_MUTATION, variables, permissions=[permission_manage_pages]
+    )
+
+    # then
+    content = get_graphql_content(response)
+    data = content["data"]["pageDelete"]
+    assert data["page"]["title"] == page.title
+    with pytest.raises(page._meta.model.DoesNotExist):
+        page.refresh_from_db()
+    with pytest.raises(existing_value._meta.model.DoesNotExist):
+        existing_value.refresh_from_db()
+    delete_from_storage_task_mock.assert_called_once_with(existing_value.file_url)
+
+
 UPDATE_PAGE_MUTATION = """
     mutation updatePage(
         $id: ID!, $input: PageInput!
@@ -1090,7 +1125,7 @@ UPDATE_PAGE_MUTATION = """
                     }
                 }
             }
-            pageErrors {
+            errors {
                 field
                 code
                 message
@@ -1133,7 +1168,7 @@ def test_update_page(staff_api_client, permission_manage_pages, page):
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]["title"] == page_title
     assert data["page"]["slug"] == new_slug
 
@@ -1168,8 +1203,8 @@ def test_update_page(staff_api_client, permission_manage_pages, page):
         assert attr_data in expected_attributes
 
 
-@freeze_time("2020-03-18 12:00:00")
 @mock.patch("saleor.plugins.webhook.plugin.trigger_webhooks_for_event.delay")
+@freeze_time("2020-03-18 12:00:00")
 def test_update_page_trigger_webhook(
     mocked_webhook_trigger, staff_api_client, permission_manage_pages, page, settings
 ):
@@ -1200,7 +1235,7 @@ def test_update_page_trigger_webhook(
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]["title"] == page_title
     assert data["page"]["slug"] == new_slug
     page.publication_date = datetime.date(2020, 3, 18)
@@ -1240,7 +1275,7 @@ def test_update_page_with_file_attribute_value(
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]
     updated_attribute = {
         "attribute": {"slug": page_file_attribute.slug},
@@ -1293,7 +1328,7 @@ def test_update_page_with_file_attribute_new_value_is_not_created(
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]
     updated_attribute = {
         "attribute": {"slug": page_file_attribute.slug},
@@ -1303,7 +1338,7 @@ def test_update_page_with_file_attribute_new_value_is_not_created(
                 "name": existing_value.name,
                 "reference": None,
                 "file": {
-                    "url": existing_value.file_url,
+                    "url": f"http://testserver/media/{existing_value.file_url}",
                     "contentType": existing_value.content_type,
                 },
             }
@@ -1339,7 +1374,7 @@ def test_update_page_clear_values(staff_api_client, permission_manage_pages, pag
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]
     assert not data["page"]["attributes"][0]["values"]
 
@@ -1383,7 +1418,7 @@ def test_update_page_with_page_reference_attribute_new_value(
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]
     updated_attribute = {
         "attribute": {"slug": page_type_page_reference_attribute.slug},
@@ -1447,7 +1482,7 @@ def test_update_page_with_page_reference_attribute_existing_value(
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]
     updated_attribute = {
         "attribute": {"slug": page_type_page_reference_attribute.slug},
@@ -1501,7 +1536,7 @@ def test_update_page_with_product_reference_attribute_new_value(
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]
     updated_attribute = {
         "attribute": {"slug": page_type_product_reference_attribute.slug},
@@ -1564,7 +1599,7 @@ def test_update_page_with_product_reference_attribute_existing_value(
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]
     updated_attribute = {
         "attribute": {"slug": page_type_product_reference_attribute.slug},
@@ -1603,7 +1638,7 @@ def test_public_page_sets_publication_date(
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
 
-    assert not data["pageErrors"]
+    assert not data["errors"]
     assert data["page"]["isPublished"] is True
     assert data["page"]["publicationDate"] == "2020-03-18"
 
@@ -1621,7 +1656,7 @@ def test_update_page_blank_slug_value(
         query, variables, permissions=[permission_manage_pages]
     )
     content = get_graphql_content(response)
-    errors = content["data"]["pageUpdate"]["pageErrors"]
+    errors = content["data"]["pageUpdate"]["errors"]
 
     assert len(errors) == 1
     assert errors[0]["field"] == "slug"
@@ -1640,7 +1675,7 @@ def test_update_page_with_title_value_and_without_slug_value(
                 title
                 slug
             }
-            pageErrors {
+            errors {
                 field
                 code
                 message
@@ -1654,7 +1689,7 @@ def test_update_page_with_title_value_and_without_slug_value(
         query, variables, permissions=[permission_manage_pages]
     )
     content = get_graphql_content(response)
-    errors = content["data"]["pageUpdate"]["pageErrors"]
+    errors = content["data"]["pageUpdate"]["errors"]
 
     assert len(errors) == 1
     assert errors[0]["field"] == "slug"
@@ -1683,7 +1718,7 @@ UPDATE_PAGE_ATTRIBUTES_MUTATION = """
                     }
                 }
             }
-            pageErrors {
+            errors {
                 field
                 code
                 message
@@ -1764,7 +1799,7 @@ def test_update_page_change_attribute_values_ordering(
     # then
     content = get_graphql_content(response)
     data = content["data"]["pageUpdate"]
-    assert data["pageErrors"] == []
+    assert data["errors"] == []
 
     attributes = data["page"]["attributes"]
 
@@ -1861,31 +1896,34 @@ def test_bulk_unpublish(staff_api_client, page_list, permission_manage_pages):
     assert not any(page.is_published for page in page_list)
 
 
+QUERY_PAGES_WITH_FILTER = """
+    query ($filter: PageFilterInput) {
+        pages(first: 5, filter:$filter) {
+            totalCount
+            edges {
+                node {
+                    id
+                }
+            }
+        }
+    }
+"""
+
+
 @pytest.mark.parametrize(
     "page_filter, count",
     [
-        ({"search": "Page1"}, 1),
-        ({"search": "slug_page_2"}, 1),
+        ({"search": "Page1"}, 2),
+        ({"search": "about"}, 1),
         ({"search": "test"}, 1),
-        ({"search": "slug_"}, 3),
+        ({"search": "slug"}, 3),
         ({"search": "Page"}, 2),
     ],
 )
 def test_pages_query_with_filter(
     page_filter, count, staff_api_client, permission_manage_pages, page_type
 ):
-    query = """
-        query ($filter: PageFilterInput) {
-            pages(first: 5, filter:$filter) {
-                totalCount
-                edges {
-                    node {
-                        id
-                    }
-                }
-            }
-        }
-    """
+    query = QUERY_PAGES_WITH_FILTER
     Page.objects.create(
         title="Page1",
         slug="slug_page_1",
@@ -1909,6 +1947,38 @@ def test_pages_query_with_filter(
     response = staff_api_client.post_graphql(query, variables)
     content = get_graphql_content(response)
     assert content["data"]["pages"]["totalCount"] == count
+
+
+def test_pages_query_with_filter_by_page_type(
+    staff_api_client, permission_manage_pages, page_type_list
+):
+    query = QUERY_PAGES_WITH_FILTER
+    page_type_ids = [
+        graphene.Node.to_global_id("PageType", page_type.id)
+        for page_type in page_type_list
+    ][:2]
+
+    variables = {"filter": {"pageTypes": page_type_ids}}
+    staff_api_client.user.user_permissions.add(permission_manage_pages)
+    response = staff_api_client.post_graphql(query, variables)
+    content = get_graphql_content(response)
+    assert content["data"]["pages"]["totalCount"] == 2
+
+
+def test_pages_query_with_filter_by_ids(
+    staff_api_client, permission_manage_pages, page_list, page_list_unpublished
+):
+    query = QUERY_PAGES_WITH_FILTER
+
+    page_ids = [
+        graphene.Node.to_global_id("Page", page.pk)
+        for page in [page_list[0], page_list_unpublished[-1]]
+    ]
+    variables = {"filter": {"ids": page_ids}}
+    staff_api_client.user.user_permissions.add(permission_manage_pages)
+    response = staff_api_client.post_graphql(query, variables)
+    content = get_graphql_content(response)
+    assert content["data"]["pages"]["totalCount"] == len(page_ids)
 
 
 QUERY_PAGE_WITH_SORT = """

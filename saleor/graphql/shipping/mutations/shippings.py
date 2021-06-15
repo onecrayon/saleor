@@ -2,10 +2,10 @@ from collections import defaultdict
 
 import graphene
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.db.utils import IntegrityError
 
 from ....core.permissions import ShippingPermissions
+from ....core.tracing import traced_atomic_transaction
 from ....product import models as product_models
 from ....shipping import models
 from ....shipping.error_codes import ShippingErrorCode
@@ -36,6 +36,7 @@ class ShippingPostalCodeRulesCreateInputRange(graphene.InputObjectType):
 
 class ShippingPriceInput(graphene.InputObjectType):
     name = graphene.String(description="Name of the shipping method.")
+    description = graphene.JSONString(description="Shipping method description (JSON).")
     minimum_order_weight = WeightScalar(
         description="Minimum order weight to use this shipping method."
     )
@@ -159,7 +160,7 @@ class ShippingZoneMixin:
         return data
 
     @classmethod
-    @transaction.atomic
+    @traced_atomic_transaction()
     def _save_m2m(cls, info, instance, cleaned_data):
         super()._save_m2m(info, instance, cleaned_data)
 
@@ -380,7 +381,7 @@ class ShippingPriceMixin:
             )
 
     @classmethod
-    @transaction.atomic
+    @traced_atomic_transaction()
     def save(cls, info, instance, cleaned_input):
         super().save(info, instance, cleaned_input)
 

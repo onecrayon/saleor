@@ -13,6 +13,7 @@ from django.db.models import (
     Case,
     Count,
     DateField,
+    Exists,
     ExpressionWrapper,
     F,
     FilteredRelation,
@@ -39,11 +40,12 @@ from ..channel.models import Channel
 from ..core.db.fields import SanitizedJSONField
 from ..core.models import ModelWithMetadata, PublishableModel, SortableModel
 from ..core.permissions import ProductPermissions, ProductTypePermissions
+from ..core.units import WeightUnits
 from ..core.utils import build_absolute_uri
 from ..core.utils.draftjs import json_content_to_raw_text
 from ..core.utils.editorjs import clean_editor_js
 from ..core.utils.translations import TranslationProxy
-from ..core.weight import WeightUnits, zero_weight
+from ..core.weight import zero_weight
 from ..discount import DiscountInfo
 from ..discount.utils import calculate_discounted_price
 from ..seo.models import SeoModel, SeoModelTranslation
@@ -83,14 +85,14 @@ class CategoryTranslation(SeoModelTranslation):
     category = models.ForeignKey(
         Category, related_name="translations", on_delete=models.CASCADE
     )
-    name = models.CharField(max_length=128)
+    name = models.CharField(max_length=128, blank=True, null=True)
     description = SanitizedJSONField(blank=True, null=True, sanitizer=clean_editor_js)
 
     class Meta:
         unique_together = (("language_code", "category"),)
 
     def __str__(self) -> str:
-        return self.name
+        return self.name if self.name else str(self.pk)
 
     def __repr__(self) -> str:
         class_ = type(self)
@@ -109,7 +111,9 @@ class ProductType(ModelWithMetadata):
     is_shipping_required = models.BooleanField(default=True)
     is_digital = models.BooleanField(default=False)
     weight = MeasurementField(
-        measurement=Weight, unit_choices=WeightUnits.CHOICES, default=zero_weight
+        measurement=Weight,
+        unit_choices=WeightUnits.CHOICES,  # type: ignore
+        default=zero_weight,
     )
 
     class Meta(ModelWithMetadata.Meta):
@@ -138,13 +142,15 @@ class ProductType(ModelWithMetadata):
 class ProductsQueryset(models.QuerySet):
     def published(self, channel_slug: str):
         today = datetime.date.today()
-        return self.filter(
-            Q(channel_listings__publication_date__lte=today)
-            | Q(channel_listings__publication_date__isnull=True),
-            channel_listings__channel__slug=str(channel_slug),
-            channel_listings__channel__is_active=True,
-            channel_listings__is_published=True,
-        )
+        channels = Channel.objects.filter(
+            slug=str(channel_slug), is_active=True
+        ).values("id")
+        channel_listings = ProductChannelListing.objects.filter(
+            Q(publication_date__lte=today) | Q(publication_date__isnull=True),
+            Exists(channels.filter(pk=OuterRef("channel_id"))),
+            is_published=True,
+        ).values("id")
+        return self.filter(Exists(channel_listings.filter(product_id=OuterRef("pk"))))
 
     def not_published(self, channel_slug: str):
         today = datetime.date.today()
@@ -156,17 +162,28 @@ class ProductsQueryset(models.QuerySet):
 
     def published_with_variants(self, channel_slug: str):
         published = self.published(channel_slug)
-        query = ProductVariantChannelListing.objects.filter(
-            variant_id=OuterRef("variants__id"),
-            channel__slug=str(channel_slug),
+        channels = Channel.objects.filter(
+            slug=str(channel_slug), is_active=True
+        ).values("id")
+        variant_channel_listings = ProductVariantChannelListing.objects.filter(
+            Exists(channels.filter(pk=OuterRef("channel_id"))),
             price_amount__isnull=False,
-        ).values_list("variant", flat=True)
-        return published.filter(variants__in=query).distinct()
+        ).values("id")
+        variants = ProductVariant.objects.filter(
+            Exists(variant_channel_listings.filter(variant_id=OuterRef("pk")))
+        )
+        return published.filter(Exists(variants.filter(product_id=OuterRef("pk"))))
 
     def visible_to_user(self, requestor: Union["User", "App"], channel_slug: str):
         if requestor_is_staff_member_or_app(requestor):
             if channel_slug:
-                return self.filter(channel_listings__channel__slug=str(channel_slug))
+                channels = Channel.objects.filter(slug=str(channel_slug)).values("id")
+                channel_listings = ProductChannelListing.objects.filter(
+                    Exists(channels.filter(pk=OuterRef("channel_id")))
+                ).values("id")
+                return self.filter(
+                    Exists(channel_listings.filter(product_id=OuterRef("pk")))
+                )
             return self.all()
         return self.published_with_variants(channel_slug)
 
@@ -302,18 +319,18 @@ class ProductsQueryset(models.QuerySet):
         )
 
     def prefetched_for_webhook(self, single_object=True):
-        if single_object:
-            return self.prefetch_related(
-                "attributes__values",
-                "attributes__assignment__attribute",
-            )
-        return self.prefetch_related(
+        common_fields = (
             "attributes__values",
             "attributes__assignment__attribute",
-            "collections",
+            "media",
+            "variants__attributes__values",
+            "variants__attributes__assignment__attribute",
+            "variants__variant_media__media",
             "variants__stocks__allocations",
-            "category",
         )
+        if single_object:
+            return self.prefetch_related(*common_fields)
+        return self.prefetch_related("collections", "category", *common_fields)
 
 
 class Product(SeoModel, ModelWithMetadata):
@@ -336,7 +353,10 @@ class Product(SeoModel, ModelWithMetadata):
     updated_at = models.DateTimeField(auto_now=True, null=True)
     charge_taxes = models.BooleanField(default=True)
     weight = MeasurementField(
-        measurement=Weight, unit_choices=WeightUnits.CHOICES, blank=True, null=True
+        measurement=Weight,
+        unit_choices=WeightUnits.CHOICES,  # type: ignore
+        blank=True,
+        null=True,
     )
     default_variant = models.OneToOneField(
         "ProductVariant",
@@ -395,14 +415,14 @@ class ProductTranslation(SeoModelTranslation):
     product = models.ForeignKey(
         Product, related_name="translations", on_delete=models.CASCADE
     )
-    name = models.CharField(max_length=250)
+    name = models.CharField(max_length=250, blank=True, null=True)
     description = SanitizedJSONField(blank=True, null=True, sanitizer=clean_editor_js)
 
     class Meta:
         unique_together = (("language_code", "product"),)
 
     def __str__(self) -> str:
-        return self.name
+        return self.name if self.name else str(self.pk)
 
     def __repr__(self) -> str:
         class_ = type(self)
@@ -426,7 +446,7 @@ class ProductVariantQueryset(models.QuerySet):
     def available_in_channel(self, channel_slug):
         return self.filter(
             channel_listings__price_amount__isnull=False,
-            channel_listings__channel__slug=channel_slug,
+            channel_listings__channel__slug=str(channel_slug),
         )
 
     def prefetched_for_webhook(self):
@@ -468,6 +488,9 @@ class ProductChannelListing(PublishableModel):
     class Meta:
         unique_together = [["product", "channel"]]
         ordering = ("pk",)
+        indexes = [
+            models.Index(fields=["publication_date"]),
+        ]
 
     def is_available_for_purchase(self):
         return (
@@ -486,7 +509,10 @@ class ProductVariant(SortableModel, ModelWithMetadata):
     track_inventory = models.BooleanField(default=True)
 
     weight = MeasurementField(
-        measurement=Weight, unit_choices=WeightUnits.CHOICES, blank=True, null=True
+        measurement=Weight,
+        unit_choices=WeightUnits.CHOICES,  # type: ignore
+        blank=True,
+        null=True,
     )
 
     objects = ProductVariantQueryset.as_manager()
@@ -536,11 +562,6 @@ class ProductVariant(SortableModel, ModelWithMetadata):
             f"{product} ({variant_display})" if variant_display else str(product)
         )
         return smart_text(product_display)
-
-    def get_first_image(self) -> "ProductMedia":
-        all_media = self.media.all()
-        images = [media for media in all_media if media.type == ProductMediaTypes.IMAGE]
-        return images[0] if images else self.product.get_first_image()
 
     def get_ordering_queryset(self):
         return self.product.variants.all()
@@ -774,7 +795,7 @@ class CollectionTranslation(SeoModelTranslation):
     collection = models.ForeignKey(
         Collection, related_name="translations", on_delete=models.CASCADE
     )
-    name = models.CharField(max_length=128)
+    name = models.CharField(max_length=128, blank=True, null=True)
     description = SanitizedJSONField(blank=True, null=True, sanitizer=clean_editor_js)
 
     class Meta:
@@ -790,4 +811,4 @@ class CollectionTranslation(SeoModelTranslation):
         )
 
     def __str__(self) -> str:
-        return self.name
+        return self.name if self.name else str(self.pk)

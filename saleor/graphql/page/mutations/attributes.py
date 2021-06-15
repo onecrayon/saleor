@@ -3,10 +3,10 @@ from typing import Dict, List
 
 import graphene
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
-from django.db import transaction
 
 from ....attribute import AttributeType, models
 from ....core.permissions import PagePermissions, PageTypePermissions
+from ....core.tracing import traced_atomic_transaction
 from ....page import models as page_models
 from ....page.error_codes import PageErrorCode
 from ...attribute.mutations import (
@@ -17,7 +17,7 @@ from ...attribute.types import Attribute
 from ...core.inputs import ReorderInput
 from ...core.mutations import BaseMutation
 from ...core.types.common import PageError
-from ...core.utils import from_global_id_strict_type
+from ...core.utils import from_global_id_or_error
 from ...core.utils.reordering import perform_reordering
 from ...page.types import Page, PageType
 from ...utils import resolve_global_ids_to_primary_keys
@@ -171,7 +171,9 @@ class PageTypeReorderAttributes(BaseReorderAttributesMutation):
     @classmethod
     def perform_mutation(cls, _root, info, **data):
         page_type_id = data["page_type_id"]
-        pk = from_global_id_strict_type(page_type_id, only_type=PageType, field="pk")
+        _type, pk = from_global_id_or_error(
+            page_type_id, only_type=PageType, field="pk"
+        )
 
         try:
             page_type = page_models.PageType.objects.prefetch_related(
@@ -196,7 +198,7 @@ class PageTypeReorderAttributes(BaseReorderAttributesMutation):
             error.code = PageErrorCode.NOT_FOUND.value
             raise ValidationError({"moves": error})
 
-        with transaction.atomic():
+        with traced_atomic_transaction():
             perform_reordering(page_attributes, operations)
 
         return PageTypeReorderAttributes(page_type=page_type)
@@ -234,7 +236,9 @@ class PageReorderAttributeValues(BaseReorderAttributeValuesMutation):
 
     @staticmethod
     def get_instance(instance_id: str):
-        pk = from_global_id_strict_type(instance_id, only_type=Page, field="page_id")
+        _type, pk = from_global_id_or_error(
+            instance_id, only_type=Page, field="page_id"
+        )
 
         try:
             page = page_models.Page.objects.prefetch_related("attributes").get(pk=pk)
