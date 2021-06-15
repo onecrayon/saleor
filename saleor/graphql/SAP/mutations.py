@@ -3,6 +3,7 @@ import decimal
 import graphene
 from typing import Optional
 
+from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 
 import saleor.product.models as product_models
@@ -12,7 +13,7 @@ from saleor.account import models as user_models
 from saleor.checkout import AddressType
 from saleor.core.permissions import (
     AccountPermissions, ChannelPermissions,
-    ProductPermissions,
+    ProductPermissions, OrderPermissions,
 )
 from saleor.graphql.account.enums import AddressTypeEnum
 from saleor.graphql.account.mutations.staff import CustomerCreate
@@ -21,7 +22,17 @@ from saleor.graphql.attribute.utils import AttributeAssignmentMixin
 from saleor.graphql.channel import ChannelContext
 from saleor.graphql.core.mutations import ModelMutation, BaseMutation
 from saleor.graphql.core.scalars import Decimal, PositiveDecimal
-from saleor.graphql.core.types.common import AccountError
+from saleor.graphql.core.types.common import AccountError, OrderError
+from saleor.graphql.order.mutations.draft_orders import (
+    DraftOrderInput,
+    DraftOrderUpdate,
+    DraftOrderComplete,
+)
+from saleor.graphql.order.mutations.orders import (
+    OrderLineDelete,
+    OrderLinesCreate,
+    OrderLineUpdate,
+)
 from saleor.graphql.SAP.enums import DistributionTypeEnum
 from saleor.graphql.SAP.types import (
     BusinessPartnerError,
@@ -38,6 +49,7 @@ from saleor.graphql.product.mutations.channels import (
 )
 from saleor.graphql.product.mutations.products import ProductVariantCreate
 from saleor.graphql.product.types import ProductVariant
+from saleor.order import models as order_models
 from saleor.warehouse.models import Warehouse
 
 
@@ -818,3 +830,188 @@ class UpsertSAPProduct(BaseMutation):
             product_variant=ChannelContext(node=variant, channel_slug=None),
             errors=[],
         )
+
+
+class SAPLineItemInput(graphene.InputObjectType):
+    sku = graphene.String()
+    quantity = graphene.Int()
+
+
+class SAPOrderMetadataInput(graphene.InputObjectType):
+    due_date = graphene.String(description="Expected shipping date. From ORDR.DocDueDate")
+    date_shipped = graphene.String(description="Fom ORDR.ShipDate")
+    payment_method = graphene.String(description="From ORDR.PaymentMethod")
+    PO_number = graphene.String(description="From ORDR.ImportFileNum")
+
+
+class SAPOrderInput(graphene.InputObjectType):
+    draft_order_input = DraftOrderInput(
+        required=True,
+        description="Fields required to create an order."
+    )
+    lines = graphene.List(
+        of_type=SAPLineItemInput,
+        description="List of order line items"
+    )
+    metadata = graphene.Field(
+        SAPOrderMetadataInput,
+        description="Additional SAP information can be stored as metadata."
+    )
+
+
+class UpsertSAPOrder(DraftOrderUpdate):
+    """For syncing sales orders in SAP to orders in Saleor"""
+    class Arguments:
+        input = SAPOrderInput(
+            required=True,
+            description="Input data for upserting a draft order from SAP."
+        )
+        doc_entry = graphene.String(
+            required=True,
+            description="The DocEntry value from SAP (primary key for SAP orders)."
+        )
+        # We need to keep card code and doc_entry together because for some reason
+        # doc_entry numbers are only unique to the business partner.
+        sap_bp_code = graphene.String(
+            required=True,
+            description="The SAP CardCode for the order."
+        )
+        confirm_order = graphene.Boolean(
+            required=False,
+            description="Whether or not to attempt to confirm this order automatically."
+        )
+
+    class Meta:
+        description = "Creates or updates a draft order."
+        model = order_models.Order
+        permissions = (OrderPermissions.MANAGE_ORDERS,)
+        error_type_class = OrderError
+        error_type_field = "order_errors"
+
+    @classmethod
+    def get_instance(cls, info, **data):
+        instance = order_models.Order.objects.filter(
+            metadata__doc_entry=data["doc_entry"],
+            metadata__sap_bp_code=data["sap_bp_code"]
+        ).prefetch_related("lines").first()
+
+        if not instance:
+            instance = cls._meta.model()
+
+        return instance
+
+    @classmethod
+    def perform_mutation(cls, _root, info, **data):
+        # Get the order instance
+        order: order_models.Order = cls.get_instance(info, **data)
+        new_order = False if order.pk else True
+        input: dict = data["input"]
+        draft_order_input = input.pop("draft_order_input", None)
+        if lines := input.pop("lines", None):
+            # We need to translate SKU into variant ids.
+            # Sort our line items by SKU
+            lines = sorted(lines, key=lambda line: line["sku"])
+
+            # Get all the product variants for the SKUs provided (also sorted by SKU)
+            product_variants = product_models.ProductVariant.objects.filter(
+                sku__in=[line["sku"] for line in lines]
+            ).values("id", "sku").order_by("sku")
+
+            # Replace each line item's SKU key-value pair with variant's global id
+            for i, line in enumerate(product_variants):
+                lines[i]["variant_id"] = graphene.Node.to_global_id(
+                    "ProductVariant",
+                    line["id"]
+                )
+                del lines[i]["sku"]
+
+        metadata = input.pop("metadata", {})
+        # Keep SAP's DocEntry field and business partner code in the meta data
+        # so we can refer to this order again
+        metadata.update({
+            "doc_entry": data["doc_entry"],
+            "sap_bp_code": data["sap_bp_code"]
+        })
+
+        # If this is a new order then we can use the draftOrderCreate mutation which
+        # takes the lines argument. Otherwise for an update we can't include lines
+        if new_order:
+            draft_order_input["lines"] = lines
+        else:
+            # Channel id can't be changed
+            del draft_order_input["channel_id"]
+
+        # Update the draft Order
+        cleaned_input = cls.clean_input(info, order, draft_order_input)
+        order = cls.construct_instance(order, cleaned_input)
+        cls.clean_instance(info, order)
+        cls.save(info, order, cleaned_input)
+        cls._save_m2m(info, order, cleaned_input)
+        cls.post_save_action(info, order, cleaned_input)
+
+        # Attach our metadata
+        if metadata:
+            order.store_value_in_metadata(items=metadata)
+            order.save(update_fields=["metadata"])
+
+        # For existing orders we must update any changes to line items that were made
+        if not new_order:
+            existing_lines = order_models.OrderLine.objects.filter(
+                order_id=order.id
+            ).all()
+            line_cache = {}
+            for line in existing_lines:
+                line_cache[
+                    graphene.Node.to_global_id("ProductVariant", line.variant_id)
+                ] = line
+
+            lines_to_create = []
+            for line in lines:
+                if existing_line := line_cache.pop(line["variant_id"], None):
+                    if existing_line.quantity != line["quantity"]:
+                        # We need to update the qty. There's a bunch of special behind
+                        # the scenes actions that take place in the normal update order
+                        # mutation. Instead of trying to recreate that all we'll just
+                        # call that mutation from here.
+                        OrderLineUpdate.perform_mutation(
+                            _root,
+                            info,
+                            id=graphene.Node.to_global_id(
+                                "OrderLine",
+                                existing_line.id
+                            ),
+                            input={"quantity": line["quantity"]}
+                        )
+                else:
+                    lines_to_create.append(line)
+
+            # Create the new lines using the mutation for that
+            OrderLinesCreate.perform_mutation(
+                _root,
+                info,
+                id=graphene.Node.to_global_id("Order", order.id),
+                input=lines_to_create
+            )
+
+            # Delete any remaining lines that weren't updated or added
+            for variant_id, line in line_cache.items():
+                OrderLineDelete.perform_mutation(
+                    _root,
+                    info,
+                    id=graphene.Node.to_global_id("OrderLine", line.id)
+                )
+
+        if input.get("confirm_order", False):
+            # Try to move this draft order to confirmed
+            try:
+                DraftOrderComplete.perform_mutation(
+                    _root,
+                    info,
+                    graphene.Node.to_global_id("Order", order.id)
+                )
+            except ValidationError:
+                # If there is not enough stock available for the order, confirmation
+                # will fail.
+                pass
+
+        return cls.success_response(order)
