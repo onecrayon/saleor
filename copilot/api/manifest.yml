@@ -43,6 +43,8 @@ secrets:                      # Pass secrets from AWS Systems Manager (SSM) Para
 environments:
   dev:
     variables:
+      ALLOWED_CLIENT_HOSTS: 'dashboard.dev.saleor.firstech.dev,*.dev.saleor.firstech.dev'
       ALLOWED_HOSTS: 'localhost,127.0.0.1,api.dev.saleor.firstech.dev'
       AWS_MEDIA_BUCKET_NAME: saleor-dev-media
       AWS_STORAGE_BUCKET_NAME: saleor-dev-static
+      DASHBOARD_URL: https://dashboard.dev.saleor.firstech.dev
