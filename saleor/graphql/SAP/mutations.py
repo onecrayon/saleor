@@ -576,10 +576,6 @@ class SAPProductPriceList(graphene.InputObjectType):
         description="Value from SAP field `ITM1.Price`.",
         required=True,
     )
-    is_published = graphene.Boolean(
-        description="Whether this product should be visible in this price list.",
-        default=False,
-    )
 
 
 class SAPWarehouseStock(graphene.InputObjectType):
@@ -794,7 +790,6 @@ class UpsertSAPProduct(BaseMutation):
                 continue
             update_channels.append({
                 "channel": channel,
-                "is_published": price_list["is_published"],
             })
         if update_channels:
             ProductChannelListingUpdate.update_channels(
