@@ -839,7 +839,7 @@ class SAPLineItemInput(graphene.InputObjectType):
 
 class SAPOrderMetadataInput(graphene.InputObjectType):
     due_date = graphene.String(description="Expected shipping date. From ORDR.DocDueDate")
-    date_shipped = graphene.String(description="Fom ORDR.ShipDate")
+    date_shipped = graphene.String(description="From ORDR.ShipDate")
     payment_method = graphene.String(description="From ORDR.PaymentMethod")
     PO_number = graphene.String(description="From ORDR.ImportFileNum")
 
@@ -878,6 +878,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
         )
         confirm_order = graphene.Boolean(
             required=False,
+            default_value=False,
             description="Whether or not to attempt to confirm this order automatically."
         )
 
