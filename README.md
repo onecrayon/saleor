@@ -13,6 +13,23 @@ We are currently using **v3.0.0a15** of Saleor, which means that upstream change
 
 TBD: how to upgrade to later versions of 3.0. Merge the tag into `ft-develop`?
 
+## Provision Infrastructure on AWS
+
+1. Edit the `copilot/api/manifest.yml` and `copilot/worker/manifest.yml` files and temporarily comment out the `DATABASE_URL` definitions under the envrionment variable sections.
+1. Deploy the Copilot api service: `copilot svc deploy -n api`
+1. Deplow the Copilot worker service: `copilot svc worker -n worker`
+1. Run Terraform from the right directory in the `infrastructure-config` repository to deploy the auxillary infrastructure. (ex. `infrastructure-config/aws/accounts/dev-741267758119/us-west-2/saleor`)
+1. Retrieve the `DATABASE_URL` value and the `SECRET_KEY` values from the AWS SSM parameter via the console (ex. `/saleor/dev/DATABASE_URL`, `/saleor/dev/SECRET_KEY`.
+1. Run the Saleor application setup commands as Copilot tasks:
+  1. `copilot task run --command "python3 manage.py migrate" -i 741267758119.dkr.ecr.us-west-2.amazonaws.com/saleor/api:latest --env-vars DATABASE_URL=<database-url-value>,SECRET_KEY=<secret-key-value> --follow`
+  1. `copilot task run --command "python3 manage.py collectstatic --noinput" -i 741267758119.dkr.ecr.us-west-2.amazonaws.com/saleor/api:latest --env-vars DATABASE_URL=<database-url-value>,SECRET_KEY=<secret-key-value> --follow`
+  1. `copilot task run --command "python3 manage.py collectstatic --noinput" -i 741267758119.dkr.ecr.us-west-2.amazonaws.com/saleor/api:latest --env-vars DATABASE_URL=<database-url-value>,SECRET_KEY=<secret-key-value> --follow`
+  1. `copilot task run --command "python3 manage.py populatedb" -i 741267758119.dkr.ecr.us-west-2.amazonaws.com/saleor/api:latest --env-vars DATABASE_URL=<database-url-value>,SECRET_KEY=<secret-key-value> --follow`
+1. Use the AWS console to find the DNS endpoint names for the Saleor Postgres Aurora database in RDS and the Saleor Redis cluster in ElastiCache.
+1. Navigate to AWS CloudMap and manually register new instances for the `db` and `redis` services using the appropriate CNAMES.
+1. Change the `manifest.yml` files for the `api` and `worker` Copilot services to reinstate the `DATABASE_URL` variable definition.
+1. Redeploy both Copilot services.
+
 **********
 
 ![Saleor Commerce - A GraphQL-first platform for perfectionists](https://user-images.githubusercontent.com/249912/71523206-4e45f800-28c8-11ea-84ba-345a9bfc998a.png)

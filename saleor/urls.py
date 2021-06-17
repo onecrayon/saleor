@@ -36,6 +36,7 @@ urlpatterns = [
         handle_plugin_webhook,
         name="plugins",
     ),
+    url(r"^healthcheck", include("health_check.urls")),
 ]
 
 if settings.DEBUG:

@@ -1,4 +1,5 @@
 import ast
+import os
 import os.path
 import warnings
 from datetime import timedelta
@@ -9,6 +10,7 @@ import django_cache_url
 import jaeger_client
 import jaeger_client.config
 import pkg_resources
+import requests
 import sentry_sdk
 import sentry_sdk.utils
 from django.core.exceptions import ImproperlyConfigured
@@ -281,6 +283,12 @@ INSTALLED_APPS = [
     "django_countries",
     "django_filters",
     "phonenumber_field",
+    # Health checks
+    "health_check",
+    'health_check.db',                          # stock Django health checkers
+    'health_check.cache',
+    'health_check.storage',
+    'health_check.contrib.migrations',
     # Custom local apps
     "firstech.drone",
     "firstech.SAP",
@@ -417,6 +425,13 @@ TEST_RUNNER = "saleor.tests.runner.PytestTestRunner"
 PLAYGROUND_ENABLED = get_bool_from_env("PLAYGROUND_ENABLED", True)
 
 ALLOWED_HOSTS = get_list(os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1"))
+
+# add AWS IP address for health checks
+if 'ECS_CONTAINER_METADATA_URI' in os.environ:
+    METADATA_URI = os.environ['ECS_CONTAINER_METADATA_URI']
+    container_metadata = requests.get(METADATA_URI).json()
+    ALLOWED_HOSTS.append(container_metadata['Networks'][0]['IPv4Addresses'][0])
+
 ALLOWED_GRAPHQL_ORIGINS = get_list(os.environ.get("ALLOWED_GRAPHQL_ORIGINS", "*"))
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

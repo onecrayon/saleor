@@ -85,6 +85,7 @@ grpc-google-iam-v1==0.12.3; python_version >= "3.6"
 grpcio==1.37.1; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.6"
 gunicorn==20.1.0; python_version >= "3.5"
 h11==0.12.0; python_version >= "3.6"
+django-health-check==3.16.4
 html-to-draftjs==1.0.1
 html2text==2020.1.16; python_version >= "3.5"
 html5lib==1.1; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6"

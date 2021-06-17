@@ -1,0 +1,46 @@
+# The manifest for the "worker" service.
+# Read the full specification for the "Backend Service" type at:
+#  https://aws.github.io/copilot-cli/docs/manifest/backend-service/
+
+# Your service name will be used in naming your resources like log groups, ECS services, etc.
+name: worker
+type: Backend Service
+
+# Your service is reachable at "http://worker.${COPILOT_SERVICE_DISCOVERY_ENDPOINT}:8000" but is not public.
+
+# Configuration for your containers and service.
+image:
+  # Docker build arguments. For additional overrides: https://aws.github.io/copilot-cli/docs/manifest/backend-service/#image-build
+  build:
+    context: .
+    args:
+      STATIC_URL: '/static/'
+  # Port exposed through your container to route traffic to it.
+  port: 8000
+
+command: celery -A saleor --app=saleor.celeryconf:app worker --loglevel=info
+
+cpu: 256       # Number of CPU units for the task.
+memory: 512    # Amount of memory in MiB used by the task.
+count: 1       # Number of tasks that should be running in your service.
+exec: true     # Enable running commands in your container.
+
+# Optional fields for more advanced use-cases.
+#
+variables:                    # Pass environment variables as key value pairs.
+  CELERY_BROKER_URL: redis://redis.saleor.local:6379/1
+  DEFAULT_FROM_EMAIL: noreply@saleor.dronemobile.com
+  REDIS_URL: redis://redis.saleor.local:6379/0
+
+# DATABASE_URL and EMAIL_URL must be commented out for first infrastructure provision before initial Terraform run. Please see README.
+secrets:                      # Pass secrets from AWS Systems Manager (SSM) Parameter Store.
+  DATABASE_URL: /saleor/dev/DATABASE_URL
+  EMAIL_URL: /saleor/dev/EMAIL_URL
+  SECRET_KEY: /saleor/dev/SECRET_KEY
+  SENTRY_DSN: /saleor/dev/SENTRY_DSN
+
+# You can override any of the values defined above by environment.
+environments:
+  dev:
+    AWS_MEDIA_BUCKET_NAME: saleor-dev-media
+    AWS_STORAGE_BUCKET_NAME: saleor-dev-static

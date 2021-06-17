@@ -1,0 +1,53 @@
+# bitbucket-pipelines.yml
+
+# Place this at the root of your repository
+
+# custom build image from AWS ECR: https://bitbucket.org/firstech-drone/www-cicd/src/master/bitbucket-pipeline-image/
+image:
+  name: 741267758119.dkr.ecr.us-east-1.amazonaws.com/www-cicd/bitbucket-pipeline:latest
+  aws:
+    access-key: $AWS_ACCESS_KEY_ID
+    secret-key: $AWS_SECRET_ACCESS_KEY
+
+clone:
+  depth: full
+
+options:
+  docker: true
+  size: 2x
+
+deploy-to-aws: &deploy-to-aws
+  caches:
+    - docker
+    - node
+    - pip
+  name: Build and Publish to AWS
+  script:
+    # retreive necessary environment variables from AWS SSM
+    - export DATABASE_URL=$(aws ssm get-parameter --name /saleor/$BITBUCKET_DEPLOYMENT_ENVIRONMENT/DATABASE_URL --output text --query 'Parameter.Value' --with-decryption)
+    - export SECRET_KEY=$(aws ssm get-parameter --name /saleor/$BITBUCKET_DEPLOYMENT_ENVIRONMENT/SECRET_KEY --output text --query 'Parameter.Value' --with-decryption)
+    # run database migrations as a remote task
+    - copilot task run --app saleor --command "python3 manage.py migrate" --dockerfile ./Dockerfile --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT --env-vars DATABASE_URL=$DATABASE_URL,SECRET_KEY=$SECRET_KEY --follow -n saleor-db-migrate
+    # deploy
+    - copilot svc deploy --name api --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
+    - copilot svc deploy --name worker --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
+  services:
+    - docker
+  size: 2x
+
+pipelines:
+  # Whenever a pull-request is opened or updated, create/update a Heroku app for the pull-request.
+  branches:
+    ft-develop:
+      - step:
+          <<: *deploy-to-aws
+          deployment: dev
+    ft-production:
+      - step:
+          <<: *deploy-to-aws
+          deployment: prod
+
+definitions:
+  services:
+    docker:
+      memory: 4096
