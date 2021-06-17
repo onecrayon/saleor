@@ -37,6 +37,7 @@ secrets:                      # Pass secrets from AWS Systems Manager (SSM) Para
   DATABASE_URL: /saleor/dev/DATABASE_URL
   EMAIL_URL: /saleor/dev/EMAIL_URL
   SECRET_KEY: /saleor/dev/SECRET_KEY
+  SENTRY_DSN: /saleor/dev/SENTRY_DSN
 
 # You can override any of the values defined above by environment.
 environments:
