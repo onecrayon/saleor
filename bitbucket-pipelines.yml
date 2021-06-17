@@ -42,18 +42,10 @@ pipelines:
       - step:
           <<: *deploy-to-aws
           deployment: dev
-    ft-staging:
-      - step:
-          <<: *deploy-to-aws
-          deployment: staging
     ft-production:
       - step:
           <<: *deploy-to-aws
           deployment: prod
-    oe/copilot:
-      - step:
-          <<: *deploy-to-aws
-          deployment: dev
 
 definitions:
   services:
