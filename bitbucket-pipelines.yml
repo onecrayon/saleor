@@ -27,7 +27,7 @@ deploy-to-aws: &deploy-to-aws
     - export DATABASE_URL=$(aws ssm get-parameter --name /saleor/$BITBUCKET_DEPLOYMENT_ENVIRONMENT/DATABASE_URL --output text --query 'Parameter.Value' --with-decryption)
     - export SECRET_KEY=$(aws ssm get-parameter --name /saleor/$BITBUCKET_DEPLOYMENT_ENVIRONMENT/SECRET_KEY --output text --query 'Parameter.Value' --with-decryption)
     # run database migrations as a remote task
-    - copilot task run --dockerfile ./Dockerfile --env-vars DATABASE_URL=$DATABASE_URL,SECRET_KEY=$SECRET_KEY --follow
+    - copilot task run --app saleor --dockerfile ./Dockerfile --env-vars DATABASE_URL=$DATABASE_URL,SECRET_KEY=$SECRET_KEY --follow
     # deploy
     - copilot svc deploy --name api --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
     - copilot svc deploy --name worker --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
