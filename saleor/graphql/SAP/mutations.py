@@ -982,7 +982,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
         # In the event we have more than 2 extra address lines, we'll just concatenate
         # them into one big line
         if len(address_lines) >= 2:
-            line_2 = sum(address_lines[1:])
+            line_2 = " ".join(address_lines[1:])
         else:
             line_2 = None
 
