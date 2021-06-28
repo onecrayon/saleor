@@ -1022,23 +1022,40 @@ class UpsertSAPOrder(DraftOrderUpdate):
             )
 
         # Form the line items for the order
-        if lines := input.get("lines"):
+        if lines := input.get("lines", []):
             # We need to translate SKU into variant ids.
             # Sort our line items by SKU
             lines = sorted(lines, key=lambda line: line["sku"])
 
             # Get all the product variants for the SKUs provided (also sorted by SKU)
-            product_variants = product_models.ProductVariant.objects.filter(
+            product_variants: List[dict] = list(product_models.ProductVariant.objects.filter(
                 sku__in=[line["sku"] for line in lines]
-            ).values("id", "sku").order_by("sku")
+            ).values("id", "sku").order_by("sku"))
 
             # Replace each line item's SKU key-value pair with variant's global id
-            for i, line in enumerate(product_variants):
-                lines[i]["variant_id"] = graphene.Node.to_global_id(
-                    "ProductVariant",
-                    line["id"]
+            # There is a possibility that there are SKUs from SAP that don't exist in
+            # Saleor, so we will raise a validation error if any exist
+            i = 0
+            bad_line_items = []
+            num_product_variants = len(product_variants)
+            for sap_line in lines:
+                if (
+                        i < num_product_variants and
+                        sap_line["sku"] == product_variants[i]["sku"]
+                ):
+                    sap_line["variant_id"] = graphene.Node.to_global_id(
+                        "ProductVariant",
+                        product_variants[i]["id"]
+                    )
+                    del sap_line["sku"]
+                    i += 1
+                else:
+                    bad_line_items.append(sap_line["sku"])
+
+            if bad_line_items:
+                raise ValidationError(
+                    f"The following SKUs do not exist in Saleor: {bad_line_items}"
                 )
-                del lines[i]["sku"]
 
         metadata = input.get("metadata", {})
         # Keep SAP's DocEntry field and business partner code in the meta data
