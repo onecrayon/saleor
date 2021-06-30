@@ -29,7 +29,7 @@ exec: true     # Enable running commands in your container.
 #
 variables:                    # Pass environment variables as key value pairs.
   CELERY_BROKER_URL: redis://redis.saleor.local:6379/1
-  DEFAULT_FROM_EMAIL: noreply@saleor.dronemobile.com
+  DEFAULT_FROM_EMAIL: noreply@myfirstech.com
   REDIS_URL: redis://redis.saleor.local:6379/0
 
 # DATABASE_URL and EMAIL_URL must be commented out for first infrastructure provision before initial Terraform run. Please see README.
