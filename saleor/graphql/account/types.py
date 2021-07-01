@@ -300,7 +300,7 @@ class User(CountableDjangoObjectType):
     @traced_resolver
     def resolve_addresses(root: models.User, _info, **_kwargs):
         #TODO: Include business partner addresses in this queryset?
-        return root.addresses.annotate_default(root).all()
+        return root.addresses.annotate_default(root).all()  # type: ignore
 
     @staticmethod
     @traced_resolver
@@ -373,7 +373,7 @@ class User(CountableDjangoObjectType):
         viewer = info.context.user
         if viewer.has_perm(OrderPermissions.MANAGE_ORDERS):
             return root.orders.all()
-        return root.orders.non_draft()
+        return root.orders.non_draft()  # type: ignore
 
     @staticmethod
     @traced_resolver
