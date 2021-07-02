@@ -39,6 +39,20 @@ secrets:                      # Pass secrets from AWS Systems Manager (SSM) Para
   SECRET_KEY: /saleor/dev/SECRET_KEY
   SENTRY_DSN: /saleor/dev/SENTRY_DSN
 
+  # For connection to Drone
+  DRONE_API_URL: /saleor/dev/DRONE_API_URL
+  DRONE_API_SECRET_KEY: /saleor/dev/DRONE_API_SECRET_KEY
+  DRONE_COGNITO_POOL_ID: /saleor/dev/DRONE_COGNITO_POOL_ID
+  DRONE_COGNITO_CLIENT_ID: /saleor/dev/DRONE_COGNITO_CLIENT_ID
+  DRONE_AWS_DEFAULT_REGION: /saleor/dev/DRONE_AWS_DEFAULT_REGION
+
+  DRONE_DATABASE_HOST: /saleor/dev/DRONE_DATABASE_HOST
+  DRONE_DATABASE_PORT: /saleor/dev/DRONE_DATABASE_PORT
+  DRONE_DATABASE_USERNAME: /saleor/dev/DRONE_DATABASE_USERNAME
+  DRONE_DATABASE_PASSWORD: /saleor/dev/DRONE_DATABASE_PASSWORD
+  DRONE_DATABASE_DBNAME: /saleor/dev/DRONE_DATABASE_DBNAME
+  DRONE_DATABASE_SSLMODE: /saleor/dev/DRONE_DATABASE_SSLMODE
+
 # You can override any of the values defined above by environment.
 environments:
   dev:
