@@ -360,7 +360,7 @@ class SAPUserProfileCreateInput(graphene.InputObjectType):
     date_of_birth = graphene.String()
     is_company_owner = graphene.Boolean()
     middle_name = graphene.String()
-    business_partner = graphene.ID()
+    business_partners = graphene.List(of_type=graphene.ID)
 
 
 class CreateSAPUserProfile(ModelMutation, GetBusinessPartnerMixin):
