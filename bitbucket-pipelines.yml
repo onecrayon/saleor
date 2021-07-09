@@ -31,6 +31,7 @@ deploy-to-aws: &deploy-to-aws
     # deploy
     - copilot svc deploy --name api --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
     - copilot svc deploy --name worker --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
+    - copilot job deploy --name update-minimal-variable-prices --env $BITBUCKET_DEPLOYMENT_ENVIRONMENT
   services:
     - docker
   size: 2x
