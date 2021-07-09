@@ -5,6 +5,7 @@ from django.contrib.auth.models import _user_has_perm  # type: ignore
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
+    Group,
     Permission,
     PermissionsMixin,
 )
@@ -67,7 +68,7 @@ class Address(models.Model):
     country_area = models.CharField(max_length=128, blank=True)
     phone = PossiblePhoneNumberField(blank=True, default="")
 
-    objects = AddressQueryset.as_manager()
+    objects = models.Manager.from_queryset(AddressQueryset)()
 
     class Meta:
         ordering = ("pk",)
@@ -186,8 +187,36 @@ class User(PermissionsMixin, ModelWithMetadata, AbstractBaseUser):
         if self._effective_permissions is None:
             self._effective_permissions = get_permissions()
             if not self.is_superuser:
+
+                UserPermission = User.user_permissions.through
+                user_permission_queryset = UserPermission.objects.filter(
+                    user_id=self.pk
+                ).values("permission_id")
+
+                UserGroup = User.groups.through
+                GroupPermission = Group.permissions.through
+                user_group_queryset = UserGroup.objects.filter(user_id=self.pk).values(
+                    "group_id"
+                )
+                group_permission_queryset = GroupPermission.objects.filter(
+                    Exists(user_group_queryset.filter(group_id=OuterRef("group_id")))
+                ).values("permission_id")
+
                 self._effective_permissions = self._effective_permissions.filter(
-                    Q(user=self) | Q(group__user=self)
+                    Q(
+                        Exists(
+                            user_permission_queryset.filter(
+                                permission_id=OuterRef("pk")
+                            )
+                        )
+                    )
+                    | Q(
+                        Exists(
+                            group_permission_queryset.filter(
+                                permission_id=OuterRef("pk")
+                            )
+                        )
+                    )
                 )
         return self._effective_permissions
 

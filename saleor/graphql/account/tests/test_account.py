@@ -32,6 +32,7 @@ from ...tests.utils import (
     assert_graphql_error_with_message,
     assert_no_permission,
     get_graphql_content,
+    get_graphql_content_from_response,
     get_multipart_request_body,
 )
 from ..mutations.base import INVALID_TOKEN
@@ -611,6 +612,47 @@ def test_user_query_permission_manage_staff_get_staff(
     assert staff_user.email == data["email"]
 
 
+@pytest.mark.parametrize("id", ["'", "abc"])
+def test_user_query_invalid_id(
+    id, staff_api_client, customer_user, permission_manage_users
+):
+    variables = {"id": id}
+    response = staff_api_client.post_graphql(
+        USER_QUERY, variables, permissions=[permission_manage_users]
+    )
+
+    content = get_graphql_content_from_response(response)
+    assert len(content["errors"]) == 1
+    assert content["errors"][0]["message"] == f"Couldn't resolve id: {id}."
+    assert content["data"]["user"] is None
+
+
+def test_user_query_object_with_given_id_does_not_exist(
+    staff_api_client, permission_manage_users
+):
+    id = graphene.Node.to_global_id("User", -1)
+    variables = {"id": id}
+    response = staff_api_client.post_graphql(
+        USER_QUERY, variables, permissions=[permission_manage_users]
+    )
+
+    content = get_graphql_content(response)
+    assert content["data"]["user"] is None
+
+
+def test_user_query_object_with_invalid_object_type(
+    staff_api_client, customer_user, permission_manage_users
+):
+    id = graphene.Node.to_global_id("Order", customer_user.pk)
+    variables = {"id": id}
+    response = staff_api_client.post_graphql(
+        USER_QUERY, variables, permissions=[permission_manage_users]
+    )
+
+    content = get_graphql_content(response)
+    assert content["data"]["user"] is None
+
+
 def test_query_customers(staff_api_client, user_api_client, permission_manage_users):
     query = """
     query Users {
@@ -708,6 +750,10 @@ ME_QUERY = """
             checkout {
                 token
             }
+            userPermissions {
+                code
+                name
+            }
         }
     }
 """
@@ -718,6 +764,20 @@ def test_me_query(user_api_client):
     content = get_graphql_content(response)
     data = content["data"]["me"]
     assert data["email"] == user_api_client.user.email
+
+
+def test_me_user_permissions_query(
+    user_api_client, permission_manage_users, permission_group_manage_users
+):
+    user = user_api_client.user
+    user.user_permissions.add(permission_manage_users)
+    user.groups.add(permission_group_manage_users)
+    response = user_api_client.post_graphql(ME_QUERY)
+    content = get_graphql_content(response)
+    user_permissions = content["data"]["me"]["userPermissions"]
+
+    assert len(user_permissions) == 1
+    assert user_permissions[0]["code"] == permission_manage_users.codename.upper()
 
 
 def test_me_query_anonymous_client(api_client):
@@ -3378,8 +3438,7 @@ def test_set_default_address(
     assert data["user"]["defaultShippingAddress"]["id"] == address_id
 
 
-def test_address_validation_rules(user_api_client):
-    query = """
+GET_ADDRESS_VALIDATION_RULES_QUERY = """
     query getValidator(
         $country_code: CountryCode!, $country_area: String, $city_area: String) {
         addressValidationRules(
@@ -3390,33 +3449,9 @@ def test_address_validation_rules(user_api_client):
             countryName
             addressFormat
             addressLatinFormat
-            postalCodeMatchers
-        }
-    }
-    """
-    variables = {"country_code": "PL", "country_area": None, "city_area": None}
-    response = user_api_client.post_graphql(query, variables)
-    content = get_graphql_content(response)
-    data = content["data"]["addressValidationRules"]
-    assert data["countryCode"] == "PL"
-    assert data["countryName"] == "POLAND"
-    assert data["addressFormat"] is not None
-    assert data["addressLatinFormat"] is not None
-    matcher = data["postalCodeMatchers"][0]
-    matcher = re.compile(matcher)
-    assert matcher.match("00-123")
-
-
-def test_address_validation_rules_with_country_area(user_api_client):
-    query = """
-    query getValidator(
-        $country_code: CountryCode!, $country_area: String, $city_area: String) {
-        addressValidationRules(
-                countryCode: $country_code,
-                countryArea: $country_area,
-                cityArea: $city_area) {
-            countryCode
-            countryName
+            allowedFields
+            requiredFields
+            upperFields
             countryAreaType
             countryAreaChoices {
                 verbose
@@ -3432,9 +3467,49 @@ def test_address_validation_rules_with_country_area(user_api_client):
                 raw
                 verbose
             }
+            postalCodeType
+            postalCodeMatchers
+            postalCodeExamples
+            postalCodePrefix
         }
     }
-    """
+"""
+
+
+def test_address_validation_rules(user_api_client):
+    query = GET_ADDRESS_VALIDATION_RULES_QUERY
+    variables = {"country_code": "PL", "country_area": None, "city_area": None}
+    response = user_api_client.post_graphql(query, variables)
+    content = get_graphql_content(response)
+    data = content["data"]["addressValidationRules"]
+    assert data["countryCode"] == "PL"
+    assert data["countryName"] == "POLAND"
+    assert data["addressFormat"] is not None
+    assert data["addressLatinFormat"] is not None
+    assert data["cityType"] == "city"
+    assert data["cityAreaType"] == "suburb"
+    matcher = data["postalCodeMatchers"][0]
+    matcher = re.compile(matcher)
+    assert matcher.match("00-123")
+    assert not data["cityAreaChoices"]
+    assert not data["cityChoices"]
+    assert not data["countryAreaChoices"]
+    assert data["postalCodeExamples"]
+    assert data["postalCodeType"] == "postal"
+    assert set(data["allowedFields"]) == {
+        "companyName",
+        "city",
+        "postalCode",
+        "streetAddress1",
+        "name",
+        "streetAddress2",
+    }
+    assert set(data["requiredFields"]) == {"postalCode", "streetAddress1", "city"}
+    assert set(data["upperFields"]) == {"city"}
+
+
+def test_address_validation_rules_with_country_area(user_api_client):
+    query = GET_ADDRESS_VALIDATION_RULES_QUERY
     variables = {
         "country_code": "CN",
         "country_area": "Fujian Sheng",
@@ -3449,8 +3524,29 @@ def test_address_validation_rules_with_country_area(user_api_client):
     assert data["countryAreaChoices"]
     assert data["cityType"] == "city"
     assert data["cityChoices"]
-    assert data["cityAreaType"] == "city"
+    assert data["cityAreaType"] == "district"
     assert not data["cityAreaChoices"]
+    assert data["cityChoices"]
+    assert data["countryAreaChoices"]
+    assert data["postalCodeExamples"]
+    assert data["postalCodeType"] == "postal"
+    assert set(data["allowedFields"]) == {
+        "city",
+        "postalCode",
+        "streetAddress1",
+        "name",
+        "streetAddress2",
+        "countryArea",
+        "companyName",
+        "cityArea",
+    }
+    assert set(data["requiredFields"]) == {
+        "postalCode",
+        "streetAddress1",
+        "city",
+        "countryArea",
+    }
+    assert set(data["upperFields"]) == {"countryArea"}
 
 
 def test_address_validation_rules_fields_in_camel_case(user_api_client):
@@ -4215,6 +4311,24 @@ def test_query_customers_with_filter_metadata(
     assert second_customer.id == int(user_id)
 
 
+def test_query_customers_search_without_duplications(
+    query_customer_with_filter,
+    staff_api_client,
+    permission_manage_users,
+):
+    customer = User.objects.create(email="david@example.com")
+    customer.addresses.create(first_name="David")
+    customer.addresses.create(first_name="David")
+
+    variables = {"filter": {"search": "David"}}
+    response = staff_api_client.post_graphql(
+        query_customer_with_filter, variables, permissions=[permission_manage_users]
+    )
+    content = get_graphql_content(response)
+    users = content["data"]["customers"]["edges"]
+    assert len(users) == 1
+
+
 QUERY_CUSTOMERS_WITH_SORT = """
     query ($sort_by: UserSortingInput!) {
         customers(first:5, sortBy: $sort_by) {
@@ -4667,6 +4781,29 @@ def test_address_query_as_anonymous_user(api_client, address_other_country):
     variables = {"id": graphene.Node.to_global_id("Address", address_other_country.pk)}
     response = api_client.post_graphql(ADDRESS_QUERY, variables)
     assert_no_permission(response)
+
+
+def test_address_query_invalid_id(
+    staff_api_client,
+    address_other_country,
+):
+    id = "..afs"
+    variables = {"id": id}
+    response = staff_api_client.post_graphql(ADDRESS_QUERY, variables)
+    content = get_graphql_content_from_response(response)
+    assert len(content["errors"]) == 1
+    assert content["errors"][0]["message"] == f"Couldn't resolve id: {id}."
+    assert content["data"]["address"] is None
+
+
+def test_address_query_with_invalid_object_type(
+    staff_api_client,
+    address_other_country,
+):
+    variables = {"id": graphene.Node.to_global_id("Order", address_other_country.pk)}
+    response = staff_api_client.post_graphql(ADDRESS_QUERY, variables)
+    content = get_graphql_content(response)
+    assert content["data"]["address"] is None
 
 
 REQUEST_EMAIL_CHANGE_QUERY = """

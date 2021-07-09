@@ -1,7 +1,7 @@
 import decimal
 
 import graphene
-from typing import Optional
+from typing import Optional, Tuple, List
 
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
@@ -50,6 +50,7 @@ from saleor.graphql.product.mutations.channels import (
 from saleor.graphql.product.mutations.products import ProductVariantCreate
 from saleor.graphql.product.types import ProductVariant
 from saleor.order import models as order_models
+from saleor.order.utils import get_valid_shipping_methods_for_order
 from saleor.warehouse.models import Warehouse
 
 
@@ -855,7 +856,9 @@ class SAPOrderInput(graphene.InputObjectType):
 
 
 class UpsertSAPOrder(DraftOrderUpdate):
-    """For syncing sales orders in SAP to orders in Saleor"""
+    """For syncing sales orders in SAP to orders in Saleor. See the docstring in the
+    methods below for details on the billing and shipping address inputs.
+    """
     class Arguments:
         input = SAPOrderInput(
             required=True,
@@ -876,6 +879,12 @@ class UpsertSAPOrder(DraftOrderUpdate):
             default_value=False,
             description="Whether or not to attempt to confirm this order automatically."
         )
+        shipping_method_name = graphene.String(
+            description="Name of the shipping method to use."
+        )
+        channel_name = graphene.String(description="Name of the channel to use.")
+        shipping_address = graphene.String(description="Semicolon delimited address.")
+        billing_address = graphene.String(description="Semicolon delimited address.")
 
     class Meta:
         description = "Creates or updates a draft order."
@@ -896,32 +905,159 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
         return instance
 
+    @staticmethod
+    def parse_address_etc(city_state_zip: str, country: str) -> Tuple[str, str, str]:
+        """This function takes part of an address line that has the city, state and zip
+        in it and splits them up into those pieces. Assumes that the last word is the
+        zip, the next to last word is the state abbreviation, and the remaining words.
+
+        The country is also needed as an input because canadian postal codes are two
+        words.
+
+        are the city. Example:
+        "Lake Forest Park WA 98765" -> "Lake Forest Park", "WA", "98765"
+        """
+        words = city_state_zip.split()
+        postal_code = words.pop()
+
+        # Canadian postal codes are two words
+        if country == "CA":
+            postal_code = words.pop() + " " + postal_code
+
+        state = words.pop()
+        city = " ".join(words)
+        return city, state, postal_code
+
+    @staticmethod
+    def parse_country(country: str) -> str:
+        # Most likely the country will come from SAP as either "USA" or "Canada",
+        # but it's possible for an SAP user to manually enter an address so I'm being
+        # as forgiving as possible with spellings
+        if country.upper() in (
+                "USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA"
+        ):
+            return "US"
+        elif country.upper() in ("CANADA", "CA"):
+            return "CA"
+        else:
+            raise ValidationError("Country not recognized")
+
+    @classmethod
+    def parse_address_string(cls, address_string):
+        """<rant> Because of what can happen on the SAP side, getting the shipping and
+        billing addresses from a sales order is a real mess. Ideally the integration
+        framework would be able to include the billing/shipping addresses inside the
+        DraftOrderInput type. However, when we pull the address from the database it's
+        normalized and we have to parse out street1, street2, city, state, zip, country
+        manually. We can do a little bit of that on the SQL side by replacing linebreaks
+        with a `;`. Unfortunately the city, state, and zip code are all on one line. And
+        then there's no good way to break those pieces up inside the integration
+        framework because we can't figure out how to get the javascript plug-in working,
+        and God only knows how to do that with xslt/xpath. And of course there are some
+        subtle differences in how US and Canadian addresses work. So instead we send it
+        over as a string, then we do the rest of the address parsing here in python
+        land, and then finally stuff everything back into the DraftOrderInput.</rant>
+
+        Example inputs for US address:
+            123 Fake St.;Unit A;Townsville NY 12345;USA
+            742 Evergreen Terrace;;Springfield OR 98123;USA
+
+        Example input for CA address:
+            3213 Curling Lane Apt. C;Vancouver BC V1E 4X3;CANADA
+        """
+        address_lines: List = address_string.split(";")
+        # The last line is always the country
+        country = cls.parse_country(address_lines.pop())
+
+        # The next to last line contains the city, state (or province), and postal code
+        city, state, postal_code = cls.parse_address_etc(
+            address_lines.pop(),
+            country
+        )
+
+        # The remaining 1 or 2 lines (US addresses should have 2 lines, CA should only
+        # have 1)
+        line_1 = address_lines[0]
+
+        # In the event we have more than 2 extra address lines, we'll just concatenate
+        # them into one big line
+        if len(address_lines) >= 2:
+            line_2 = " ".join(address_lines[1:])
+        else:
+            line_2 = None
+
+        return {
+            "street_address_1": line_1,
+            "street_address_2": line_2,
+            "city": city,
+            "country_area": state,
+            "country": country,
+            "postal_code": postal_code
+        }
+
     @classmethod
     def perform_mutation(cls, _root, info, **data):
         # Get the order instance
         order: order_models.Order = cls.get_instance(info, **data)
         new_order = False if order.pk else True
         input: dict = data["input"]
-        draft_order_input = input.pop("draft_order_input", None)
-        if lines := input.pop("lines", None):
+        draft_order_input = input["draft_order_input"]
+        channel_name = data.get("channel_name")
+        shipping_method_name = data.get("shipping_method_name")
+
+        if shipping_address := data.get("shipping_address"):
+            draft_order_input["shipping_address"] = cls.parse_address_string(
+                shipping_address)
+
+        if billing_address := data.get("billing_address"):
+            draft_order_input["billing_address"] = cls.parse_address_string(
+                billing_address)
+
+        # Get the channel model object from the channel name
+        if channel_name:
+            channel = product_models.Channel.objects.get(slug=slugify(channel_name))
+            draft_order_input["channel_id"] = graphene.Node.to_global_id(
+                "Channel",
+                channel.id
+            )
+
+        # Form the line items for the order
+        if lines := input.get("lines", []):
             # We need to translate SKU into variant ids.
             # Sort our line items by SKU
             lines = sorted(lines, key=lambda line: line["sku"])
 
             # Get all the product variants for the SKUs provided (also sorted by SKU)
-            product_variants = product_models.ProductVariant.objects.filter(
+            product_variants: List[dict] = list(product_models.ProductVariant.objects.filter(
                 sku__in=[line["sku"] for line in lines]
-            ).values("id", "sku").order_by("sku")
+            ).values("id", "sku").order_by("sku"))
 
             # Replace each line item's SKU key-value pair with variant's global id
-            for i, line in enumerate(product_variants):
-                lines[i]["variant_id"] = graphene.Node.to_global_id(
-                    "ProductVariant",
-                    line["id"]
-                )
-                del lines[i]["sku"]
+            # There is a possibility that there are SKUs from SAP that don't exist in
+            # Saleor, so we will raise a validation error if any exist
+            i = 0
+            bad_line_items = []
+            num_product_variants = len(product_variants)
+            for sap_line in lines:
+                if (
+                        i < num_product_variants and
+                        sap_line["sku"] == product_variants[i]["sku"]
+                ):
+                    sap_line["variant_id"] = graphene.Node.to_global_id(
+                        "ProductVariant",
+                        product_variants[i]["id"]
+                    )
+                    del sap_line["sku"]
+                    i += 1
+                else:
+                    bad_line_items.append(sap_line["sku"])
 
-        metadata = input.pop("metadata", {})
+            if bad_line_items:
+                raise ValidationError(
+                    f"The following SKUs do not exist in Saleor: {bad_line_items}"
+                )
+
+        metadata = input.get("metadata", {})
         # Keep SAP's DocEntry field and business partner code in the meta data
         # so we can refer to this order again
         metadata.update({
@@ -1004,6 +1140,16 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     info,
                     id=graphene.Node.to_global_id("OrderLine", line.id)
                 )
+
+        # Lookup the shipping method by name and update the order
+        if shipping_method_name:
+            available_shipping_methods = get_valid_shipping_methods_for_order(order)
+            shipping_method = available_shipping_methods.filter(
+                private_metadata__TrnspName=shipping_method_name
+            ).first()
+            order.shipping_method = shipping_method
+            order.shipping_method_name = shipping_method.name
+            order.save()
 
         if input.get("confirm_order", False):
             # Try to move this draft order to confirmed

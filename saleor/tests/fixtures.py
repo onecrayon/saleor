@@ -812,6 +812,32 @@ def attribute_choices_for_sorting(db):
 
 
 @pytest.fixture
+def boolean_attribute(db):
+    attribute = Attribute.objects.create(
+        slug="boolean",
+        name="Boolean",
+        type=AttributeType.PRODUCT_TYPE,
+        input_type=AttributeInputType.BOOLEAN,
+        filterable_in_storefront=True,
+        filterable_in_dashboard=True,
+        available_in_grid=True,
+    )
+    AttributeValue.objects.create(
+        attribute=attribute,
+        name=f"{attribute.name}: Yes",
+        slug=f"{attribute.id}_true",
+        boolean=True,
+    )
+    AttributeValue.objects.create(
+        attribute=attribute,
+        name=f"{attribute.name}: No",
+        slug=f"{attribute.id}_false",
+        boolean=False,
+    )
+    return attribute
+
+
+@pytest.fixture
 def rich_text_attribute(db):
     attribute = Attribute.objects.create(
         slug="text",
@@ -830,6 +856,26 @@ def rich_text_attribute(db):
         rich_text=dummy_editorjs(text),
     )
     return attribute
+
+
+@pytest.fixture
+def rich_text_attribute_with_many_values(rich_text_attribute):
+    attribute = rich_text_attribute
+    values = []
+    for i in range(5):
+        text = f"Rich text attribute content{i}."
+        values.append(
+            AttributeValue(
+                attribute=attribute,
+                name=truncatechars(
+                    clean_editor_js(dummy_editorjs(text), to_string=True), 50
+                ),
+                slug=f"instance_{attribute.id}_{i}",
+                rich_text=dummy_editorjs(text),
+            )
+        )
+    AttributeValue.objects.bulk_create(values)
+    return rich_text_attribute
 
 
 @pytest.fixture

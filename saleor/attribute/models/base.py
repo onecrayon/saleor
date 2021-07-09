@@ -154,7 +154,7 @@ class Attribute(ModelWithMetadata):
     storefront_search_position = models.IntegerField(default=0, blank=True)
     available_in_grid = models.BooleanField(default=False, blank=True)
 
-    objects = AttributeQuerySet.as_manager()
+    objects = models.Manager.from_queryset(AttributeQuerySet)()
     translated = TranslationProxy()
 
     class Meta(ModelWithMetadata.Meta):
@@ -200,6 +200,7 @@ class AttributeValue(SortableModel):
         Attribute, related_name="values", on_delete=models.CASCADE
     )
     rich_text = SanitizedJSONField(blank=True, null=True, sanitizer=clean_editor_js)
+    boolean = models.BooleanField(blank=True, null=True)
 
     translated = TranslationProxy()
 

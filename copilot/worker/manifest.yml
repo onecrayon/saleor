@@ -29,7 +29,7 @@ exec: true     # Enable running commands in your container.
 #
 variables:                    # Pass environment variables as key value pairs.
   CELERY_BROKER_URL: redis://redis.saleor.local:6379/1
-  DEFAULT_FROM_EMAIL: noreply@saleor.dronemobile.com
+  DEFAULT_FROM_EMAIL: noreply@myfirstech.com
   REDIS_URL: redis://redis.saleor.local:6379/0
 
 # DATABASE_URL and EMAIL_URL must be commented out for first infrastructure provision before initial Terraform run. Please see README.
@@ -38,6 +38,20 @@ secrets:                      # Pass secrets from AWS Systems Manager (SSM) Para
   EMAIL_URL: /saleor/dev/EMAIL_URL
   SECRET_KEY: /saleor/dev/SECRET_KEY
   SENTRY_DSN: /saleor/dev/SENTRY_DSN
+
+  # For connection to Drone
+  DRONE_API_URL: /saleor/dev/DRONE_API_URL
+  DRONE_API_SECRET_KEY: /saleor/dev/DRONE_API_SECRET_KEY
+  DRONE_COGNITO_POOL_ID: /saleor/dev/DRONE_COGNITO_POOL_ID
+  DRONE_COGNITO_CLIENT_ID: /saleor/dev/DRONE_COGNITO_CLIENT_ID
+  DRONE_AWS_DEFAULT_REGION: /saleor/dev/DRONE_AWS_DEFAULT_REGION
+
+  DRONE_DATABASE_HOST: /saleor/dev/DRONE_DATABASE_HOST
+  DRONE_DATABASE_PORT: /saleor/dev/DRONE_DATABASE_PORT
+  DRONE_DATABASE_USERNAME: /saleor/dev/DRONE_DATABASE_USERNAME
+  DRONE_DATABASE_PASSWORD: /saleor/dev/DRONE_DATABASE_PASSWORD
+  DRONE_DATABASE_DBNAME: /saleor/dev/DRONE_DATABASE_DBNAME
+  DRONE_DATABASE_SSLMODE: /saleor/dev/DRONE_DATABASE_SSLMODE
 
 # You can override any of the values defined above by environment.
 environments:

@@ -41,6 +41,9 @@ class AttributeValue(CountableDjangoObjectType):
     rich_text = graphene.JSONString(
         description=AttributeValueDescriptions.RICH_TEXT, required=False
     )
+    boolean = graphene.Boolean(
+        description=AttributeValueDescriptions.BOOLEAN, required=False
+    )
 
     class Meta:
         description = "Represents a value of an attribute."
@@ -205,12 +208,15 @@ class AttributeInput(graphene.InputObjectType):
         required=False,
         description=AttributeValueDescriptions.VALUES_RANGE,
     )
+    boolean = graphene.Boolean(
+        required=False, description=AttributeDescriptions.BOOLEAN
+    )
 
 
 class AttributeValueInput(graphene.InputObjectType):
     id = graphene.ID(description="ID of the selected attribute.")
     values = graphene.List(
-        graphene.String,
+        graphene.NonNull(graphene.String),
         required=False,
         description=(
             "The value or slug of an attribute to resolve. "
@@ -229,4 +235,7 @@ class AttributeValueInput(graphene.InputObjectType):
     )
     rich_text = graphene.JSONString(
         required=False, description="Text content in JSON format."
+    )
+    boolean = graphene.Boolean(
+        required=False, description=AttributeValueDescriptions.BOOLEAN
     )
