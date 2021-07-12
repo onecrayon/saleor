@@ -1,9 +1,17 @@
+from dataclasses import dataclass
 from django.core.cache import caches
 import requests
-from saleor import settings
 
 
-def get_sap_cookies():
+@dataclass
+class SAPServiceLayerConfiguration:
+    username: str
+    password: str
+    database: str
+    url: str
+
+
+def get_sap_cookies(config: SAPServiceLayerConfiguration):
     """Either returns the session cookies for our connection to SAP service layer if
     they exist, or logs in to SAP service layer and caches the session cookies."""
     cache = caches["default"]
@@ -11,11 +19,11 @@ def get_sap_cookies():
         return cookies
 
     response = requests.post(
-        url=settings.SAP_SERVICE_LAYER_URL + "Login",
+        url=config.url + "Login",
         json={
-            "UserName": settings.SAP_SERVICE_LAYER_USERNAME,
-            "Password": settings.SAP_SERVICE_LAYER_PASSWORD,
-            "CompanyDB": settings.SAP_SERVICE_LAYER_DB,
+            "UserName": config.username,
+            "Password": config.password,
+            "CompanyDB": config.database,
         },
         # TODO: TURN SSL VERIFICATION BACK ON
         verify=False,

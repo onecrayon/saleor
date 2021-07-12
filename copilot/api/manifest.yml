@@ -54,12 +54,6 @@ secrets:                      # Pass secrets from AWS Systems Manager (SSM) Para
   DRONE_DATABASE_DBNAME: /saleor/dev/DRONE_DATABASE_DBNAME
   DRONE_DATABASE_SSLMODE: /saleor/dev/DRONE_DATABASE_SSLMODE
 
-  # For connection to SAP service layer
-  SAP_SERVICE_LAYER_URL: /saleor/dev/SAP_SERVICE_LAYER_URL
-  SAP_SERVICE_LAYER_USERNAME: /saleor/dev/SAP_SERVICE_LAYER_USERNAME
-  SAP_SERVICE_LAYER_PASSWORD: /saleor/dev/SAP_SERVICE_LAYER_PASSWORD
-  SAP_SERVICE_LAYER_DB: /saleor/dev/SAP_SERVICE_LAYER_DB
-
 # You can override any of the values defined above by environment.
 environments:
   dev:

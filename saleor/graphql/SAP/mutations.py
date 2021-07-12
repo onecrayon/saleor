@@ -1091,8 +1091,8 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
         # Attach our metadata
         if metadata:
-            order.store_value_in_metadata(items=metadata)
-            order.save(update_fields=["metadata"])
+            order.store_value_in_private_metadata(items=metadata)
+            order.save(update_fields=["private_metadata"])
 
         # For existing orders we must update any changes to line items that were made
         if not new_order:
