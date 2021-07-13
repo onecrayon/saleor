@@ -56,5 +56,15 @@ secrets:                      # Pass secrets from AWS Systems Manager (SSM) Para
 # You can override any of the values defined above by environment.
 environments:
   dev:
-    AWS_MEDIA_BUCKET_NAME: saleor-dev-media
-    AWS_STORAGE_BUCKET_NAME: saleor-dev-static
+    variables:
+      AWS_MEDIA_BUCKET_NAME: saleor-dev-media
+      AWS_STORAGE_BUCKET_NAME: saleor-dev-static
+  prod:
+    variables:
+      AWS_MEDIA_BUCKET_NAME: saleor-prod-media
+      AWS_STORAGE_BUCKET_NAME: saleor-prod-static
+    secrets:
+      DATABASE_URL: /saleor/prod/DATABASE_URL
+      EMAIL_URL: /saleor/prod/EMAIL_URL
+      SECRET_KEY: /saleor/prod/SECRET_KEY
+      SENTRY_DSN: /saleor/prod/SENTRY_DSN
