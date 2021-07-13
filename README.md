@@ -25,7 +25,6 @@ TBD: how to upgrade to later versions of 3.0. Merge the tag into `ft-develop`?
 1. Run the Saleor application setup commands as Copilot tasks:
   1. `copilot task run --command "python3 manage.py migrate" --dockerfile ./Dockerfile --env-vars DATABASE_URL=<database-url-value>,SECRET_KEY=<secret-key-value> --follow --task-group-name saleor-db-migrate`
   1. (run other commands remotely as desired using a similar format)
-EY=<secret-key-value> --follow`
 1. Change the `manifest.yml` files for the `api` and `worker` Copilot services to reinstate the `secrets` definitions.
 1. Redeploy both Copilot services.
 1. Run any additional setup commands like generating statics, populating the database or setting a superuser via the ECS container directly using `copilot svc exec -n api` for a shell prompt.
