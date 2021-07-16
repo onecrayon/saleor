@@ -605,6 +605,7 @@ PLUGINS = [
     "saleor.plugins.user_email.plugin.UserEmailPlugin",
     "saleor.plugins.admin_email.plugin.AdminEmailPlugin",
     "saleor.plugins.sendgrid.plugin.SendgridEmailPlugin",
+    "saleor.plugins.sap_orders.plugin.SAPOrdersPlugin",
 ]
 
 # Plugin discovery
@@ -686,8 +687,3 @@ DRONE_COGNITO_CLIENT_ID = os.environ.get("DRONE_COGNITO_CLIENT_ID")
 DRONE_AWS_DEFAULT_REGION = os.environ.get("DRONE_AWS_DEFAULT_REGION")
 DRONE_API_SECRET_KEY = os.environ.get("DRONE_API_SECRET_KEY")
 DRONE_API_URL = os.environ.get("DRONE_API_URL")
-
-SAP_SERVICE_LAYER_URL = os.environ.get("SAP_SERVICE_LAYER_URL")
-SAP_SERVICE_LAYER_USERNAME = os.environ.get("SAP_SERVICE_LAYER_USERNAME")
-SAP_SERVICE_LAYER_PASSWORD = os.environ.get("SAP_SERVICE_LAYER_PASSWORD")
-SAP_SERVICE_LAYER_DB = os.environ.get("SAP_SERVICE_LAYER_DB")

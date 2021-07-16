@@ -86,11 +86,21 @@ class SAPOrdersPlugin(BasePlugin):
         except sap_models.BusinessPartner.DoesNotExist:
             return
 
+        try:
+            due_date = order.metadata.get("due_date").strftime("%Y-%m-%d")
+        except AttributeError:
+            # Supposedly the due_date is the expected ship date for an order. But SAP
+            # doesn't accept posting new orders without one, so default to the order
+            # created date since we don't have any other date to go off of
+            due_date = order.created.strftime("%Y-%m-%d")
+
         order_for_sap = {
             "CardCode": business_partner.sap_bp_code,
             "DocDate": order.created.strftime("%Y-%m-%d"),
-            "DocDueDate": order.created.strftime("%Y-%m-%d"),
-            "TransportationCode": order.shipping_method.private_metadata.get("TrnspCode"),
+            "DocDueDate": due_date,
+            "NumAtCard": order.metadata.get("PO_number"),
+            "TransportationCode": order.shipping_method.private_metadata.get(
+                "TrnspCode"),
             "Address": self.address_to_string(order.billing_address),
             "Address2": self.address_to_string(order.shipping_address),
         }
@@ -98,7 +108,7 @@ class SAPOrdersPlugin(BasePlugin):
         document_lines = []
         for line_item in order.lines.all():
             document_line = {
-                "ItemCode": "X1-LTE",#line_item.product_sku,
+                "ItemCode": line_item.product_sku,
                 "Quantity": line_item.quantity,
                 # Possibly include pricing/discount information in case of discount
                 "UnitPrice": float(line_item.undiscounted_unit_price_gross_amount),
@@ -121,7 +131,11 @@ class SAPOrdersPlugin(BasePlugin):
                 order_for_sap["DiscountPercent"] = float(discount.value)
             elif discount.value_type == DiscountValueType.FIXED:
                 # TODO: WHAT TO DO ABOUT THIS?
-                # SAP doesn't support fixed amount discounts on sales orders
+                # SAP doesn't support fixed amount discounts on sales orders but we
+                # don't need to support that feature, so we need a way to turn off
+                # that discount type. Probably easiest to remove it from the dashboard
+                # since raising a validation error here doesn't do much besides kill the
+                # plugin logic
                 pass
         else:
             # This handles situations where a discount could have been removed.
@@ -133,14 +147,19 @@ class SAPOrdersPlugin(BasePlugin):
         """Trigger when order is created. Is triggered by admins creating an order in
         the dashboard, and also when users complete the checkout process.
         """
+        if order.private_metadata.get("doc_entry"):
+            # When a draft order is "finalized" it triggers the "order_created" method
+            # instead of the "order_updated" method
+            return self.order_updated(order, previous_value)
+
         order_data = self.get_order_for_sap(order)
         if not order_data:
-            return
+            return previous_value
 
         # Create a new sales order in SAP
         response = requests.post(
             url=self.config.url + "Orders",
-            json=self.get_order_for_sap(order),
+            json=order_data,
             cookies=get_sap_cookies(self.config),
             verify=False
         )
@@ -154,6 +173,8 @@ class SAPOrdersPlugin(BasePlugin):
                 }
             )
             order.save(update_fields=["private_metadata"])
+
+        return previous_value
 
     def order_confirmed(self, order: "Order", previous_value: Any):
         """Trigger when order is confirmed by staff.
@@ -181,6 +202,8 @@ class SAPOrdersPlugin(BasePlugin):
             # attached to an SAP order yet.
             self.order_created(order, previous_value)
 
+        return previous_value
+
     def order_cancelled(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is cancelled."""
         if doc_entry := order.private_metadata.get("doc_entry"):
@@ -193,7 +216,8 @@ class SAPOrdersPlugin(BasePlugin):
                 }
             )
 
+        return previous_value
+
     def order_fulfilled(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is fulfilled."""
         return NotImplemented
-
