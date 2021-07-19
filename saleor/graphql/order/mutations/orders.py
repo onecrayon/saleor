@@ -854,6 +854,7 @@ class OrderLineUpdate(EditableOrderValidationMixin, ModelMutation):
                 code=OrderErrorCode.INSUFFICIENT_STOCK,
             )
         recalculate_order(instance.order)
+        info.context.plugins.order_updated(instance.order)
 
     @classmethod
     def success_response(cls, instance):

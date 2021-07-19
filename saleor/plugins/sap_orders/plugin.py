@@ -94,13 +94,18 @@ class SAPOrdersPlugin(BasePlugin):
             # created date since we don't have any other date to go off of
             due_date = order.created.strftime("%Y-%m-%d")
 
+        try:
+            transportation_code = order.shipping_method.private_metadata.get(
+                "TrnspCode")
+        except AttributeError:
+            transportation_code = None
+
         order_for_sap = {
             "CardCode": business_partner.sap_bp_code,
             "DocDate": order.created.strftime("%Y-%m-%d"),
             "DocDueDate": due_date,
             "NumAtCard": order.metadata.get("PO_number"),
-            "TransportationCode": order.shipping_method.private_metadata.get(
-                "TrnspCode"),
+            "TransportationCode": transportation_code,
             "Address": self.address_to_string(order.billing_address),
             "Address2": self.address_to_string(order.shipping_address),
         }
