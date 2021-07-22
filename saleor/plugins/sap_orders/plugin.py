@@ -19,6 +19,7 @@ class SAPOrdersPlugin(BasePlugin):
         {"name": "Password", "value": None},
         {"name": "Database", "value": None},
         {"name": "SAP Service Layer URL", "value": None},
+        {"name": "SSL Verification", "value": True},
     ]
 
     CONFIG_STRUCTURE = {
@@ -41,6 +42,12 @@ class SAPOrdersPlugin(BasePlugin):
             "type": ConfigurationTypeField.STRING,
             "help_text": "Provide the URL to the SAP Service Layer",
             "label": "SAP Service Layer URL",
+        },
+        "SSL Verification": {
+            "type": ConfigurationTypeField.BOOLEAN,
+            "help_text": "Whether or not SSL should be verified "
+                         "when communicating with SAP",
+            "label": "SSL Verification",
         }
     }
 
@@ -54,6 +61,7 @@ class SAPOrdersPlugin(BasePlugin):
             password=configuration["Password"],
             database=configuration["Database"],
             url=configuration["SAP Service Layer URL"],
+            verify_ssl=configuration["SSL Verification"],
         )
 
     @staticmethod

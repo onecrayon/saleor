@@ -9,6 +9,7 @@ class SAPServiceLayerConfiguration:
     password: str
     database: str
     url: str
+    verify_ssl: bool
 
 
 def get_sap_cookies(config: SAPServiceLayerConfiguration):
@@ -25,9 +26,8 @@ def get_sap_cookies(config: SAPServiceLayerConfiguration):
             "Password": config.password,
             "CompanyDB": config.database,
         },
-        # TODO: TURN SSL VERIFICATION BACK ON
-        verify=False,
+        verify=config.verify_ssl,
     )
-    # Cookies are kept for 30 minutes
-    cache.set("sap_login_cookies", response.cookies, timeout=60 * 30)
+    # Cookies are kept for 29 minutes (1 minute less than they are good for)
+    cache.set("sap_login_cookies", response.cookies, timeout=60 * 29)
     return response.cookies
