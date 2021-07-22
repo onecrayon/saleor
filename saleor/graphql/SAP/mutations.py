@@ -360,7 +360,7 @@ class SAPUserProfileCreateInput(graphene.InputObjectType):
     date_of_birth = graphene.String()
     is_company_owner = graphene.Boolean()
     middle_name = graphene.String()
-    business_partner = graphene.ID()
+    business_partners = graphene.List(of_type=graphene.ID)
 
 
 class CreateSAPUserProfile(ModelMutation, GetBusinessPartnerMixin):
@@ -868,8 +868,6 @@ class UpsertSAPOrder(DraftOrderUpdate):
             required=True,
             description="The DocEntry value from SAP (primary key for SAP orders)."
         )
-        # We need to keep card code and doc_entry together because for some reason
-        # doc_entry numbers are only unique to the business partner.
         sap_bp_code = graphene.String(
             required=True,
             description="The SAP CardCode for the order."
@@ -1058,12 +1056,12 @@ class UpsertSAPOrder(DraftOrderUpdate):
                 )
 
         metadata = input.get("metadata", {})
-        # Keep SAP's DocEntry field and business partner code in the meta data
+        # Keep SAP's DocEntry field and business partner code in the private meta data
         # so we can refer to this order again
-        metadata.update({
+        private_metadata = {
             "doc_entry": data["doc_entry"],
             "sap_bp_code": data["sap_bp_code"]
-        })
+        }
 
         # If this is a new order then we can use the draftOrderCreate mutation which
         # takes the lines argument. Otherwise for an update we can't include lines
@@ -1090,9 +1088,9 @@ class UpsertSAPOrder(DraftOrderUpdate):
         cls.post_save_action(info, order, cleaned_input)
 
         # Attach our metadata
-        if metadata:
-            order.store_value_in_metadata(items=metadata)
-            order.save(update_fields=["metadata"])
+        order.store_value_in_metadata(items=metadata)
+        order.store_value_in_private_metadata(items=private_metadata)
+        order.save(update_fields=["metadata", "private_metadata"])
 
         # For existing orders we must update any changes to line items that were made
         if not new_order:
