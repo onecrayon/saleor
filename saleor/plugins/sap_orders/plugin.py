@@ -4,6 +4,7 @@ from typing import Any
 from ..base_plugin import BasePlugin, ConfigurationTypeField
 from firstech.SAP import models as sap_models
 
+from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
 from saleor.plugins.sap_orders import SAPServiceLayerConfiguration, get_sap_cookies
 
@@ -108,11 +109,18 @@ class SAPOrdersPlugin(BasePlugin):
         except AttributeError:
             transportation_code = None
 
+        if not (po_number := order.metadata.get("po_number")):
+            try:
+                checkout = Checkout.objects.get(token=order.checkout_token)
+                po_number = checkout.metadata.get("po_number")
+            except Checkout.DoesNotExist:
+                po_number = None
+
         order_for_sap = {
             "CardCode": business_partner.sap_bp_code,
             "DocDate": order.created.strftime("%Y-%m-%d"),
             "DocDueDate": due_date,
-            "NumAtCard": order.metadata.get("PO_number"),
+            "NumAtCard": po_number,
             "TransportationCode": transportation_code,
             "Address": self.address_to_string(order.billing_address),
             "Address2": self.address_to_string(order.shipping_address),
