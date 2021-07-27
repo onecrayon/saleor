@@ -600,6 +600,7 @@ def _move_order_lines_to_target_fulfillment(
     order_lines_to_update: List[OrderLine] = []
 
     backorders_to_update: List[Backorder] = []
+    backorders_to_delete: List[int] = []
     lines_to_dellocate: List[OrderLineData] = []
     for line_data in order_lines_to_move:
         line_to_move = line_data.line
@@ -630,7 +631,10 @@ def _move_order_lines_to_target_fulfillment(
             backorder_reduction = min(backorder.quantity, unfulfilled_to_move)
             unfulfilled_to_move -= backorder_reduction
             backorder.quantity -= backorder_reduction
-            backorders_to_update.append(backorder)
+            if backorder.quantity == 0:
+                backorders_to_delete.append(backorder.pk)
+            else:
+                backorders_to_update.append(backorder)
 
         line_allocations_exists = line_to_move.allocations.exists()
         if line_allocations_exists:
@@ -648,6 +652,7 @@ def _move_order_lines_to_target_fulfillment(
             )
 
     Backorder.objects.bulk_update(backorders_to_update, ["quantity"])
+    Backorder.objects.filter(pk__in=backorders_to_delete).delete()
     created_fulfillment_lines = FulfillmentLine.objects.bulk_create(
         fulfillment_lines_to_create
     )
