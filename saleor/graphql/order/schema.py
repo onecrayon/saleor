@@ -44,6 +44,8 @@ from .mutations.orders import (
     OrderUpdate,
     OrderUpdateShipping,
     OrderVoid,
+    OrderLineReduce,
+    OrderLineCancel,
 )
 from .resolvers import (
     resolve_draft_orders,
@@ -159,6 +161,8 @@ class OrderMutations(graphene.ObjectType):
     order_lines_create = OrderLinesCreate.Field()
     order_line_delete = OrderLineDelete.Field()
     order_line_update = OrderLineUpdate.Field()
+    order_line_reduce = OrderLineReduce.Field()
+    order_line_cancel = OrderLineCancel.Field()
 
     order_discount_add = OrderDiscountAdd.Field()
     order_discount_update = OrderDiscountUpdate.Field()

@@ -1,12 +1,19 @@
 import requests
 from typing import Any
 
+from django.core.exceptions import ValidationError
+
 from ..base_plugin import BasePlugin, ConfigurationTypeField
 from firstech.SAP import models as sap_models
 
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
-from saleor.plugins.sap_orders import SAPServiceLayerConfiguration, get_sap_cookies
+from saleor.order import OrderStatus
+from saleor.plugins.sap_orders import (
+    SAPServiceLayerConfiguration,
+    get_sap_cookies,
+    is_truthy,
+)
 
 
 class SAPOrdersPlugin(BasePlugin):
@@ -52,6 +59,15 @@ class SAPOrdersPlugin(BasePlugin):
         }
     }
 
+    CONFIRMED_ORDERS = (
+        OrderStatus.UNFULFILLED,
+        OrderStatus.PARTIALLY_FULFILLED,
+        OrderStatus.FULFILLED,
+        OrderStatus.PARTIALLY_RETURNED,
+        OrderStatus.RETURNED,
+        OrderStatus.CANCELED,
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Convert to dict to easier take config elements
@@ -62,7 +78,7 @@ class SAPOrdersPlugin(BasePlugin):
             password=configuration["Password"],
             database=configuration["Database"],
             url=configuration["SAP Service Layer URL"],
-            verify_ssl=configuration["SSL Verification"],
+            verify_ssl=is_truthy(configuration["SSL Verification"]),
         )
 
     @staticmethod
@@ -102,7 +118,6 @@ class SAPOrdersPlugin(BasePlugin):
             # doesn't accept posting new orders without one, so default to the order
             # created date since we don't have any other date to go off of
             due_date = order.created.strftime("%Y-%m-%d")
-
         try:
             transportation_code = order.shipping_method.private_metadata.get(
                 "TrnspCode")
@@ -113,8 +128,9 @@ class SAPOrdersPlugin(BasePlugin):
             try:
                 checkout = Checkout.objects.get(token=order.checkout_token)
                 po_number = checkout.metadata.get("po_number")
-            except Checkout.DoesNotExist:
-                po_number = None
+            except (ValidationError, Checkout.DoesNotExist):
+                # A validation error can be raised if the checkout_token is blank
+                pass
 
         order_for_sap = {
             "CardCode": business_partner.sap_bp_code,
@@ -168,6 +184,10 @@ class SAPOrdersPlugin(BasePlugin):
         """Trigger when order is created. Is triggered by admins creating an order in
         the dashboard, and also when users complete the checkout process.
         """
+        # Only send sales orders to SAP once they have been confirmed
+        if order.status not in self.CONFIRMED_ORDERS:
+            return previous_value
+
         if order.private_metadata.get("doc_entry"):
             # When a draft order is "finalized" it triggers the "order_created" method
             # instead of the "order_updated" method
@@ -207,6 +227,10 @@ class SAPOrdersPlugin(BasePlugin):
 
     def order_updated(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is updated."""
+        # Only send sales orders to SAP once they have been confirmed
+        if order.status not in self.CONFIRMED_ORDERS:
+            return previous_value
+
         if doc_entry := order.private_metadata.get("doc_entry"):
             # Update and existing sales order in SAP
             requests.patch(
@@ -227,6 +251,10 @@ class SAPOrdersPlugin(BasePlugin):
 
     def order_cancelled(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is cancelled."""
+        # Only send sales orders to SAP once they have been confirmed
+        if order.status not in self.CONFIRMED_ORDERS:
+            return previous_value
+
         if doc_entry := order.private_metadata.get("doc_entry"):
             requests.post(
                 url=self.config.url + f"Orders({doc_entry})/Cancel",
