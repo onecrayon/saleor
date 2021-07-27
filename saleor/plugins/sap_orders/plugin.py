@@ -209,8 +209,8 @@ class SAPOrdersPlugin(BasePlugin):
         if result.get("DocEntry"):
             order.store_value_in_private_metadata(
                 items={
-                    "doc_entry": result["DocEntry"],
-                    "sap_bp_code": result["CardCode"]
+                    "doc_entry": str(result["DocEntry"]),
+                    "sap_bp_code": str(result["CardCode"])
                 }
             )
             order.save(update_fields=["private_metadata"])

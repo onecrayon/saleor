@@ -29,9 +29,11 @@ from saleor.graphql.order.mutations.draft_orders import (
     DraftOrderComplete,
 )
 from saleor.graphql.order.mutations.orders import (
-    OrderLineDelete,
     OrderLinesCreate,
     OrderLineUpdate,
+    OrderUpdate,
+    OrderLineReduce,
+    OrderLineCancel,
 )
 from saleor.graphql.SAP.enums import DistributionTypeEnum
 from saleor.graphql.SAP.types import (
@@ -50,6 +52,7 @@ from saleor.graphql.product.mutations.channels import (
 from saleor.graphql.product.mutations.products import ProductVariantCreate
 from saleor.graphql.product.types import ProductVariant
 from saleor.order import models as order_models
+from saleor.order import OrderStatus
 from saleor.order.utils import get_valid_shipping_methods_for_order
 from saleor.warehouse.models import Warehouse
 
@@ -837,7 +840,7 @@ class SAPOrderMetadataInput(graphene.InputObjectType):
     due_date = graphene.String(description="Expected shipping date. From ORDR.DocDueDate")
     date_shipped = graphene.String(description="From ORDR.ShipDate")
     payment_method = graphene.String(description="From ORDR.PaymentMethod")
-    PO_number = graphene.String(description="From ORDR.ImportFileNum")
+    po_number = graphene.String(description="From ORDR.ImportFileNum")
 
 
 class SAPOrderInput(graphene.InputObjectType):
@@ -894,8 +897,8 @@ class UpsertSAPOrder(DraftOrderUpdate):
     @classmethod
     def get_instance(cls, info, **data):
         instance = order_models.Order.objects.filter(
-            metadata__doc_entry=data["doc_entry"],
-            metadata__sap_bp_code=data["sap_bp_code"]
+            private_metadata__doc_entry=data["doc_entry"],
+            private_metadata__sap_bp_code=data["sap_bp_code"]
         ).prefetch_related("lines").first()
 
         if not instance:
@@ -998,6 +1001,8 @@ class UpsertSAPOrder(DraftOrderUpdate):
         # Get the order instance
         order: order_models.Order = cls.get_instance(info, **data)
         new_order = False if order.pk else True
+        order_is_finalized = order.status not in (
+            OrderStatus.DRAFT, OrderStatus.UNCONFIRMED) and not new_order
         input: dict = data["input"]
         draft_order_input = input["draft_order_input"]
         channel_name = data.get("channel_name")
@@ -1071,21 +1076,22 @@ class UpsertSAPOrder(DraftOrderUpdate):
             # Channel id can't be changed
             del draft_order_input["channel_id"]
 
-        # Update the draft Order
-        # Ok...so. We can't use cls.clean_input for this because we would need to be
-        # able to pass in the `input_cls` argument to make sure the
-        # BaseMutation.clean_input method is referring to the right input class.
-        # (We want to clean theDraftOrderCreateInput not the SAPOrderInput).
-        # But the DraftOrderUpdate class doesn't pass the `input_cls` argument through
-        # to the BaseMutation class. So we either need to edit the stock saleor code to
-        # pass that argument through OR explicitly call a fresh DraftOrderUpdate class
-        # to make sure the right input class gets used.
-        cleaned_input = DraftOrderUpdate.clean_input(info, order, draft_order_input)
-        order = cls.construct_instance(order, cleaned_input)
-        cls.clean_instance(info, order)
-        cls.save(info, order, cleaned_input)
-        cls._save_m2m(info, order, cleaned_input)
-        cls.post_save_action(info, order, cleaned_input)
+        # We need to use the appropriate mutation class depending on if the order is a
+        # draft or not.
+        if order_is_finalized:
+            # if order is finalized only billing address, shipping address, and
+            # user email are editable
+            mutation_class = OrderUpdate
+        else:
+            mutation_class = DraftOrderUpdate
+
+        cleaned_input = mutation_class.clean_input(info, order, draft_order_input)
+        order = mutation_class.construct_instance(order, cleaned_input)
+        mutation_class.clean_instance(info, order)
+        mutation_class.save(info, order, cleaned_input)
+        mutation_class.save(info, order, cleaned_input)
+        mutation_class._save_m2m(info, order, cleaned_input)
+        mutation_class.post_save_action(info, order, cleaned_input)
 
         # Attach our metadata
         order.store_value_in_metadata(items=metadata)
@@ -1107,33 +1113,49 @@ class UpsertSAPOrder(DraftOrderUpdate):
             for line in lines:
                 if existing_line := line_cache.pop(line["variant_id"], None):
                     if existing_line.quantity != line["quantity"]:
-                        # We need to update the qty. There's a bunch of special behind
-                        # the scenes actions that take place in the normal update order
-                        # mutation. Instead of trying to recreate that all we'll just
-                        # call that mutation from here.
-                        OrderLineUpdate.perform_mutation(
-                            _root,
-                            info,
-                            id=graphene.Node.to_global_id(
-                                "OrderLine",
-                                existing_line.id
-                            ),
-                            input={"quantity": line["quantity"]}
-                        )
+                        if not order_is_finalized:
+                            # We need to update the qty. There's a bunch of special
+                            # behind the scenes actions that take place in the normal
+                            # update order mutation. Instead of trying to recreate that
+                            # all we'll just call that mutation from here.
+                            OrderLineUpdate.perform_mutation(
+                                _root,
+                                info,
+                                id=graphene.Node.to_global_id(
+                                    "OrderLine",
+                                    existing_line.id
+                                ),
+                                input={"quantity": line["quantity"]}
+                            )
+                        elif existing_line.quantity > line["quantity"]:
+                            # we need to "return" some quantity
+                            OrderLineReduce.perform_mutation(
+                                _root,
+                                info,
+                                id=graphene.Node.to_global_id(
+                                    "OrderLine",
+                                    existing_line.id
+                                ),
+                                input={"quantity": line["quantity"]}
+                            )
+
+                        elif existing_line.quantity < line["quantity"]:
+                            raise ValidationError("Can't increase line-item quantity")
                 else:
                     lines_to_create.append(line)
 
-            # Create the new lines using the mutation for that
-            OrderLinesCreate.perform_mutation(
-                _root,
-                info,
-                id=graphene.Node.to_global_id("Order", order.id),
-                input=lines_to_create
-            )
+            if not order_is_finalized and lines_to_create:
+                # Create the new lines using the mutation for that
+                OrderLinesCreate.perform_mutation(
+                    _root,
+                    info,
+                    id=graphene.Node.to_global_id("Order", order.id),
+                    input=lines_to_create
+                )
 
             # Delete any remaining lines that weren't updated or added
             for variant_id, line in line_cache.items():
-                OrderLineDelete.perform_mutation(
+                OrderLineCancel.perform_mutation(
                     _root,
                     info,
                     id=graphene.Node.to_global_id("OrderLine", line.id)
@@ -1149,7 +1171,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
             order.shipping_method_name = shipping_method.name
             order.save()
 
-        if input.get("confirm_order", False):
+        if input.get("confirm_order", True) and not order_is_finalized:
             # Try to move this draft order to confirmed
             try:
                 DraftOrderComplete.perform_mutation(
