@@ -1,46 +1,37 @@
 import decimal
+from typing import List, Optional, Tuple
 
 import graphene
-from typing import Optional, Tuple, List
-
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 
 import saleor.product.models as product_models
-
 from firstech.SAP import models
 from saleor.account import models as user_models
 from saleor.checkout import AddressType
 from saleor.core.permissions import (
-    AccountPermissions, ChannelPermissions,
-    ProductPermissions, OrderPermissions,
+    AccountPermissions,
+    ChannelPermissions,
+    OrderPermissions,
+    ProductPermissions,
 )
 from saleor.graphql.account.enums import AddressTypeEnum
 from saleor.graphql.account.mutations.staff import CustomerCreate
 from saleor.graphql.account.types import AddressInput, User
 from saleor.graphql.attribute.utils import AttributeAssignmentMixin
 from saleor.graphql.channel import ChannelContext
-from saleor.graphql.core.mutations import ModelMutation, BaseMutation
+from saleor.graphql.core.mutations import BaseMutation, ModelMutation
 from saleor.graphql.core.scalars import Decimal, PositiveDecimal
 from saleor.graphql.core.types.common import AccountError, OrderError
 from saleor.graphql.order.mutations.draft_orders import (
+    DraftOrderComplete,
     DraftOrderInput,
     DraftOrderUpdate,
-    DraftOrderComplete,
 )
 from saleor.graphql.order.mutations.orders import (
     OrderLineDelete,
     OrderLinesCreate,
     OrderLineUpdate,
-)
-from saleor.graphql.SAP.enums import DistributionTypeEnum
-from saleor.graphql.SAP.types import (
-    BusinessPartnerError,
-    BusinessPartner,
-    SAPUserProfile,
-    SAPApprovedBrands,
-    DroneRewardsProfile,
-    SAPProductError,
 )
 from saleor.graphql.product.bulk_mutations.products import ProductVariantStocksUpdate
 from saleor.graphql.product.mutations.channels import (
@@ -49,13 +40,21 @@ from saleor.graphql.product.mutations.channels import (
 )
 from saleor.graphql.product.mutations.products import ProductVariantCreate
 from saleor.graphql.product.types import ProductVariant
+from saleor.graphql.SAP.enums import DistributionTypeEnum
+from saleor.graphql.SAP.types import (
+    BusinessPartner,
+    BusinessPartnerError,
+    DroneRewardsProfile,
+    SAPApprovedBrands,
+    SAPProductError,
+    SAPUserProfile,
+)
 from saleor.order import models as order_models
 from saleor.order.utils import get_valid_shipping_methods_for_order
 from saleor.warehouse.models import Warehouse
 
 
 class GetBusinessPartnerMixin:
-
     @classmethod
     def get_business_partner(cls, data: dict, info):
         """Gets a business partner model object from either the base-64 encoded
@@ -66,7 +65,7 @@ class GetBusinessPartnerMixin:
                 info,
                 business_partner_id,
                 field="business_partner_id",
-                only_type=BusinessPartner
+                only_type=BusinessPartner,
             )
         elif sap_bp_code := data.get("sap_bp_code"):
             business_partner = models.BusinessPartner.objects.filter(
@@ -106,9 +105,9 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
     """Mutation for creating (i.e. migrating over) a business partner from SAP. If the
     id argument is passed, then this will update the existing business partner with that
     id."""
+
     business_partner = graphene.Field(
-        BusinessPartner,
-        description="A business partner instance that was created."
+        BusinessPartner, description="A business partner instance that was created."
     )
 
     class Arguments:
@@ -119,8 +118,7 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
             description="SAP Card code of an existing business partner to update."
         )
         input = BusinessPartnerCreateInput(
-            description="Fields required to create business partner.",
-            required=True
+            description="Fields required to create business partner.", required=True
         )
 
     class Meta:
@@ -160,7 +158,7 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
 class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
     business_partner = graphene.Field(
         BusinessPartner,
-        description="A business partner instance for which the address was created."
+        description="A business partner instance for which the address was created.",
     )
 
     class Arguments:
@@ -204,7 +202,7 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
         existing_address = models.Address.objects.filter(
             businesspartneraddresses__business_partner=business_partner,
             company_name=company_name,
-            businesspartneraddresses__type=address_type
+            businesspartneraddresses__type=address_type,
         ).first()
 
         if existing_address:
@@ -237,19 +235,19 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
             models.BusinessPartnerAddresses.objects.create(
                 business_partner_id=business_partner.id,
                 type=address_type,
-                address_id=instance.id
+                address_id=instance.id,
             )
             response.business_partner = business_partner
             # If this BP doesn't have default billing or shipping addresses, set them
             if address_type:
                 if (
-                    address_type == AddressType.BILLING and
-                    not business_partner.default_billing_address
+                    address_type == AddressType.BILLING
+                    and not business_partner.default_billing_address
                 ):
                     business_partner.default_billing_address = response.address
                 elif (
-                    address_type == AddressType.SHIPPING and
-                    not business_partner.default_shipping_address
+                    address_type == AddressType.SHIPPING
+                    and not business_partner.default_shipping_address
                 ):
                     business_partner.default_shipping_address = response.address
                 business_partner.save()
@@ -303,9 +301,11 @@ class BulkBusinessPartnerAddressCreate(BusinessPartnerAddressCreate):
         address_inputs = data.get("input")
         business_partner = cls.get_business_partner(data, info)
 
-        existing_addresses = set(models.BusinessPartnerAddresses.objects.filter(
-            business_partner=business_partner
-        ).values_list("address__company_name", "type"))
+        existing_addresses = set(
+            models.BusinessPartnerAddresses.objects.filter(
+                business_partner=business_partner
+            ).values_list("address__company_name", "type")
+        )
 
         responses = []
         upserted_addresses = set()
@@ -335,15 +335,16 @@ class DroneRewardsCreateInput(graphene.InputObjectType):
 
 class CreateDroneRewardsProfile(ModelMutation):
     """Mutation for creating a business partner's drone rewards information"""
+
     drone_rewards_profile = graphene.Field(
         DroneRewardsProfile,
-        description="A business partner's drone rewards information."
+        description="A business partner's drone rewards information.",
     )
 
     class Arguments:
         input = DroneRewardsCreateInput(
             description="Fields required to define drone rewards information.",
-            required=True
+            required=True,
         )
 
     class Meta:
@@ -366,16 +367,15 @@ class SAPUserProfileCreateInput(graphene.InputObjectType):
 class CreateSAPUserProfile(ModelMutation, GetBusinessPartnerMixin):
     """Mutation for creating a user's SAP user profile. If the id argument is passed
     then this mutation updates the existing SAP user profile with that id."""
+
     sap_user_profile = graphene.Field(
-        SAPUserProfile,
-        description="An SAP user profile that was created."
+        SAPUserProfile, description="An SAP user profile that was created."
     )
 
     class Arguments:
         id = graphene.ID()
         input = SAPUserProfileCreateInput(
-            description="Fields required to create SAP user profile.",
-            required=True
+            description="Fields required to create SAP user profile.", required=True
         )
         business_partner_id = graphene.ID(
             description="ID of a business partner to create address for.",
@@ -401,7 +401,6 @@ class MigrateContactInput(graphene.InputObjectType):
 
 
 class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
-
     class Arguments:
         input = graphene.List(of_type=MigrateContactInput)
 
@@ -420,7 +419,7 @@ class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
 
     @classmethod
     def clean_input(cls, info, instance, data, input_cls=None):
-        """ This needs to clean the input for the create user mutation. We're using the
+        """This needs to clean the input for the create user mutation. We're using the
         `CustomerCreate` class as a base class to ensure that all of the appropriate
         events/triggers that should occur when a new user is created happen. But since
         the input for this mutation is actually a graphene List as opposed to the
@@ -459,7 +458,7 @@ class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
                 create_user_data = {
                     "email": contact["email"],
                     "first_name": contact.get("first_name"),
-                    "last_name": contact.get("last_name")
+                    "last_name": contact.get("last_name"),
                 }
                 response = super().perform_mutation(root, info, input=create_user_data)
                 user = response.user
@@ -477,7 +476,7 @@ class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
                     "date_of_birth": contact.get("date_of_birth"),
                     "is_company_owner": contact.get("is_company_owner", False),
                     "middle_name": contact.get("middle_name"),
-                }
+                },
             )
 
             responses.append(sap_profile)
@@ -502,22 +501,21 @@ class SAPApprovedBrandsInput(graphene.InputObjectType):
 
 class AssignApprovedBrands(ModelMutation, GetBusinessPartnerMixin):
     """Mutation for assigning approved brands to a business partner"""
+
     approved_brands = graphene.Field(
-        SAPApprovedBrands,
-        description="The approved brands for this business partner."
+        SAPApprovedBrands, description="The approved brands for this business partner."
     )
 
     class Arguments:
         business_partner_id = graphene.ID(
             description="ID of a business partner to create address for.",
-            required=False
+            required=False,
         )
         sap_bp_code = graphene.String(
             description="SAP card code for the business partner."
         )
         input = SAPApprovedBrandsInput(
-            description="List of approved brands to assign.",
-            required=True
+            description="List of approved brands to assign.", required=True
         )
 
     class Meta:
@@ -539,9 +537,7 @@ class AssignApprovedBrands(ModelMutation, GetBusinessPartnerMixin):
         try:
             approved_brands = business_partner.approvedbrands
         except models.ApprovedBrands.DoesNotExist:
-            approved_brands = models.ApprovedBrands(
-                business_partner=business_partner
-            )
+            approved_brands = models.ApprovedBrands(business_partner=business_partner)
 
         # Update based on the input
         for brand, value in data["input"].items():
@@ -553,12 +549,16 @@ class AssignApprovedBrands(ModelMutation, GetBusinessPartnerMixin):
 
 
 class SAPProductMetadata(graphene.InputObjectType):
-    inventory_uom = graphene.String(description="Value from SAP field `OITM.InvntryUom`.")
+    inventory_uom = graphene.String(
+        description="Value from SAP field `OITM.InvntryUom`."
+    )
     manufacture = graphene.String(description="Value from SAP field `OITM.CardCode`.")
     on_hold = graphene.Int(description="Value from SAP field `OITM.OnHldPert`.")
     on_limited_hold = graphene.Int(description="Value from SAP field `OITM.onHldLimt`.")
     reserved_qty = graphene.Int(description="Value from SAP field `OITW.IsCommited`.")
-    website_code = graphene.String(description="Value from SAP field `OITM.U_website_code`.")
+    website_code = graphene.String(
+        description="Value from SAP field `OITM.U_website_code`."
+    )
 
 
 class SAPVariantMetadata(graphene.InputObjectType):
@@ -566,18 +566,34 @@ class SAPVariantMetadata(graphene.InputObjectType):
 
 
 class SAPProductPrivateMetadata(graphene.InputObjectType):
-    last_eval_price = graphene.String(description="Value from SAP field `OITM.LstEvlPric`.")
-    last_purchase_price = graphene.String(description="Value from SAP field `OITM.LastPurPrc`.")
-    last_updated = graphene.String(description="Value from SAP field `OITM.UpdateDate`.")
-    retail_taxable = graphene.String(description="Value from SAP field `OITM.RetilrTax`.")
-    wholesale_taxable = graphene.String(description="Value from SAP field `OITM.WholSlsTax`.")
-    com_level = graphene.String(description="Value from SAP field `OITM.U_V33_COMLEVEL`.")
+    last_eval_price = graphene.String(
+        description="Value from SAP field `OITM.LstEvlPric`."
+    )
+    last_purchase_price = graphene.String(
+        description="Value from SAP field `OITM.LastPurPrc`."
+    )
+    last_updated = graphene.String(
+        description="Value from SAP field `OITM.UpdateDate`."
+    )
+    retail_taxable = graphene.String(
+        description="Value from SAP field `OITM.RetilrTax`."
+    )
+    wholesale_taxable = graphene.String(
+        description="Value from SAP field `OITM.WholSlsTax`."
+    )
+    com_level = graphene.String(
+        description="Value from SAP field `OITM.U_V33_COMLEVEL`."
+    )
     synced = graphene.String(description="Value from SAP field `OITM.U_sync`.")
 
 
 class SAPVariantPrivateMetadata(graphene.InputObjectType):
-    on_order_with_vendor = graphene.Int(description="Value from SAP field `OITW.OnOrder`.")
-    best_buy_sku = graphene.String(description="Value from SAP field `OITM.U_V33_BESTBUYSKU`.")
+    on_order_with_vendor = graphene.Int(
+        description="Value from SAP field `OITW.OnOrder`."
+    )
+    best_buy_sku = graphene.String(
+        description="Value from SAP field `OITM.U_V33_BESTBUYSKU`."
+    )
 
 
 class SAPProductPriceList(graphene.InputObjectType):
@@ -603,7 +619,9 @@ class SAPWarehouseStock(graphene.InputObjectType):
 
 
 class SAPProductInput(graphene.InputObjectType):
-    sku = graphene.String(required=True, description="Value from SAP field `OITM.ItemCode`.")
+    sku = graphene.String(
+        required=True, description="Value from SAP field `OITM.ItemCode`."
+    )
     brand_name = graphene.String(description="Value from SAP field `OITM.U_BrandName`.")
     metadata = graphene.Field(
         SAPProductMetadata,
@@ -615,11 +633,11 @@ class SAPProductInput(graphene.InputObjectType):
     )
     variant_metadata = graphene.Field(
         SAPVariantMetadata,
-        description="Public metadata values associated with this product variant."
+        description="Public metadata values associated with this product variant.",
     )
     variant_private_metadata = graphene.Field(
         SAPVariantPrivateMetadata,
-        description="Private metadata values associated with this product variant."
+        description="Private metadata values associated with this product variant.",
     )
     price_lists = graphene.List(
         graphene.NonNull(SAPProductPriceList),
@@ -628,7 +646,7 @@ class SAPProductInput(graphene.InputObjectType):
     )
     stocks = graphene.List(
         graphene.NonNull(SAPWarehouseStock),
-        description="Warehouse stock information for this product."
+        description="Warehouse stock information for this product.",
     )
 
 
@@ -648,6 +666,7 @@ class UpsertSAPProduct(BaseMutation):
     doesn't provide nearly flexible enough tools so it's much easier to just have it
     push the information to Python and then figure things out on this end.
     """
+
     product_variant = graphene.Field(
         ProductVariant, description="The upserted product's details."
     )
@@ -655,7 +674,7 @@ class UpsertSAPProduct(BaseMutation):
     class Arguments:
         product_type = graphene.ID(
             description="ID of the product type for this product; must be set before SAP will upsert the product but isn't technically used for updates because product types cannot be changed after the fact.",
-            required=True
+            required=True,
         )
         input = SAPProductInput(required=True)
 
@@ -673,7 +692,7 @@ class UpsertSAPProduct(BaseMutation):
         in_data = data.get("input", {})
         sku = in_data.get("sku")
         variant = product_models.ProductVariant.objects.filter(sku=sku).first()
-        product_type = cls.get_node_or_error(info, data.get('product_type'))
+        product_type = cls.get_node_or_error(info, data.get("product_type"))
         if not variant:
             # Check if we already have a base product type when working with variants
             existing_product = None
@@ -687,7 +706,8 @@ class UpsertSAPProduct(BaseMutation):
                     # TODO: this is pretty fragile; should we store base SKU in metadata?
                     if (
                         base_product.default_variant
-                        and base_product.default_variant.sku.split('-')[:-1] == sku.split('-')[:-1]
+                        and base_product.default_variant.sku.split("-")[:-1]
+                        == sku.split("-")[:-1]
                     ):
                         existing_product = base_product
                         break
@@ -717,18 +737,18 @@ class UpsertSAPProduct(BaseMutation):
             # Saleor's specified types are flat-out wrong for this method, so...
             # noinspection PyTypeChecker
             attributes = AttributeAssignmentMixin.clean_input(
-                [{
-                    "slug": "brand-name",
-                    "values": [in_data["brand_name"]],
-                }],
+                [
+                    {
+                        "slug": "brand-name",
+                        "values": [in_data["brand_name"]],
+                    }
+                ],
                 attributes_qs,
                 is_variant=False,
             )
             AttributeAssignmentMixin.save(product, attributes)
         # Populate the public metadata for the product
-        metadata = {
-            key: value for key, value in in_data.get("metadata", {}).items()
-        }
+        metadata = {key: value for key, value in in_data.get("metadata", {}).items()}
         if metadata:
             product.store_value_in_metadata(items=metadata)
             product.save(update_fields=["metadata"])
@@ -762,10 +782,12 @@ class UpsertSAPProduct(BaseMutation):
             # Saleor's specified types are flat-out wrong for this method, so...
             # noinspection PyTypeChecker
             attributes = AttributeAssignmentMixin.clean_input(
-                [{
-                    "slug": "size",
-                    "values": [sku.split("-")[-1]],
-                }],
+                [
+                    {
+                        "slug": "size",
+                        "values": [sku.split("-")[-1]],
+                    }
+                ],
                 attributes_qs,
                 is_variant=True,
             )
@@ -778,7 +800,8 @@ class UpsertSAPProduct(BaseMutation):
             variant.store_value_in_metadata(items=variant_metadata)
             variant.save(update_fields=["metadata"])
         variant_private_metadata = {
-            key: value for key, value in in_data.get("variant_private_metadata", {}).items()
+            key: value
+            for key, value in in_data.get("variant_private_metadata", {}).items()
         }
         if variant_private_metadata:
             variant.store_value_in_private_metadata(items=variant_private_metadata)
@@ -801,9 +824,11 @@ class UpsertSAPProduct(BaseMutation):
             channel = channel_map.get(price_list["slug"])
             if not channel:
                 continue
-            update_channels.append({
-                "channel": channel,
-            })
+            update_channels.append(
+                {
+                    "channel": channel,
+                }
+            )
         if update_channels:
             ProductChannelListingUpdate.update_channels(
                 product, update_channels=update_channels
@@ -815,10 +840,12 @@ class UpsertSAPProduct(BaseMutation):
             channel = channel_map.get(price_list["slug"])
             if not channel:
                 continue
-            price_updates.append({
-                "channel": channel,
-                "price": round_money(price_list["price"]),
-            })
+            price_updates.append(
+                {
+                    "channel": channel,
+                    "price": round_money(price_list["price"]),
+                }
+            )
         if price_updates:
             ProductVariantChannelListingUpdate.save(info, variant, price_updates)
 
@@ -834,7 +861,9 @@ class SAPLineItemInput(graphene.InputObjectType):
 
 
 class SAPOrderMetadataInput(graphene.InputObjectType):
-    due_date = graphene.String(description="Expected shipping date. From ORDR.DocDueDate")
+    due_date = graphene.String(
+        description="Expected shipping date. From ORDR.DocDueDate"
+    )
     date_shipped = graphene.String(description="From ORDR.ShipDate")
     payment_method = graphene.String(description="From ORDR.PaymentMethod")
     PO_number = graphene.String(description="From ORDR.ImportFileNum")
@@ -842,16 +871,14 @@ class SAPOrderMetadataInput(graphene.InputObjectType):
 
 class SAPOrderInput(graphene.InputObjectType):
     draft_order_input = DraftOrderInput(
-        required=True,
-        description="Fields required to create an order."
+        required=True, description="Fields required to create an order."
     )
     lines = graphene.List(
-        of_type=SAPLineItemInput,
-        description="List of order line items"
+        of_type=SAPLineItemInput, description="List of order line items"
     )
     metadata = graphene.Field(
         SAPOrderMetadataInput,
-        description="Additional SAP information can be stored as metadata."
+        description="Additional SAP information can be stored as metadata.",
     )
 
 
@@ -859,23 +886,23 @@ class UpsertSAPOrder(DraftOrderUpdate):
     """For syncing sales orders in SAP to orders in Saleor. See the docstring in the
     methods below for details on the billing and shipping address inputs.
     """
+
     class Arguments:
         input = SAPOrderInput(
             required=True,
-            description="Input data for upserting a draft order from SAP."
+            description="Input data for upserting a draft order from SAP.",
         )
         doc_entry = graphene.String(
             required=True,
-            description="The DocEntry value from SAP (primary key for SAP orders)."
+            description="The DocEntry value from SAP (primary key for SAP orders).",
         )
         sap_bp_code = graphene.String(
-            required=True,
-            description="The SAP CardCode for the order."
+            required=True, description="The SAP CardCode for the order."
         )
         confirm_order = graphene.Boolean(
             required=False,
             default_value=False,
-            description="Whether or not to attempt to confirm this order automatically."
+            description="Whether or not to attempt to confirm this order automatically.",
         )
         shipping_method_name = graphene.String(
             description="Name of the shipping method to use."
@@ -893,10 +920,14 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
     @classmethod
     def get_instance(cls, info, **data):
-        instance = order_models.Order.objects.filter(
-            metadata__doc_entry=data["doc_entry"],
-            metadata__sap_bp_code=data["sap_bp_code"]
-        ).prefetch_related("lines").first()
+        instance = (
+            order_models.Order.objects.filter(
+                metadata__doc_entry=data["doc_entry"],
+                metadata__sap_bp_code=data["sap_bp_code"],
+            )
+            .prefetch_related("lines")
+            .first()
+        )
 
         if not instance:
             instance = cls._meta.model()
@@ -932,7 +963,10 @@ class UpsertSAPOrder(DraftOrderUpdate):
         # but it's possible for an SAP user to manually enter an address so I'm being
         # as forgiving as possible with spellings
         if country.upper() in (
-                "USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA"
+            "USA",
+            "US",
+            "UNITED STATES",
+            "UNITED STATES OF AMERICA",
         ):
             return "US"
         elif country.upper() in ("CANADA", "CA"):
@@ -968,10 +1002,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
         country = cls.parse_country(address_lines.pop())
 
         # The next to last line contains the city, state (or province), and postal code
-        city, state, postal_code = cls.parse_address_etc(
-            address_lines.pop(),
-            country
-        )
+        city, state, postal_code = cls.parse_address_etc(address_lines.pop(), country)
 
         # The remaining 1 or 2 lines (US addresses should have 2 lines, CA should only
         # have 1)
@@ -990,7 +1021,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
             "city": city,
             "country_area": state,
             "country": country,
-            "postal_code": postal_code
+            "postal_code": postal_code,
         }
 
     @classmethod
@@ -1005,18 +1036,19 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
         if shipping_address := data.get("shipping_address"):
             draft_order_input["shipping_address"] = cls.parse_address_string(
-                shipping_address)
+                shipping_address
+            )
 
         if billing_address := data.get("billing_address"):
             draft_order_input["billing_address"] = cls.parse_address_string(
-                billing_address)
+                billing_address
+            )
 
         # Get the channel model object from the channel name
         if channel_name:
             channel = product_models.Channel.objects.get(slug=slugify(channel_name))
             draft_order_input["channel_id"] = graphene.Node.to_global_id(
-                "Channel",
-                channel.id
+                "Channel", channel.id
             )
 
         # Form the line items for the order
@@ -1026,9 +1058,13 @@ class UpsertSAPOrder(DraftOrderUpdate):
             lines = sorted(lines, key=lambda line: line["sku"])
 
             # Get all the product variants for the SKUs provided (also sorted by SKU)
-            product_variants: List[dict] = list(product_models.ProductVariant.objects.filter(
-                sku__in=[line["sku"] for line in lines]
-            ).values("id", "sku").order_by("sku"))
+            product_variants: List[dict] = list(
+                product_models.ProductVariant.objects.filter(
+                    sku__in=[line["sku"] for line in lines]
+                )
+                .values("id", "sku")
+                .order_by("sku")
+            )
 
             # Replace each line item's SKU key-value pair with variant's global id
             # There is a possibility that there are SKUs from SAP that don't exist in
@@ -1038,12 +1074,11 @@ class UpsertSAPOrder(DraftOrderUpdate):
             num_product_variants = len(product_variants)
             for sap_line in lines:
                 if (
-                        i < num_product_variants and
-                        sap_line["sku"] == product_variants[i]["sku"]
+                    i < num_product_variants
+                    and sap_line["sku"] == product_variants[i]["sku"]
                 ):
                     sap_line["variant_id"] = graphene.Node.to_global_id(
-                        "ProductVariant",
-                        product_variants[i]["id"]
+                        "ProductVariant", product_variants[i]["id"]
                     )
                     del sap_line["sku"]
                     i += 1
@@ -1060,7 +1095,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
         # so we can refer to this order again
         private_metadata = {
             "doc_entry": data["doc_entry"],
-            "sap_bp_code": data["sap_bp_code"]
+            "sap_bp_code": data["sap_bp_code"],
         }
 
         # If this is a new order then we can use the draftOrderCreate mutation which
@@ -1115,10 +1150,9 @@ class UpsertSAPOrder(DraftOrderUpdate):
                             _root,
                             info,
                             id=graphene.Node.to_global_id(
-                                "OrderLine",
-                                existing_line.id
+                                "OrderLine", existing_line.id
                             ),
-                            input={"quantity": line["quantity"]}
+                            input={"quantity": line["quantity"]},
                         )
                 else:
                     lines_to_create.append(line)
@@ -1128,15 +1162,13 @@ class UpsertSAPOrder(DraftOrderUpdate):
                 _root,
                 info,
                 id=graphene.Node.to_global_id("Order", order.id),
-                input=lines_to_create
+                input=lines_to_create,
             )
 
             # Delete any remaining lines that weren't updated or added
             for variant_id, line in line_cache.items():
                 OrderLineDelete.perform_mutation(
-                    _root,
-                    info,
-                    id=graphene.Node.to_global_id("OrderLine", line.id)
+                    _root, info, id=graphene.Node.to_global_id("OrderLine", line.id)
                 )
 
         # Lookup the shipping method by name and update the order
@@ -1153,9 +1185,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
             # Try to move this draft order to confirmed
             try:
                 DraftOrderComplete.perform_mutation(
-                    _root,
-                    info,
-                    graphene.Node.to_global_id("Order", order.id)
+                    _root, info, graphene.Node.to_global_id("Order", order.id)
                 )
             except ValidationError:
                 # If there is not enough stock available for the order, confirmation

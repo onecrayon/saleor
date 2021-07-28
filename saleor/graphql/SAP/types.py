@@ -14,7 +14,6 @@ class BusinessPartnerError(Error):
 
 
 class SAPApprovedBrands(CountableDjangoObjectType):
-
     @property
     def fields(self):
         return [
@@ -49,18 +48,18 @@ class DroneRewardsProfile(CountableDjangoObjectType):
 @key("id")
 @key("sapBpCode")
 class BusinessPartner(CountableDjangoObjectType):
-    """Business partners can be looked up using either their id or cardCode. """
+    """Business partners can be looked up using either their id or cardCode."""
+
     company_contacts = graphene.List(
         "saleor.graphql.account.types.User",
-        description="List of users at this business partner."
+        description="List of users at this business partner.",
     )
     approved_brands = graphene.List(
         graphene.String,
-        description="List of approved brands for this business partner."
+        description="List of approved brands for this business partner.",
     )
     drone_rewards_profile = graphene.Field(
-        DroneRewardsProfile,
-        description="Drone rewards information for the dealer."
+        DroneRewardsProfile, description="Drone rewards information for the dealer."
     )
 
     class Meta:
@@ -77,8 +76,11 @@ class BusinessPartner(CountableDjangoObjectType):
     def resolve_approved_brands(root: models.BusinessPartner, _info, **kwargs):
         all_brands = SAPApprovedBrands().fields
         try:
-            return [field for field in all_brands
-                    if getattr(root.approvedbrands, field) is True]
+            return [
+                field
+                for field in all_brands
+                if getattr(root.approvedbrands, field) is True
+            ]
         except models.ApprovedBrands.DoesNotExist:
             return []
 
@@ -93,8 +95,7 @@ class BusinessPartner(CountableDjangoObjectType):
 @key("id")
 class SAPUserProfile(CountableDjangoObjectType):
     business_partners = graphene.List(
-        BusinessPartner,
-        description="List of business partners this user belongs to."
+        BusinessPartner, description="List of business partners this user belongs to."
     )
 
     class Meta:

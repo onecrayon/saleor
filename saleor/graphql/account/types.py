@@ -4,6 +4,9 @@ from django.contrib.auth import models as auth_models
 from graphene import relay
 from graphene_federation import key
 
+from firstech.drone import models as drone_models
+from firstech.SAP import models as sap_models
+
 from ...account import models
 from ...checkout.utils import get_user_checkout
 from ...core.exceptions import PermissionDenied
@@ -22,19 +25,16 @@ from ..core.scalars import UUID
 from ..core.types import CountryDisplay, Image, Permission
 from ..core.utils import from_global_id_or_error, str_to_enum
 from ..decorators import one_of_permissions_required, permission_required
+from ..drone.types import DroneUserProfile
 from ..giftcard.dataloaders import GiftCardsByUserLoader
 from ..meta.types import ObjectWithMetadata
 from ..order.dataloaders import OrderLineByIdLoader, OrdersByUserLoader
+from ..SAP.types import SAPUserProfile
 from ..utils import format_permissions_for_display, get_user_or_app_from_context
 from ..wishlist.resolvers import resolve_wishlist_items_from_user
 from .dataloaders import CustomerEventsByUserLoader
 from .enums import CountryCodeEnum, CustomerEventsEnum
 from .utils import can_user_manage_group, get_groups_which_user_can_manage
-
-from firstech.drone import models as drone_models
-from firstech.SAP import models as sap_models
-from ..drone.types import DroneUserProfile
-from ..SAP.types import SAPUserProfile
 
 
 class AddressInput(graphene.InputObjectType):
@@ -261,12 +261,8 @@ class User(CountableDjangoObjectType):
     language_code = graphene.Field(
         LanguageCodeEnum, description="User language code.", required=True
     )
-    drone_profile = graphene.Field(
-        DroneUserProfile, description="User Drone Profile."
-    )
-    sap_profile = graphene.Field(
-        SAPUserProfile, description="SAP profile."
-    )
+    drone_profile = graphene.Field(DroneUserProfile, description="User Drone Profile.")
+    sap_profile = graphene.Field(SAPUserProfile, description="SAP profile.")
 
     class Meta:
         description = "Represents user data."
@@ -306,7 +302,7 @@ class User(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_addresses(root: models.User, _info, **_kwargs):
-        #TODO: Include business partner addresses in this queryset?
+        # TODO: Include business partner addresses in this queryset?
         return root.addresses.annotate_default(root).all()  # type: ignore
 
     @staticmethod

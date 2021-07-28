@@ -2,16 +2,17 @@ import graphene
 
 from firstech.SAP import models
 from saleor.graphql.SAP.mutations import (
-    CreateSAPUserProfile,
-    BulkMigrateContacts,
-    MigrateBusinessPartner,
-    BusinessPartnerAddressCreate,
-    BulkBusinessPartnerAddressCreate,
     AssignApprovedBrands,
+    BulkBusinessPartnerAddressCreate,
+    BulkMigrateContacts,
+    BusinessPartnerAddressCreate,
     CreateDroneRewardsProfile,
-    UpsertSAPProduct,
+    CreateSAPUserProfile,
+    MigrateBusinessPartner,
     UpsertSAPOrder,
+    UpsertSAPProduct,
 )
+
 from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions
 from ..core.fields import FilterInputConnectionField
@@ -25,20 +26,18 @@ class SAPQueries(graphene.ObjectType):
     sap_profile = graphene.Field(
         SAPUserProfile,
         id=graphene.Argument(
-            graphene.ID,
-            description="ID of the SAP profile description in schema def"
+            graphene.ID, description="ID of the SAP profile description in schema def"
         ),
     )
     business_partner = graphene.Field(
         BusinessPartner,
         id=graphene.Argument(
-            graphene.ID,
-            description="ID of the business partner to look up."
+            graphene.ID, description="ID of the business partner to look up."
         ),
         sapBpCode=graphene.Argument(
             graphene.String,
-            description="SAP card code of the business partner to look up."
-        )
+            description="SAP card code of the business partner to look up.",
+        ),
     )
     business_partners = FilterInputConnectionField(
         BusinessPartner,
