@@ -877,7 +877,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
         )
         confirm_order = graphene.Boolean(
             required=False,
-            default_value=False,
+            default_value=True,
             description="Whether or not to attempt to confirm this order automatically."
         )
         shipping_method_name = graphene.String(
