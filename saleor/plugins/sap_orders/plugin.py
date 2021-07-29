@@ -1,10 +1,12 @@
-from typing import Any
+from json import JSONDecodeError
+from typing import Any, Optional
 
 import requests
 
 from firstech.SAP import models as sap_models
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
+from saleor.order import FulfillmentStatus
 from saleor.plugins.sap_orders import (
     SAPServiceLayerConfiguration,
     get_sap_cookies,
@@ -70,6 +72,22 @@ class SAPPlugin(BasePlugin):
             url=configuration["SAP Service Layer URL"],
             verify_ssl=is_truthy(configuration["SSL Verification"]),
         )
+
+    def service_layer_request(
+        self, method: str, entity: str, body: Optional[dict] = None
+    ) -> dict:
+        method = getattr(requests, method, "get")
+        response = method(
+            url=self.config.url + entity,
+            json=body,
+            cookies=get_sap_cookies(self.config),
+            headers={"B1S-ReplaceCollectionsOnPatch": "true"},
+            verify=self.config.verify_ssl,
+        )
+        try:
+            return response.json()
+        except JSONDecodeError:
+            return {}
 
     @staticmethod
     def address_to_string(address: "Address"):
@@ -187,14 +205,8 @@ class SAPPlugin(BasePlugin):
             return previous_value
 
         # Create a new sales order in SAP
-        response = requests.post(
-            url=self.config.url + "Orders",
-            json=order_data,
-            cookies=get_sap_cookies(self.config),
-            verify=self.config.verify_ssl,
-        )
+        result = self.service_layer_request("post", "Orders", body=order_data)
         # Get the doc_entry from the response and save it in metadata
-        result = response.json()
         if result.get("DocEntry"):
             order.store_value_in_private_metadata(
                 items={
@@ -215,16 +227,50 @@ class SAPPlugin(BasePlugin):
         return NotImplemented
 
     def order_updated(self, order: "Order", previous_value: Any) -> Any:
-        """Trigger when order is updated."""
+        """Trigger when order is updated. Also triggered when fulfillments are created
+        or edited."""
         if doc_entry := order.private_metadata.get("doc_entry"):
             # Update and existing sales order in SAP
-            requests.patch(
-                url=self.config.url + f"Orders({doc_entry})",
-                json=self.get_order_for_sap(order),
-                cookies=get_sap_cookies(self.config),
-                headers={"B1S-ReplaceCollectionsOnPatch": "true"},
-                verify=self.config.verify_ssl,
-            )
+            self.service_layer_request("patch", f"Orders({doc_entry})")
+
+            # Update Delivery Documents
+            fulfillments = order.fulfillments.all()
+            for fulfillment in fulfillments:
+                if delivery_doc_entry := fulfillment.private_metadata.get("doc_entry"):
+                    # The only thing we can or need to update is tracking number
+                    if fulfillment.status == FulfillmentStatus.CANCELED:
+                        # TODO Cant actually cancel these??
+                        # self.service_layer_request(
+                        #     "post",
+                        #     f"DeliveryNotes({delivery_doc_entry})/Cancel",
+                        # )
+                        pass
+                    else:
+                        self.service_layer_request(
+                            "patch",
+                            f"DeliveryNotes({delivery_doc_entry})",
+                            body={"TrackingNumber": fulfillment.tracking_number},
+                        )
+                else:
+                    lines = fulfillment.lines.all()
+                    document_lines = []
+                    for line in lines:
+                        document_lines.append(
+                            {
+                                "ItemCode": line.order_line.variant.sku,
+                                "Quantity": line.quantity,
+                            }
+                        )
+
+                    self.service_layer_request(
+                        "post",
+                        "DeliveryNotes",
+                        body={
+                            "CardCode": order.private_metadata["sap_bp_code"],
+                            "TrackingNumber": fulfillment.tracking_number,
+                            "DocumentLines": document_lines,
+                        },
+                    )
         else:
             # Try to create a new sales order in SAP since evidently this one isn't
             # attached to an SAP order yet.
@@ -235,12 +281,10 @@ class SAPPlugin(BasePlugin):
     def order_cancelled(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is cancelled."""
         if doc_entry := order.private_metadata.get("doc_entry"):
-            requests.post(
-                url=self.config.url + f"Orders({doc_entry})/Cancel",
-                json=self.get_order_for_sap(order),
-                cookies=get_sap_cookies(self.config),
-                headers={"B1S-ReplaceCollectionsOnPatch": "true"},
-                verify=self.config.verify_ssl,
+            self.service_layer_request(
+                "post",
+                f"Orders({doc_entry})/Cancel",
+                body=self.get_order_for_sap(order),
             )
 
         return previous_value
@@ -250,9 +294,4 @@ class SAPPlugin(BasePlugin):
         return NotImplemented
 
     def fetch_delivery_document(self, doc_entry: str) -> dict:
-        response = requests.get(
-            url=self.config.url + f"DeliveryNotes({doc_entry})",
-            cookies=get_sap_cookies(self.config),
-            verify=self.config.verify_ssl,
-        )
-        return response.json()
+        return self.service_layer_request("get", f"DeliveryNotes({doc_entry})")
