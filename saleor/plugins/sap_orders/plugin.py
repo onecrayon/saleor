@@ -1,11 +1,10 @@
-import requests
 from typing import Any
+
+import requests
 
 from django.core.exceptions import ValidationError
 
-from ..base_plugin import BasePlugin, ConfigurationTypeField
 from firstech.SAP import models as sap_models
-
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
 from saleor.order import OrderStatus
@@ -15,9 +14,12 @@ from saleor.plugins.sap_orders import (
     is_truthy,
 )
 
+from ..base_plugin import BasePlugin, ConfigurationTypeField
+
 
 class SAPOrdersPlugin(BasePlugin):
     """Whenever an order is created or updated, we need to sync those changes to SAP"""
+
     PLUGIN_ID = "firstech.sap.orders"
     PLUGIN_NAME = "SAP Orders"
     CONFIGURATION_PER_CHANNEL = False
@@ -54,9 +56,9 @@ class SAPOrdersPlugin(BasePlugin):
         "SSL Verification": {
             "type": ConfigurationTypeField.BOOLEAN,
             "help_text": "Whether or not SSL should be verified "
-                         "when communicating with SAP",
+            "when communicating with SAP",
             "label": "SSL Verification",
-        }
+        },
     }
 
     CONFIRMED_ORDERS = (
@@ -89,12 +91,14 @@ class SAPOrdersPlugin(BasePlugin):
 
         Note: Canadian addresses don't have a second line
         """
-        return "\r".join((
-            address.street_address_1,
-            address.street_address_2 if address.country.code == "US" else None,
-            address.city + " " + address.country_area + " " + address.postal_code,
-            address.country.code
-        ))
+        return "\r".join(
+            (
+                address.street_address_1,
+                address.street_address_2 if address.country.code == "US" else None,
+                address.city + " " + address.country_area + " " + address.postal_code,
+                address.country.code,
+            )
+        )
 
     def get_order_for_sap(self, order: "Order"):
         """Build up the json payload needed to post/patch a sales order to SAP"""
@@ -118,9 +122,11 @@ class SAPOrdersPlugin(BasePlugin):
             # doesn't accept posting new orders without one, so default to the order
             # created date since we don't have any other date to go off of
             due_date = order.created.strftime("%Y-%m-%d")
+
         try:
             transportation_code = order.shipping_method.private_metadata.get(
-                "TrnspCode")
+                "TrnspCode"
+            )
         except AttributeError:
             transportation_code = None
 
@@ -130,7 +136,7 @@ class SAPOrdersPlugin(BasePlugin):
                 po_number = checkout.metadata.get("po_number")
             except (ValidationError, Checkout.DoesNotExist):
                 # A validation error can be raised if the checkout_token is blank
-                pass
+                po_number = None
 
         order_for_sap = {
             "CardCode": business_partner.sap_bp_code,
@@ -202,7 +208,7 @@ class SAPOrdersPlugin(BasePlugin):
             url=self.config.url + "Orders",
             json=order_data,
             cookies=get_sap_cookies(self.config),
-            verify=False
+            verify=False,
         )
         # Get the doc_entry from the response and save it in metadata
         result = response.json()
@@ -210,7 +216,7 @@ class SAPOrdersPlugin(BasePlugin):
             order.store_value_in_private_metadata(
                 items={
                     "doc_entry": str(result["DocEntry"]),
-                    "sap_bp_code": str(result["CardCode"])
+                    "sap_bp_code": str(result["CardCode"]),
                 }
             )
             order.save(update_fields=["private_metadata"])
@@ -237,10 +243,8 @@ class SAPOrdersPlugin(BasePlugin):
                 url=self.config.url + f"Orders({doc_entry})",
                 json=self.get_order_for_sap(order),
                 cookies=get_sap_cookies(self.config),
-                headers={
-                    "B1S-ReplaceCollectionsOnPatch": "true"
-                },
-                verify=False
+                headers={"B1S-ReplaceCollectionsOnPatch": "true"},
+                verify=False,
             )
         else:
             # Try to create a new sales order in SAP since evidently this one isn't
@@ -260,9 +264,7 @@ class SAPOrdersPlugin(BasePlugin):
                 url=self.config.url + f"Orders({doc_entry})/Cancel",
                 json=self.get_order_for_sap(order),
                 cookies=get_sap_cookies(self.config),
-                headers={
-                    "B1S-ReplaceCollectionsOnPatch": "true"
-                }
+                headers={"B1S-ReplaceCollectionsOnPatch": "true"},
             )
 
         return previous_value

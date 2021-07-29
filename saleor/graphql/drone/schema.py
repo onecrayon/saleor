@@ -13,8 +13,7 @@ class DroneQueries(graphene.ObjectType):
     drone_profile = graphene.Field(
         DroneUserProfile,
         id=graphene.Argument(
-            graphene.ID,
-            description="ID of the drone profile description in schema def"
+            graphene.ID, description="ID of the drone profile description in schema def"
         ),
     )
 
@@ -27,4 +26,3 @@ class DroneQueries(graphene.ObjectType):
             return models.DroneUserProfile.objects.filter(**filter_kwargs).first()
 
         return PermissionDenied()
-

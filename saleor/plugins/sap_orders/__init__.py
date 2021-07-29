@@ -1,6 +1,7 @@
 from dataclasses import dataclass
-from django.core.cache import caches
+
 import requests
+from django.core.cache import caches
 
 
 @dataclass
