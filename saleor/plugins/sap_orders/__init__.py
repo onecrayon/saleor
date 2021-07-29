@@ -12,6 +12,10 @@ class SAPServiceLayerConfiguration:
     verify_ssl: bool
 
 
+def is_truthy(value):
+    return value in (True, 1, "True", "true", "TRUE")
+
+
 def get_sap_cookies(config: SAPServiceLayerConfiguration):
     """Either returns the session cookies for our connection to SAP service layer if
     they exist, or logs in to SAP service layer and caches the session cookies."""

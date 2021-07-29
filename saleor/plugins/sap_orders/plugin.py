@@ -6,13 +6,17 @@ from firstech.SAP import models as sap_models
 
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
-from saleor.plugins.sap_orders import SAPServiceLayerConfiguration, get_sap_cookies
+from saleor.plugins.sap_orders import (
+    SAPServiceLayerConfiguration,
+    get_sap_cookies,
+    is_truthy
+)
 
 
-class SAPOrdersPlugin(BasePlugin):
+class SAPPlugin(BasePlugin):
     """Whenever an order is created or updated, we need to sync those changes to SAP"""
-    PLUGIN_ID = "firstech.sap.orders"
-    PLUGIN_NAME = "SAP Orders"
+    PLUGIN_ID = "firstech.sap"
+    PLUGIN_NAME = "SAP Service Layer Plugin"
     CONFIGURATION_PER_CHANNEL = False
 
     DEFAULT_CONFIGURATION = [
@@ -62,7 +66,7 @@ class SAPOrdersPlugin(BasePlugin):
             password=configuration["Password"],
             database=configuration["Database"],
             url=configuration["SAP Service Layer URL"],
-            verify_ssl=configuration["SSL Verification"],
+            verify_ssl=is_truthy(configuration["SSL Verification"]),
         )
 
     @staticmethod
@@ -182,7 +186,7 @@ class SAPOrdersPlugin(BasePlugin):
             url=self.config.url + "Orders",
             json=order_data,
             cookies=get_sap_cookies(self.config),
-            verify=False
+            verify=self.config.verify_ssl
         )
         # Get the doc_entry from the response and save it in metadata
         result = response.json()
@@ -216,7 +220,7 @@ class SAPOrdersPlugin(BasePlugin):
                 headers={
                     "B1S-ReplaceCollectionsOnPatch": "true"
                 },
-                verify=False
+                verify=self.config.verify_ssl
             )
         else:
             # Try to create a new sales order in SAP since evidently this one isn't
@@ -234,7 +238,8 @@ class SAPOrdersPlugin(BasePlugin):
                 cookies=get_sap_cookies(self.config),
                 headers={
                     "B1S-ReplaceCollectionsOnPatch": "true"
-                }
+                },
+                verify=self.config.verify_ssl
             )
 
         return previous_value
@@ -242,3 +247,12 @@ class SAPOrdersPlugin(BasePlugin):
     def order_fulfilled(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is fulfilled."""
         return NotImplemented
+
+    def fetch_delivery_document(self, doc_entry: str) -> dict:
+        response = requests.get(
+            url=self.config.url + f"DeliveryNotes({doc_entry})",
+            cookies=get_sap_cookies(self.config),
+            verify=self.config.verify_ssl
+        )
+        return response.json()
+
