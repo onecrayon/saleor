@@ -1,20 +1,22 @@
-import requests
 from typing import Any
 
-from ..base_plugin import BasePlugin, ConfigurationTypeField
-from firstech.SAP import models as sap_models
+import requests
 
+from firstech.SAP import models as sap_models
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
 from saleor.plugins.sap_orders import (
     SAPServiceLayerConfiguration,
     get_sap_cookies,
-    is_truthy
+    is_truthy,
 )
+
+from ..base_plugin import BasePlugin, ConfigurationTypeField
 
 
 class SAPPlugin(BasePlugin):
     """Whenever an order is created or updated, we need to sync those changes to SAP"""
+
     PLUGIN_ID = "firstech.sap"
     PLUGIN_NAME = "SAP Service Layer Plugin"
     CONFIGURATION_PER_CHANNEL = False
@@ -51,9 +53,9 @@ class SAPPlugin(BasePlugin):
         "SSL Verification": {
             "type": ConfigurationTypeField.BOOLEAN,
             "help_text": "Whether or not SSL should be verified "
-                         "when communicating with SAP",
+            "when communicating with SAP",
             "label": "SSL Verification",
-        }
+        },
     }
 
     def __init__(self, *args, **kwargs):
@@ -77,12 +79,14 @@ class SAPPlugin(BasePlugin):
 
         Note: Canadian addresses don't have a second line
         """
-        return "\r".join((
-            address.street_address_1,
-            address.street_address_2 if address.country.code == "US" else None,
-            address.city + " " + address.country_area + " " + address.postal_code,
-            address.country.code
-        ))
+        return "\r".join(
+            (
+                address.street_address_1,
+                address.street_address_2 if address.country.code == "US" else None,
+                address.city + " " + address.country_area + " " + address.postal_code,
+                address.country.code,
+            )
+        )
 
     def get_order_for_sap(self, order: "Order"):
         """Build up the json payload needed to post/patch a sales order to SAP"""
@@ -109,7 +113,8 @@ class SAPPlugin(BasePlugin):
 
         try:
             transportation_code = order.shipping_method.private_metadata.get(
-                "TrnspCode")
+                "TrnspCode"
+            )
         except AttributeError:
             transportation_code = None
 
@@ -186,7 +191,7 @@ class SAPPlugin(BasePlugin):
             url=self.config.url + "Orders",
             json=order_data,
             cookies=get_sap_cookies(self.config),
-            verify=self.config.verify_ssl
+            verify=self.config.verify_ssl,
         )
         # Get the doc_entry from the response and save it in metadata
         result = response.json()
@@ -194,7 +199,7 @@ class SAPPlugin(BasePlugin):
             order.store_value_in_private_metadata(
                 items={
                     "doc_entry": result["DocEntry"],
-                    "sap_bp_code": result["CardCode"]
+                    "sap_bp_code": result["CardCode"],
                 }
             )
             order.save(update_fields=["private_metadata"])
@@ -217,10 +222,8 @@ class SAPPlugin(BasePlugin):
                 url=self.config.url + f"Orders({doc_entry})",
                 json=self.get_order_for_sap(order),
                 cookies=get_sap_cookies(self.config),
-                headers={
-                    "B1S-ReplaceCollectionsOnPatch": "true"
-                },
-                verify=self.config.verify_ssl
+                headers={"B1S-ReplaceCollectionsOnPatch": "true"},
+                verify=self.config.verify_ssl,
             )
         else:
             # Try to create a new sales order in SAP since evidently this one isn't
@@ -236,10 +239,8 @@ class SAPPlugin(BasePlugin):
                 url=self.config.url + f"Orders({doc_entry})/Cancel",
                 json=self.get_order_for_sap(order),
                 cookies=get_sap_cookies(self.config),
-                headers={
-                    "B1S-ReplaceCollectionsOnPatch": "true"
-                },
-                verify=self.config.verify_ssl
+                headers={"B1S-ReplaceCollectionsOnPatch": "true"},
+                verify=self.config.verify_ssl,
             )
 
         return previous_value
@@ -252,7 +253,6 @@ class SAPPlugin(BasePlugin):
         response = requests.get(
             url=self.config.url + f"DeliveryNotes({doc_entry})",
             cookies=get_sap_cookies(self.config),
-            verify=self.config.verify_ssl
+            verify=self.config.verify_ssl,
         )
         return response.json()
-
