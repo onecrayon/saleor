@@ -12,6 +12,7 @@ from .discount.schema import DiscountMutations, DiscountQueries
 
 # Firstech Custom
 from .drone.schema import DroneQueries
+from .firstech.schema import FirstechOrderMutations
 from .giftcard.schema import GiftCardMutations, GiftCardQueries
 from .invoice.schema import InvoiceMutations
 from .menu.schema import MenuMutations, MenuQueries
@@ -81,6 +82,7 @@ class Mutation(
     WarehouseMutations,
     WebhookMutations,
     # Firstech Custom
+    FirstechOrderMutations,
     SAPMutations,
 ):
     pass
