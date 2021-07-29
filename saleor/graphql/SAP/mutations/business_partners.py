@@ -4,7 +4,6 @@ from firstech.SAP import models
 from saleor.account import models as user_models
 from saleor.checkout import AddressType
 from saleor.core.permissions import AccountPermissions
-
 from saleor.graphql.account.enums import AddressTypeEnum
 from saleor.graphql.account.mutations.staff import CustomerCreate
 from saleor.graphql.account.types import AddressInput, User
@@ -13,16 +12,15 @@ from saleor.graphql.core.scalars import Decimal
 from saleor.graphql.core.types.common import AccountError
 from saleor.graphql.SAP.enums import DistributionTypeEnum
 from saleor.graphql.SAP.types import (
-    BusinessPartnerError,
     BusinessPartner,
-    SAPUserProfile,
-    SAPApprovedBrands,
+    BusinessPartnerError,
     DroneRewardsProfile,
+    SAPApprovedBrands,
+    SAPUserProfile,
 )
 
 
 class GetBusinessPartnerMixin:
-
     @classmethod
     def get_business_partner(cls, data: dict, info):
         """Gets a business partner model object from either the base-64 encoded
@@ -33,7 +31,7 @@ class GetBusinessPartnerMixin:
                 info,
                 business_partner_id,
                 field="business_partner_id",
-                only_type=BusinessPartner
+                only_type=BusinessPartner,
             )
         elif sap_bp_code := data.get("sap_bp_code"):
             business_partner = models.BusinessPartner.objects.filter(
@@ -73,9 +71,9 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
     """Mutation for creating (i.e. migrating over) a business partner from SAP. If the
     id argument is passed, then this will update the existing business partner with that
     id."""
+
     business_partner = graphene.Field(
-        BusinessPartner,
-        description="A business partner instance that was created."
+        BusinessPartner, description="A business partner instance that was created."
     )
 
     class Arguments:
@@ -86,8 +84,7 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
             description="SAP Card code of an existing business partner to update."
         )
         input = BusinessPartnerCreateInput(
-            description="Fields required to create business partner.",
-            required=True
+            description="Fields required to create business partner.", required=True
         )
 
     class Meta:
@@ -127,7 +124,7 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
 class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
     business_partner = graphene.Field(
         BusinessPartner,
-        description="A business partner instance for which the address was created."
+        description="A business partner instance for which the address was created.",
     )
 
     class Arguments:
@@ -171,7 +168,7 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
         existing_address = models.Address.objects.filter(
             businesspartneraddresses__business_partner=business_partner,
             company_name=company_name,
-            businesspartneraddresses__type=address_type
+            businesspartneraddresses__type=address_type,
         ).first()
 
         if existing_address:
@@ -204,19 +201,19 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
             models.BusinessPartnerAddresses.objects.create(
                 business_partner_id=business_partner.id,
                 type=address_type,
-                address_id=instance.id
+                address_id=instance.id,
             )
             response.business_partner = business_partner
             # If this BP doesn't have default billing or shipping addresses, set them
             if address_type:
                 if (
-                    address_type == AddressType.BILLING and
-                    not business_partner.default_billing_address
+                    address_type == AddressType.BILLING
+                    and not business_partner.default_billing_address
                 ):
                     business_partner.default_billing_address = response.address
                 elif (
-                    address_type == AddressType.SHIPPING and
-                    not business_partner.default_shipping_address
+                    address_type == AddressType.SHIPPING
+                    and not business_partner.default_shipping_address
                 ):
                     business_partner.default_shipping_address = response.address
                 business_partner.save()
@@ -270,9 +267,11 @@ class BulkBusinessPartnerAddressCreate(BusinessPartnerAddressCreate):
         address_inputs = data.get("input")
         business_partner = cls.get_business_partner(data, info)
 
-        existing_addresses = set(models.BusinessPartnerAddresses.objects.filter(
-            business_partner=business_partner
-        ).values_list("address__company_name", "type"))
+        existing_addresses = set(
+            models.BusinessPartnerAddresses.objects.filter(
+                business_partner=business_partner
+            ).values_list("address__company_name", "type")
+        )
 
         responses = []
         upserted_addresses = set()
@@ -302,15 +301,16 @@ class DroneRewardsCreateInput(graphene.InputObjectType):
 
 class CreateDroneRewardsProfile(ModelMutation):
     """Mutation for creating a business partner's drone rewards information"""
+
     drone_rewards_profile = graphene.Field(
         DroneRewardsProfile,
-        description="A business partner's drone rewards information."
+        description="A business partner's drone rewards information.",
     )
 
     class Arguments:
         input = DroneRewardsCreateInput(
             description="Fields required to define drone rewards information.",
-            required=True
+            required=True,
         )
 
     class Meta:
@@ -333,16 +333,15 @@ class SAPUserProfileCreateInput(graphene.InputObjectType):
 class CreateSAPUserProfile(ModelMutation, GetBusinessPartnerMixin):
     """Mutation for creating a user's SAP user profile. If the id argument is passed
     then this mutation updates the existing SAP user profile with that id."""
+
     sap_user_profile = graphene.Field(
-        SAPUserProfile,
-        description="An SAP user profile that was created."
+        SAPUserProfile, description="An SAP user profile that was created."
     )
 
     class Arguments:
         id = graphene.ID()
         input = SAPUserProfileCreateInput(
-            description="Fields required to create SAP user profile.",
-            required=True
+            description="Fields required to create SAP user profile.", required=True
         )
         business_partner_id = graphene.ID(
             description="ID of a business partner to create address for.",
@@ -368,7 +367,6 @@ class MigrateContactInput(graphene.InputObjectType):
 
 
 class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
-
     class Arguments:
         input = graphene.List(of_type=MigrateContactInput)
 
@@ -387,7 +385,7 @@ class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
 
     @classmethod
     def clean_input(cls, info, instance, data, input_cls=None):
-        """ This needs to clean the input for the create user mutation. We're using the
+        """This needs to clean the input for the create user mutation. We're using the
         `CustomerCreate` class as a base class to ensure that all of the appropriate
         events/triggers that should occur when a new user is created happen. But since
         the input for this mutation is actually a graphene List as opposed to the
@@ -426,7 +424,7 @@ class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
                 create_user_data = {
                     "email": contact["email"],
                     "first_name": contact.get("first_name"),
-                    "last_name": contact.get("last_name")
+                    "last_name": contact.get("last_name"),
                 }
                 response = super().perform_mutation(root, info, input=create_user_data)
                 user = response.user
@@ -444,7 +442,7 @@ class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
                     "date_of_birth": contact.get("date_of_birth"),
                     "is_company_owner": contact.get("is_company_owner", False),
                     "middle_name": contact.get("middle_name"),
-                }
+                },
             )
 
             responses.append(sap_profile)
@@ -469,22 +467,21 @@ class SAPApprovedBrandsInput(graphene.InputObjectType):
 
 class AssignApprovedBrands(ModelMutation, GetBusinessPartnerMixin):
     """Mutation for assigning approved brands to a business partner"""
+
     approved_brands = graphene.Field(
-        SAPApprovedBrands,
-        description="The approved brands for this business partner."
+        SAPApprovedBrands, description="The approved brands for this business partner."
     )
 
     class Arguments:
         business_partner_id = graphene.ID(
             description="ID of a business partner to create address for.",
-            required=False
+            required=False,
         )
         sap_bp_code = graphene.String(
             description="SAP card code for the business partner."
         )
         input = SAPApprovedBrandsInput(
-            description="List of approved brands to assign.",
-            required=True
+            description="List of approved brands to assign.", required=True
         )
 
     class Meta:
@@ -506,9 +503,7 @@ class AssignApprovedBrands(ModelMutation, GetBusinessPartnerMixin):
         try:
             approved_brands = business_partner.approvedbrands
         except models.ApprovedBrands.DoesNotExist:
-            approved_brands = models.ApprovedBrands(
-                business_partner=business_partner
-            )
+            approved_brands = models.ApprovedBrands(business_partner=business_partner)
 
         # Update based on the input
         for brand, value in data["input"].items():

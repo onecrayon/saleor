@@ -10,7 +10,6 @@ from saleor.graphql.SAP.mutations.business_partners import (
     AssignApprovedBrands,
     CreateDroneRewardsProfile,
 )
-from saleor.graphql.SAP.mutations.deliveries import UpsertSAPDeliveryDocument
 from saleor.graphql.SAP.mutations.orders import UpsertSAPOrder
 from saleor.graphql.SAP.mutations.products import UpsertSAPProduct
 from ...core.exceptions import PermissionDenied
@@ -26,20 +25,18 @@ class SAPQueries(graphene.ObjectType):
     sap_profile = graphene.Field(
         SAPUserProfile,
         id=graphene.Argument(
-            graphene.ID,
-            description="ID of the SAP profile description in schema def"
+            graphene.ID, description="ID of the SAP profile description in schema def"
         ),
     )
     business_partner = graphene.Field(
         BusinessPartner,
         id=graphene.Argument(
-            graphene.ID,
-            description="ID of the business partner to look up."
+            graphene.ID, description="ID of the business partner to look up."
         ),
         sapBpCode=graphene.Argument(
             graphene.String,
-            description="SAP card code of the business partner to look up."
-        )
+            description="SAP card code of the business partner to look up.",
+        ),
     )
     business_partners = FilterInputConnectionField(
         BusinessPartner,
@@ -82,4 +79,3 @@ class SAPMutations(graphene.ObjectType):
     business_partner_drone_rewards_profile_create = CreateDroneRewardsProfile.Field()
     upsert_sap_product = UpsertSAPProduct.Field()
     upsert_sap_order = UpsertSAPOrder.Field()
-    upsert_sap_delivery = UpsertSAPDeliveryDocument.Field()
