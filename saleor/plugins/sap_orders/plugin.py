@@ -2,6 +2,7 @@ from json import JSONDecodeError
 from typing import Any, Optional
 
 import requests
+from django.core.exceptions import ValidationError
 
 from firstech.SAP import models as sap_models
 from saleor.checkout.models import Checkout
@@ -140,7 +141,7 @@ class SAPPlugin(BasePlugin):
             try:
                 checkout = Checkout.objects.get(token=order.checkout_token)
                 po_number = checkout.metadata.get("po_number")
-            except Checkout.DoesNotExist:
+            except (Checkout.DoesNotExist, ValidationError):
                 po_number = None
 
         order_for_sap = {
@@ -231,7 +232,9 @@ class SAPPlugin(BasePlugin):
         or edited."""
         if doc_entry := order.private_metadata.get("doc_entry"):
             # Update and existing sales order in SAP
-            self.service_layer_request("patch", f"Orders({doc_entry})")
+            self.service_layer_request(
+                "patch", f"Orders({doc_entry})", body=self.get_order_for_sap(order)
+            )
 
             # Update Delivery Documents
             fulfillments = order.fulfillments.all()
@@ -262,7 +265,7 @@ class SAPPlugin(BasePlugin):
                             }
                         )
 
-                    self.service_layer_request(
+                    response = self.service_layer_request(
                         "post",
                         "DeliveryNotes",
                         body={
@@ -271,6 +274,10 @@ class SAPPlugin(BasePlugin):
                             "DocumentLines": document_lines,
                         },
                     )
+                    fulfillment.store_value_in_private_metadata(
+                        items={"doc_entry": str(response["DocEntry"])}
+                    )
+                    fulfillment.save(update_fields=["private_metadata"])
         else:
             # Try to create a new sales order in SAP since evidently this one isn't
             # attached to an SAP order yet.
