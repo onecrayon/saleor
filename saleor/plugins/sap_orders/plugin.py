@@ -280,6 +280,9 @@ class SAPPlugin(BasePlugin):
                             {
                                 "ItemCode": line.order_line.variant.sku,
                                 "Quantity": line.quantity,
+                                "WarehouseCode": line.stock.warehouse.metadata[
+                                    "warehouse_code"
+                                ],
                             }
                         )
 
