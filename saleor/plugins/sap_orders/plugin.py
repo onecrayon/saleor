@@ -7,13 +7,7 @@ from django.core.exceptions import ValidationError
 from firstech.SAP import models as sap_models
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
-from saleor.order import FulfillmentStatus
-from saleor.plugins.sap_orders import (
-    SAPServiceLayerConfiguration,
-    get_sap_cookies,
-    is_truthy,
-)
-from saleor.order import OrderStatus
+from saleor.order import FulfillmentStatus, OrderStatus
 from saleor.plugins.sap_orders import (
     SAPServiceLayerConfiguration,
     get_sap_cookies,
@@ -250,7 +244,6 @@ class SAPPlugin(BasePlugin):
     def order_updated(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is updated. Also triggered when fulfillments are created
         or edited."""
-        """Trigger when order is updated."""
         # Only send sales orders to SAP once they have been confirmed
         if order.status not in self.CONFIRMED_ORDERS:
             return previous_value
