@@ -42,7 +42,7 @@ class UpsertSAPDeliveryDocument(BaseMutation):
     order = graphene.Field(OrderType, description="Fulfilled order.")
 
     class Arguments:
-        doc_entry = graphene.String(
+        doc_entry = graphene.Float(
             required=True,
             description="The DocEntry value from SAP (primary key for SAP docs).",
         )
@@ -92,7 +92,7 @@ class UpsertSAPDeliveryDocument(BaseMutation):
         # We didn't find any existing fulfillments with the doc_entry number so we will
         # attempt to create a new one
         sap_lines = delivery_document["DocumentLines"]
-        sales_order_doc_entry = str(sap_lines[0]["BaseEntry"])
+        sales_order_doc_entry = sap_lines[0]["BaseEntry"]
         try:
             order = Order.objects.get(private_metadata__doc_entry=sales_order_doc_entry)
         except (Order.DoesNotExist, Order.MultipleObjectsReturned) as e:

@@ -58,7 +58,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
             required=True,
             description="Input data for upserting a draft order from SAP.",
         )
-        doc_entry = graphene.String(
+        doc_entry = graphene.Float(
             required=True,
             description="The DocEntry value from SAP (primary key for SAP orders).",
         )

@@ -241,7 +241,7 @@ class SAPPlugin(BasePlugin):
         if result.get("DocEntry"):
             order.store_value_in_private_metadata(
                 items={
-                    "doc_entry": str(result["DocEntry"]),
+                    "doc_entry": result["DocEntry"],
                     "sap_bp_code": str(result["CardCode"]),
                 }
             )
@@ -312,7 +312,7 @@ class SAPPlugin(BasePlugin):
                         },
                     )
                     fulfillment.store_value_in_private_metadata(
-                        items={"doc_entry": str(response["DocEntry"])}
+                        items={"doc_entry": response["DocEntry"]}
                     )
                     fulfillment.save(update_fields=["private_metadata"])
         else:
@@ -341,7 +341,7 @@ class SAPPlugin(BasePlugin):
         """Trigger when order is fulfilled."""
         return NotImplemented
 
-    def fetch_delivery_document(self, doc_entry: str) -> dict:
+    def fetch_delivery_document(self, doc_entry: int) -> dict:
         return self.service_layer_request("get", f"DeliveryNotes({doc_entry})")
 
     @classmethod
@@ -396,7 +396,7 @@ class SAPPlugin(BasePlugin):
                         "tracking_number": fulfillment.tracking_number,
                         "ship_date": fulfillment.created,
                         "shipped_from": fulfillment_line.stock.warehouse.name,
-                        "shipped_to": order.shipping_address,
+                        "shipped_to": order.shipping_address.as_data(),
                     }
                 )
 
@@ -428,18 +428,18 @@ class SAPPlugin(BasePlugin):
             )
 
         invoice = {
-            "invoice_number": None,
-            "billing_address": order.billing_address,
+            "invoice_number": invoice.number,
+            "billing_address": order.billing_address.as_data(),
             "company_name": business_partner.company_name,
             "create_date": now,
             "outside_sales_rep": business_partner.outside_sales_rep,
-            "payment_due_date": None,
+            "payment_due_date": None,  # TODO
             "po_number": order.metadata.get("po_number"),
             "remarks": order.metadata.get("remarks"),
             "sap_bp_code": business_partner.sap_bp_code,
             "shipping_preference": order.shipping_method_name,
             "status": order.status,
-            "sub_total": order.get_subtotal(),
+            "sub_total": order.get_subtotal().net,
             "tax": order.total.tax,
             "total": order.total_gross_amount,
             "down_payment": None,  # TODO
@@ -451,6 +451,10 @@ class SAPPlugin(BasePlugin):
         }
 
         return invoice
+
+    def fetch_invoice(self, doc_entry: int) -> dict:
+        """Used to get an invoice from SAP when we know the Doc Entry"""
+        return self.service_layer_request("get", f"Invoices({doc_entry})")
 
     def invoice_request(
         self,

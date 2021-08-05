@@ -11,6 +11,7 @@ from saleor.graphql.SAP.mutations.business_partners import (
     CreateDroneRewardsProfile,
 )
 from saleor.graphql.SAP.mutations.deliveries import UpsertSAPDeliveryDocument
+from saleor.graphql.SAP.mutations.invoices import UpsertSAPInvoiceDocument
 from saleor.graphql.SAP.mutations.orders import UpsertSAPOrder
 from saleor.graphql.SAP.mutations.products import UpsertSAPProduct
 from ...core.exceptions import PermissionDenied
@@ -81,3 +82,4 @@ class SAPMutations(graphene.ObjectType):
     upsert_sap_product = UpsertSAPProduct.Field()
     upsert_sap_order = UpsertSAPOrder.Field()
     upsert_sap_delivery = UpsertSAPDeliveryDocument.Field()
+    upsert_sap_invoice = UpsertSAPInvoiceDocument.Field()

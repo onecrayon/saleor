@@ -22,5 +22,6 @@ class Invoice(CountableDjangoObjectType):
             "metadata",
         ]
 
-    def resolve_invoice_json(self, root: "models.Invoice"):
+    @staticmethod
+    def resolve_invoice_json(root: models.Invoice, _info):
         return root.invoice_json
