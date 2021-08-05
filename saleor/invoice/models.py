@@ -25,6 +25,9 @@ class Invoice(ModelWithMetadata, Job):
     created = models.DateTimeField(null=True)
     external_url = models.URLField(null=True, max_length=2048)
     invoice_file = models.FileField(upload_to="invoices")
+    invoice_json = JSONField(
+        blank=True, default=dict, encoder=CustomJsonEncoder, db_index=True
+    )
 
     objects = models.Manager.from_queryset(InvoiceQueryset)()
 

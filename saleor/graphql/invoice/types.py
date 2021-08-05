@@ -8,6 +8,7 @@ from ..meta.types import ObjectWithMetadata
 
 class Invoice(CountableDjangoObjectType):
     url = graphene.String(description="URL to download an invoice.")
+    invoice_json = graphene.String(description="JSON string of invoice contents.")
 
     class Meta:
         description = "Represents an Invoice."
@@ -20,3 +21,6 @@ class Invoice(CountableDjangoObjectType):
             "status",
             "metadata",
         ]
+
+    def resolve_invoice_json(self, root: "models.Invoice"):
+        return root.invoice_json

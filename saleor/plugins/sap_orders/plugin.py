@@ -1,6 +1,9 @@
+import logging
+from datetime import datetime
 from json import JSONDecodeError
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+import pytz
 import requests
 from django.core.exceptions import ValidationError
 
@@ -15,6 +18,13 @@ from saleor.plugins.sap_orders import (
 )
 
 from ..base_plugin import BasePlugin, ConfigurationTypeField
+
+if TYPE_CHECKING:
+    from saleor.invoice.models import Invoice
+    from saleor.order.models import Order
+
+
+logger = logging.getLogger(__name__)
 
 
 class SAPPlugin(BasePlugin):
@@ -116,10 +126,10 @@ class SAPPlugin(BasePlugin):
             )
         )
 
-    def get_order_for_sap(self, order: "Order"):
-        """Build up the json payload needed to post/patch a sales order to SAP"""
+    @staticmethod
+    def get_business_partner_from_order(order: "Order"):
         try:
-            business_partner = sap_models.BusinessPartner.objects.get(
+            return sap_models.BusinessPartner.objects.get(
                 sapuserprofiles__user_id=order.user_id
             )
         except sap_models.BusinessPartner.MultipleObjectsReturned:
@@ -129,6 +139,12 @@ class SAPPlugin(BasePlugin):
             # should go to?
             return
         except sap_models.BusinessPartner.DoesNotExist:
+            return
+
+    @classmethod
+    def get_order_for_sap(cls, order: "Order"):
+        """Build up the json payload needed to post/patch a sales order to SAP"""
+        if not (business_partner := cls.get_business_partner_from_order(order)):
             return
 
         try:
@@ -160,8 +176,8 @@ class SAPPlugin(BasePlugin):
             "DocDueDate": due_date,
             "NumAtCard": po_number,
             "TransportationCode": transportation_code,
-            "Address": self.address_to_string(order.billing_address),
-            "Address2": self.address_to_string(order.shipping_address),
+            "Address": cls.address_to_string(order.billing_address),
+            "Address2": cls.address_to_string(order.shipping_address),
         }
 
         document_lines = []
@@ -327,3 +343,156 @@ class SAPPlugin(BasePlugin):
 
     def fetch_delivery_document(self, doc_entry: str) -> dict:
         return self.service_layer_request("get", f"DeliveryNotes({doc_entry})")
+
+    @classmethod
+    def get_invoice_for_sap(cls, order: "Order") -> dict:
+        """Given an Order, creates the body needed to POST a new order to SAP service
+        layer"""
+        if not (business_partner := cls.get_business_partner_from_order(order)):
+            return
+
+        invoice_lines = []
+        for fulfillment in order.fulfillments.all():
+            for line in fulfillment:
+                invoice_lines.append(
+                    {
+                        "ItemCode": line.order_line.variant.sku,
+                        "Quantity": line.quantity,
+                        "BaseEntry": fulfillment.private_metadata["doc_entry"],
+                    }
+                )
+
+        return {
+            "CardCode": business_partner.sap_bp_code,
+            "DocumentLines": invoice_lines,
+        }
+
+    @classmethod
+    def generate_saleor_invoice(cls, invoice: "Invoice") -> dict:
+        """Generates a dict containing all the information necessary for an invoice.
+        This dict can be saved as a JSON object or used to fill an HTML template, etc.
+
+        :param invoice: This object should already have been posted to SAP so
+            that it contains certain values that SAP generates for an invoice such as
+            the invoice number (doc_entry).
+        """
+        now = datetime.now(tz=pytz.utc)
+        order = invoice.order
+        if not (business_partner := cls.get_business_partner_from_order(order)):
+            return
+
+        # Summarize the line items on this order
+        line_items = []
+        for line_item in order.lines.all():
+            # Gather all of the fulfillments so far on this line item
+            quantity_fulfilled = 0
+            fulfilled_items = []
+            for fulfillment_line in line_item.fulfillment_lines.all():
+                quantity_fulfilled += fulfillment_line.quantity
+                fulfillment = fulfillment_line.fulfillment
+                fulfilled_items.append(
+                    {
+                        "qty": fulfillment_line.quantity,
+                        "tracking_number": fulfillment.tracking_number,
+                        "ship_date": fulfillment.created,
+                        "shipped_from": fulfillment_line.stock.warehouse.name,
+                        "shipped_to": order.shipping_address,
+                    }
+                )
+
+            line_items.append(
+                {
+                    "line_total": line_item.total_price_net_amount,
+                    "name": line_item.product_name,
+                    "sku": line_item.variant.sku,
+                    "price": line_item.unit_price_net_amount,
+                    "quantity_fulfilled": quantity_fulfilled,
+                    "quantity_ordered": line_item.quantity,
+                    "quantity_unfulfilled": line_item.quantity - quantity_fulfilled,
+                    "deliveries": fulfilled_items,
+                }
+            )
+
+        # Summarize all of the payments so far for this order
+        payments = []
+        for payment in order.payments.all():
+            percentage_paid = round(
+                payment.captured_amount / order.total_gross_amount, 2
+            )
+            payments.append(
+                {
+                    "payment_date": payment.created,
+                    "percentage_paid": percentage_paid,
+                    "total": payment.captured_amount,
+                }
+            )
+
+        invoice = {
+            "invoice_number": None,
+            "billing_address": order.billing_address,
+            "company_name": business_partner.company_name,
+            "create_date": now,
+            "outside_sales_rep": business_partner.outside_sales_rep,
+            "payment_due_date": None,
+            "po_number": order.metadata.get("po_number"),
+            "remarks": order.metadata.get("remarks"),
+            "sap_bp_code": business_partner.sap_bp_code,
+            "shipping_preference": order.shipping_method_name,
+            "status": order.status,
+            "sub_total": order.get_subtotal(),
+            "tax": order.total.tax,
+            "total": order.total_gross_amount,
+            "down_payment": None,  # TODO
+            "early_pay_discount": None,  # TODO
+            "amount_paid": order.total_paid_amount,
+            "total_amount_due": order.total_gross_amount - order.total_paid_amount,
+            "items": line_items,
+            "payments": payments,
+        }
+
+        return invoice
+
+    def invoice_request(
+        self,
+        order: "Order",
+        invoice: "Invoice",
+        number: Optional[str],
+        previous_value: Any,
+    ) -> Any:
+        """Trigger when invoice creation starts."""
+
+        # First create the SAP Invoice document which is relatively simple. It only
+        # contains information on delivered items.
+        if not (post_invoice_body := self.get_invoice_for_sap(order)):
+            return previous_value
+
+        # Create the invoice in SAP
+        self.service_layer_request("post", "Invoices", body=post_invoice_body)
+        # When you post something to SAP it doesn't give you anything in return, so now
+        # we gotta look up the last invoice so we can get the DocEntry from it.
+        sap_invoices = self.service_layer_request(
+            "get",
+            f"Invoices?$filter=CardCode eq '{post_invoice_body['CardCode']}'"
+            f"&$orderby=DocEntry desc",
+        )
+        # This is a list of all invoices for the business partner in order of creation
+        # Make sure that the invoice we grab is the one we just created.
+        for sap_invoice in sap_invoices:
+            if (
+                sap_invoice["DocumentLines"][0]["BaseEntry"]
+                == post_invoice_body["DocumentLines"][0]["BaseEntry"]
+            ):
+                break
+        else:
+            logger.error(
+                f"Could not get the DocEntry number from the invoice in SAP. "
+                f"Invoice: {invoice}"
+            )
+
+        invoice.number = str(sap_invoice["DocEntry"])
+        # We can create a more informative invoice for Saleor
+        invoice_dict = self.generate_saleor_invoice(invoice)
+        invoice.created = invoice_dict["create_date"]
+        invoice.invoice_json = invoice_dict
+        invoice.save()
+        return invoice
