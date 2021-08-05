@@ -1,6 +1,8 @@
 import graphene
 from typing import TYPE_CHECKING
 
+from django.core.exceptions import ValidationError
+
 from saleor.core import JobStatus
 from saleor.core.permissions import OrderPermissions
 from saleor.graphql.core.mutations import BaseMutation
@@ -18,7 +20,7 @@ class UpsertSAPInvoiceDocument(BaseMutation):
     invoice = graphene.Field(Invoice, description="The created invoice.")
 
     class Arguments:
-        doc_entry = graphene.Float(
+        doc_entry = graphene.Int(
             required=True,
             description="The DocEntry value from SAP (primary key for SAP docs).",
         )
@@ -42,8 +44,15 @@ class UpsertSAPInvoiceDocument(BaseMutation):
         # Need to figure out which order this goes to which can be done by finding a
         # fulfillment with the DocEntry that matches the "BaseEntry" of the lines on the
         # SAP invoice.
+        try:
+            delivery_doc_entry = sap_invoice.get("DocumentLines", [])[0]["BaseEntry"]
+        except IndexError:
+            raise ValidationError(
+                f"Could not find the invoice for docEntry {data['doc_entry']} in SAP"
+            )
+
         order = FulfillmentModel.objects.filter(
-            private_metadata__doc_entry=sap_invoice["DocumentLines"][0]["BaseEntry"]
+            private_metadata__doc_entry=delivery_doc_entry
         ).first().order
 
         # Initialize the Saleor invoice
@@ -55,6 +64,7 @@ class UpsertSAPInvoiceDocument(BaseMutation):
         # We aren't actually processing this as a "job" but need to set this or else
         # it will default to "pending"
         invoice.status = JobStatus.SUCCESS
+        invoice.created = invoice.invoice_json["create_date"]
         invoice.save()
 
         return UpsertSAPInvoiceDocument(invoice=invoice)

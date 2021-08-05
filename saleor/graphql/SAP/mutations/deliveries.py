@@ -42,7 +42,7 @@ class UpsertSAPDeliveryDocument(BaseMutation):
     order = graphene.Field(OrderType, description="Fulfilled order.")
 
     class Arguments:
-        doc_entry = graphene.Float(
+        doc_entry = graphene.Int(
             required=True,
             description="The DocEntry value from SAP (primary key for SAP docs).",
         )
