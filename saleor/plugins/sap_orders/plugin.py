@@ -368,13 +368,17 @@ class SAPPlugin(BasePlugin):
         }
 
     @classmethod
-    def generate_saleor_invoice(cls, invoice: "Invoice") -> dict:
+    def generate_saleor_invoice(
+            cls, invoice: "Invoice", down_payment: Optional[float] = None
+    ) -> dict:
         """Generates a dict containing all the information necessary for an invoice.
         This dict can be saved as a JSON object or used to fill an HTML template, etc.
 
         :param invoice: This object should already have been posted to SAP so
             that it contains certain values that SAP generates for an invoice such as
             the invoice number (doc_entry).
+        :param down_payment: Optionally provide a down payment amount from an SAP
+            invoice document.
         """
         now = datetime.now(tz=pytz.utc)
         order = invoice.order
@@ -402,10 +406,10 @@ class SAPPlugin(BasePlugin):
 
             line_items.append(
                 {
-                    "line_total": line_item.total_price_net_amount,
+                    "line_total": line_item.total_price_net,
                     "name": line_item.product_name,
                     "sku": line_item.variant.sku,
-                    "price": line_item.unit_price_net_amount,
+                    "price": line_item.unit_price_net,
                     "quantity_fulfilled": quantity_fulfilled,
                     "quantity_ordered": line_item.quantity,
                     "quantity_unfulfilled": line_item.quantity - quantity_fulfilled,
@@ -416,7 +420,7 @@ class SAPPlugin(BasePlugin):
         # Summarize all of the payments so far for this order
         payments = []
         for payment in order.payments.all():
-            percentage_paid = round(
+            percentage_paid = 100 * round(
                 payment.captured_amount / order.total_gross_amount, 2
             )
             payments.append(
@@ -441,11 +445,11 @@ class SAPPlugin(BasePlugin):
             "status": order.status,
             "sub_total": order.get_subtotal().net,
             "tax": order.total.tax,
-            "total": order.total_gross_amount,
-            "down_payment": None,  # TODO
+            "total": order.total_gross,
+            "down_payment": down_payment,
             "early_pay_discount": None,  # TODO
-            "amount_paid": order.total_paid_amount,
-            "total_amount_due": order.total_gross_amount - order.total_paid_amount,
+            "amount_paid": order.total_paid,
+            "total_amount_due": order.total_gross - order.total_paid,
             "items": line_items,
             "payments": payments,
         }
@@ -481,21 +485,25 @@ class SAPPlugin(BasePlugin):
         )
         # This is a list of all invoices for the business partner in order of creation
         # Make sure that the invoice we grab is the one we just created.
-        for sap_invoice in sap_invoices:
+        for sap_invoice in sap_invoices["value"]:
             if (
                 sap_invoice["DocumentLines"][0]["BaseEntry"]
                 == post_invoice_body["DocumentLines"][0]["BaseEntry"]
             ):
+                invoice.number = str(sap_invoice["DocEntry"])
+                down_payment = sap_invoice["DownPaymentAmount"]
                 break
         else:
             logger.error(
                 f"Could not get the DocEntry number from the invoice in SAP. "
                 f"Invoice: {invoice}"
             )
+            down_payment = None
 
-        invoice.number = str(sap_invoice["DocEntry"])
-        # We can create a more informative invoice for Saleor
-        invoice_dict = self.generate_saleor_invoice(invoice)
+
+        # We can create a more informative invoice for Saleor.
+        # Not sure if down_payment should come from `DownPaymentAmount` or `DownPayment`
+        invoice_dict = self.generate_saleor_invoice(invoice, down_payment=down_payment)
         invoice.created = invoice_dict["create_date"]
         invoice.invoice_json = invoice_dict
         invoice.save()
