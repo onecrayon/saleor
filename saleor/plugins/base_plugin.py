@@ -655,7 +655,7 @@ class BasePlugin:
         )
         return [gateway]
 
-    def is_backorder_allowed(self, previous_value):
+    def get_backorder_quantity_limit(self, variant_channel, previous_value):
         return NotImplemented
 
     @classmethod

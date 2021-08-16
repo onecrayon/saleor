@@ -518,6 +518,8 @@ class ProductVariant(SortableModel, ModelWithMetadata):
     objects = models.Manager.from_queryset(ProductVariantQueryset)()
     translated = TranslationProxy()
 
+    backorder_quantity_global_threshold = models.IntegerField(null=True)
+
     class Meta(ModelWithMetadata.Meta):
         ordering = ("sort_order", "sku")
         app_label = "product"
@@ -623,6 +625,8 @@ class ProductVariantChannelListing(models.Model):
         null=True,
     )
     cost_price = MoneyField(amount_field="cost_price_amount", currency_field="currency")
+
+    backorder_quantity_threshold = models.IntegerField(null=True)
 
     class Meta:
         unique_together = [["variant", "channel"]]

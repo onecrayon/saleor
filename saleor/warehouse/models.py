@@ -11,7 +11,7 @@ from ..account.models import Address
 from ..channel.models import Channel
 from ..core.models import ModelWithMetadata
 from ..order.models import OrderLine
-from ..product.models import Product, ProductVariant
+from ..product.models import Product, ProductVariantChannelListing, ProductVariant
 from ..shipping.models import ShippingZone
 
 
@@ -168,8 +168,8 @@ class Backorder(models.Model):
         on_delete=models.CASCADE,
         related_name="backorder",
     )
-    product_variant = models.ForeignKey(
-        ProductVariant,
+    product_variant_channel_listing = models.ForeignKey(
+        ProductVariantChannelListing,
         null=False,
         on_delete=models.CASCADE,
         related_name="backorders",

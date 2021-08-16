@@ -991,10 +991,10 @@ class PluginsManager(PaymentInterface):
             plugin, "external_verify", default_value, data, request
         )
 
-    def is_backorder_allowed(self, channel_slug) -> dict:
-        default_value = False
+    def get_backorder_quantity_limit(self, variant_channel, channel_slug: str):
+        default_value = None
         return self.__run_method_on_plugins(
-            "is_backorder_allowed", default_value, channel_slug=channel_slug
+            "get_backorder_quantity_limit", default_value, variant_channel, channel_slug=channel_slug
         )
 
 

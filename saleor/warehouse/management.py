@@ -7,7 +7,7 @@ from ..core.exceptions import AllocationError, InsufficientStock, InsufficientSt
 from ..core.tracing import traced_atomic_transaction
 from ..order import OrderLineData
 from ..plugins.manager import get_plugins_manager
-from ..product.models import ProductVariant
+from ..product.models import ProductVariant, ProductVariantChannelListing
 from .models import Allocation, Stock, Warehouse, Backorder
 
 if TYPE_CHECKING:
@@ -81,15 +81,29 @@ def allocate_stocks(
 
     if insufficient_stock:
         plugin_manager = get_plugins_manager()
-        if plugin_manager.is_backorder_allowed(channel_slug):
-            for insufficient_stock_data in insufficient_stock:
-                Backorder.objects.update_or_create(
-                    order_line=line_info.line,
-                    product_variant=insufficient_stock_data.variant,
-                    defaults={"quantity": insufficient_stock_data.backorder_quantity}
-                )
-        else:
-            raise InsufficientStock(insufficient_stock)
+
+        # Make sure all order lines we need to create backorders for, can support it
+        for insufficient_stock_data in insufficient_stock:
+            variant_channel = ProductVariantChannelListing.objects.get(
+                variant=insufficient_stock_data.variant,
+                channel__slug=channel_slug
+            )
+            limit = plugin_manager.get_backorder_quantity_limit(
+                variant_channel, channel_slug=channel_slug)
+
+            if limit and limit < insufficient_stock_data.backorder_quantity:
+                raise InsufficientStock(insufficient_stock)
+
+            # Save this info for later
+            insufficient_stock_data.variant_channel = variant_channel
+
+        # Create all of the actual backorders
+        for insufficient_stock_data in insufficient_stock:
+            Backorder.objects.update_or_create(
+                order_line=insufficient_stock_data.order_line,
+                product_variant_channel_listing=insufficient_stock_data.variant_channel,
+                defaults={"quantity": insufficient_stock_data.backorder_quantity}
+            )
 
     if allocations:
         for allocation in allocations:
@@ -407,8 +421,10 @@ def fill_backorders(product_variant: "ProductVariant"):
     """
     # Fetch all backorders for the variant being stocked
     backorders = (
-        product_variant.backorders.filter(quantity__gt=0)
-        .prefetch_related("order_line__allocations")
+        Backorder.objects.filter(
+            quantity__gt=0,
+            product_variant_channel_listing__variant=product_variant
+        ).prefetch_related("order_line__allocations")
         .prefetch_related("order_line__order__shipping_address")
         .prefetch_related("order_line__order__channel")
         .order_by("created")

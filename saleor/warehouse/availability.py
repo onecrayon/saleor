@@ -41,7 +41,10 @@ def check_stock_quantity(
         available_quantity = _get_available_quantity(stocks)
         if quantity > available_quantity:
             plugin_manager = get_plugins_manager()
-            if not plugin_manager.is_backorder_allowed(channel_slug):
+            variant_channel = variant.channel_listings.filter(channel__slug=channel_slug).first()
+            backorder_limit = plugin_manager.get_backorder_quantity_limit(
+                variant_channel, channel_slug)
+            if backorder_limit and quantity - available_quantity > backorder_limit:
                 raise InsufficientStock([InsufficientStockData(
                     variant=variant, available_quantity=available_quantity
                 )])
