@@ -115,3 +115,15 @@ class SAPUserProfile(CountableDjangoObjectType):
 
 class SAPProductError(Error):
     code = graphene.String(description="The error code.", required=True)
+
+
+class OutsideSalesRep(CountableDjangoObjectType):
+    class Meta:
+        description = "Outside Sales Rep"
+        model = models.OutsideSalesRep
+        interfaces = [relay.Node]
+        only_fields = [
+            "name",
+            "user",
+            "business_partner",
+        ]

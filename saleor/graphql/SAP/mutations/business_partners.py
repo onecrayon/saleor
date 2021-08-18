@@ -1,4 +1,5 @@
 import graphene
+from django.core.exceptions import ValidationError
 
 from firstech.SAP import models
 from saleor.account import models as user_models
@@ -15,6 +16,7 @@ from saleor.graphql.SAP.types import (
     BusinessPartner,
     BusinessPartnerError,
     DroneRewardsProfile,
+    OutsideSalesRep,
     SAPApprovedBrands,
     SAPUserProfile,
 )
@@ -512,3 +514,99 @@ class AssignApprovedBrands(ModelMutation, GetBusinessPartnerMixin):
         approved_brands.save()
 
         return cls.success_response(approved_brands)
+
+
+class AttachOutsideSalesRep(ModelMutation, GetBusinessPartnerMixin):
+    outside_sales_rep = graphene.Field(
+        OutsideSalesRep, description="Outside sales rep relationship that was created."
+    )
+
+    class Arguments:
+        email = graphene.String(
+            description="email of the user to attach to the business partner "
+            "as an outside sales rep",
+            required=True,
+        )
+        business_partner_id = graphene.ID(
+            description="ID of the business partner to attach the user as an "
+            "outside sales rep to",
+        )
+        sap_bp_code = graphene.String(
+            description="SAP card code for the business partner."
+        )
+        name = graphene.String(
+            description="Name of the outside sales rep (e.g. business name)."
+        )
+
+    class Meta:
+        description = "Assign a user to a business partner as an outside sales rep."
+        exclude = []
+        model = models.OutsideSalesRep
+        permissions = (AccountPermissions.MANAGE_USERS,)
+        error_type_class = BusinessPartnerError
+        error_type_field = "business_partner_errors"
+
+    @classmethod
+    def perform_mutation(cls, _root, info, **data):
+        """Update the existing approved-brands for the business partner if it already
+        exists. If one does not exist already, create one."""
+
+        business_partner = cls.get_business_partner(data, info)
+        user = user_models.User.objects.get(email=data["email"])
+
+        outside_sales_rep, _ = models.OutsideSalesRep.objects.get_or_create(
+            user=user,
+            business_partner=business_partner,
+            defaults={"name": data["name"]},
+        )
+
+        return cls.success_response(outside_sales_rep)
+
+
+class AttachInsideSalesRep(ModelMutation, GetBusinessPartnerMixin):
+    business_partner = graphene.Field(
+        BusinessPartner, description="Business partner that was affected."
+    )
+
+    class Arguments:
+        email = graphene.String(
+            description="email of the user to attach to the business partner "
+            "as an inside sales rep",
+            required=True,
+        )
+        business_partner_id = graphene.ID(
+            description="ID of the business partner to attach the user as an "
+            "inside sales rep to",
+        )
+        sap_bp_code = graphene.String(
+            description="SAP card code for the business partner."
+        )
+
+    class Meta:
+        description = "Assign a user to a business partner as an inside sales rep."
+        exclude = []
+        model = models.BusinessPartner
+        permissions = (AccountPermissions.MANAGE_USERS,)
+        error_type_class = BusinessPartnerError
+        error_type_field = "business_partner_errors"
+
+    @classmethod
+    def perform_mutation(cls, _root, info, **data):
+        """Update the existing approved-brands for the business partner if it already
+        exists. If one does not exist already, create one."""
+
+        business_partner = cls.get_business_partner(data, info)
+
+        user = user_models.User.objects.prefetch_related("sapuserprofile").get(
+            email=data["email"]
+        )
+
+        if not (
+            hasattr(user, "sapuserprofile") and user.sapuserprofile.is_inside_sales_rep
+        ):
+            raise ValidationError("The user is not an inside sales rep.")
+
+        business_partner.inside_sales_rep = user
+        business_partner.save()
+
+        return cls.success_response(business_partner)

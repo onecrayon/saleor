@@ -2,17 +2,20 @@ import graphene
 
 from firstech.SAP import models
 from saleor.graphql.SAP.mutations.business_partners import (
-    CreateSAPUserProfile,
-    BulkMigrateContacts,
-    MigrateBusinessPartner,
-    BusinessPartnerAddressCreate,
-    BulkBusinessPartnerAddressCreate,
     AssignApprovedBrands,
+    AttachInsideSalesRep,
+    AttachOutsideSalesRep,
+    BulkBusinessPartnerAddressCreate,
+    BulkMigrateContacts,
+    BusinessPartnerAddressCreate,
     CreateDroneRewardsProfile,
+    CreateSAPUserProfile,
+    MigrateBusinessPartner,
 )
 from saleor.graphql.SAP.mutations.deliveries import UpsertSAPDeliveryDocument
 from saleor.graphql.SAP.mutations.orders import UpsertSAPOrder
 from saleor.graphql.SAP.mutations.products import UpsertSAPProduct
+
 from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions
 from ..core.fields import FilterInputConnectionField
@@ -81,3 +84,5 @@ class SAPMutations(graphene.ObjectType):
     upsert_sap_product = UpsertSAPProduct.Field()
     upsert_sap_order = UpsertSAPOrder.Field()
     upsert_sap_delivery = UpsertSAPDeliveryDocument.Field()
+    attach_outside_sales_rep = AttachOutsideSalesRep.Field()
+    attach_inside_sales_rep = AttachInsideSalesRep.Field()
