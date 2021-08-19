@@ -57,7 +57,9 @@ class BusinessPartner(models.Model):
         blank=False,
         default=DEFAULT_CHANNEL_ID,
     )
-    sales_manager = models.CharField(max_length=256, blank=True, null=True)
+    sales_manager = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="sales_manager"
+    )
     sap_bp_code = models.CharField(max_length=256, blank=True, null=True, unique=True)
     shipping_preference = models.CharField(max_length=256, blank=True, null=True)
     sync_partner = models.BooleanField(default=True)

@@ -3,8 +3,6 @@ import graphene
 from firstech.SAP import models
 from saleor.graphql.SAP.mutations.business_partners import (
     AssignApprovedBrands,
-    AttachInsideSalesRep,
-    AttachOutsideSalesRep,
     BulkBusinessPartnerAddressCreate,
     BulkMigrateContacts,
     BusinessPartnerAddressCreate,
@@ -84,5 +82,3 @@ class SAPMutations(graphene.ObjectType):
     upsert_sap_product = UpsertSAPProduct.Field()
     upsert_sap_order = UpsertSAPOrder.Field()
     upsert_sap_delivery = UpsertSAPDeliveryDocument.Field()
-    attach_outside_sales_rep = AttachOutsideSalesRep.Field()
-    attach_inside_sales_rep = AttachInsideSalesRep.Field()
