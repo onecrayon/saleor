@@ -55,14 +55,24 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
     credit_limit = Decimal()
     customer_type = graphene.String()
     debit_limit = Decimal()
-    inside_sales_rep = graphene.String()
+    inside_sales_rep = graphene.String(
+        description="Email address of the inside sales rep for this business partner."
+    )
     internal_ft_notes = graphene.String()
-    outside_sales_rep = graphene.List(of_type=graphene.String)
-    outside_sales_rep_name = graphene.String()
+    outside_sales_rep = graphene.List(
+        of_type=graphene.String,
+        description="List of email addresses belonging to outside sales reps."
+    )
+    outside_sales_rep_name = graphene.String(
+        description="Organization name that the outside sales reps on this business "
+                    "partner belong to."
+    )
     payment_terms = graphene.String()
     channel = graphene.ID()
     channel_name = graphene.String()
-    sales_manager = graphene.String()
+    sales_manager = graphene.String(
+        "Email address of the sales manager for this business partner."
+    )
     sap_bp_code = graphene.String(required=True)
     shipping_preference = graphene.String()
     sync_partner = graphene.Boolean()
