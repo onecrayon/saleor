@@ -1,5 +1,4 @@
 import graphene
-from django.core.exceptions import ValidationError
 
 from firstech.SAP import models
 from saleor.account import models as user_models
@@ -16,7 +15,6 @@ from saleor.graphql.SAP.types import (
     BusinessPartner,
     BusinessPartnerError,
     DroneRewardsProfile,
-    OutsideSalesRep,
     SAPApprovedBrands,
     SAPUserProfile,
 )
