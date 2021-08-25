@@ -71,7 +71,7 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
     channel = graphene.ID()
     channel_name = graphene.String()
     sales_manager = graphene.String(
-        "Email address of the sales manager for this business partner."
+        description="Email address of the sales manager for this business partner."
     )
     sap_bp_code = graphene.String(required=True)
     shipping_preference = graphene.String()
@@ -139,6 +139,11 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
             cleaned_input["outside_sales_rep"] = list(user_models.User.objects.filter(
                 email__in=outside_sales_rep_emails
             ))
+
+        if sales_manager_email := data.pop("sales_manager", None):
+            cleaned_input["sales_manager"] = user_models.User.objects.get(
+                email=sales_manager_email
+            )
 
         return cleaned_input
 
