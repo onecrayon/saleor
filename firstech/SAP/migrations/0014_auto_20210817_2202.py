@@ -17,11 +17,6 @@ class Migration(migrations.Migration):
             model_name="businesspartner",
             name="outside_sales_rep_emails",
         ),
-        migrations.AddField(
-            model_name="sapuserprofile",
-            name="is_inside_sales_rep",
-            field=models.BooleanField(default=False),
-        ),
         migrations.RemoveField(model_name="businesspartner", name="inside_sales_rep"),
         migrations.AddField(
             model_name="businesspartner",

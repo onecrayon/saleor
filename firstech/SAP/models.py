@@ -92,7 +92,6 @@ class SAPUserProfile(models.Model):
         blank=True,
     )
     middle_name = models.CharField(max_length=256, blank=True, null=True)
-    is_inside_sales_rep = models.BooleanField(default=False)
 
 
 class DroneRewardsProfile(models.Model):
