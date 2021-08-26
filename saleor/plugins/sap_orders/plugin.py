@@ -345,29 +345,6 @@ class SAPPlugin(BasePlugin):
         return self.service_layer_request("get", f"DeliveryNotes({doc_entry})")
 
     @classmethod
-    def get_invoice_for_sap(cls, order: "Order") -> dict:
-        """Given an Order, creates the body needed to POST a new order to SAP service
-        layer"""
-        if not (business_partner := cls.get_business_partner_from_order(order)):
-            return
-
-        invoice_lines = []
-        for fulfillment in order.fulfillments.all():
-            for line in fulfillment:
-                invoice_lines.append(
-                    {
-                        "ItemCode": line.order_line.variant.sku,
-                        "Quantity": line.quantity,
-                        "BaseEntry": fulfillment.private_metadata["doc_entry"],
-                    }
-                )
-
-        return {
-            "CardCode": business_partner.sap_bp_code,
-            "DocumentLines": invoice_lines,
-        }
-
-    @classmethod
     def generate_saleor_invoice(
             cls, invoice: "Invoice", down_payment: Optional[float] = None
     ) -> dict:
@@ -467,44 +444,11 @@ class SAPPlugin(BasePlugin):
         number: Optional[str],
         previous_value: Any,
     ) -> Any:
-        """Trigger when invoice creation starts."""
+        """Trigger when invoice creation starts.
 
-        # First create the SAP Invoice document which is relatively simple. It only
-        # contains information on delivered items.
-        if not (post_invoice_body := self.get_invoice_for_sap(order)):
-            return previous_value
+        Invoices are only created in SAP, then synced to saleor. Never the other way
+        around. This is because we do not have the appropriate product license in SAP
+        to create invoices. They are instead created in batches daily.
+        """
 
-        # Create the invoice in SAP
-        self.service_layer_request("post", "Invoices", body=post_invoice_body)
-        # When you post something to SAP it doesn't give you anything in return, so now
-        # we gotta look up the last invoice so we can get the DocEntry from it.
-        sap_invoices = self.service_layer_request(
-            "get",
-            f"Invoices?$filter=CardCode eq '{post_invoice_body['CardCode']}'"
-            f"&$orderby=DocEntry desc",
-        )
-        # This is a list of all invoices for the business partner in order of creation
-        # Make sure that the invoice we grab is the one we just created.
-        for sap_invoice in sap_invoices["value"]:
-            if (
-                sap_invoice["DocumentLines"][0]["BaseEntry"]
-                == post_invoice_body["DocumentLines"][0]["BaseEntry"]
-            ):
-                invoice.number = str(sap_invoice["DocEntry"])
-                down_payment = sap_invoice["DownPaymentAmount"]
-                break
-        else:
-            logger.error(
-                f"Could not get the DocEntry number from the invoice in SAP. "
-                f"Invoice: {invoice}"
-            )
-            down_payment = None
-
-
-        # We can create a more informative invoice for Saleor.
-        # Not sure if down_payment should come from `DownPaymentAmount` or `DownPayment`
-        invoice_dict = self.generate_saleor_invoice(invoice, down_payment=down_payment)
-        invoice.created = invoice_dict["create_date"]
-        invoice.invoice_json = invoice_dict
-        invoice.save()
-        return invoice
+        return NotImplemented
