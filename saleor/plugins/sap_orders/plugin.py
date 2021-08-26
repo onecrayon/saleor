@@ -1,6 +1,9 @@
+import logging
+from datetime import datetime
 from json import JSONDecodeError
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+import pytz
 import requests
 from django.core.exceptions import ValidationError
 
@@ -15,6 +18,13 @@ from saleor.plugins.sap_orders import (
 )
 
 from ..base_plugin import BasePlugin, ConfigurationTypeField
+
+if TYPE_CHECKING:
+    from saleor.invoice.models import Invoice
+    from saleor.order.models import Order
+
+
+logger = logging.getLogger(__name__)
 
 
 class SAPPlugin(BasePlugin):
@@ -116,10 +126,10 @@ class SAPPlugin(BasePlugin):
             )
         )
 
-    def get_order_for_sap(self, order: "Order"):
-        """Build up the json payload needed to post/patch a sales order to SAP"""
+    @staticmethod
+    def get_business_partner_from_order(order: "Order"):
         try:
-            business_partner = sap_models.BusinessPartner.objects.get(
+            return sap_models.BusinessPartner.objects.get(
                 sapuserprofiles__user_id=order.user_id
             )
         except sap_models.BusinessPartner.MultipleObjectsReturned:
@@ -129,6 +139,12 @@ class SAPPlugin(BasePlugin):
             # should go to?
             return
         except sap_models.BusinessPartner.DoesNotExist:
+            return
+
+    @classmethod
+    def get_order_for_sap(cls, order: "Order"):
+        """Build up the json payload needed to post/patch a sales order to SAP"""
+        if not (business_partner := cls.get_business_partner_from_order(order)):
             return
 
         try:
@@ -160,8 +176,8 @@ class SAPPlugin(BasePlugin):
             "DocDueDate": due_date,
             "NumAtCard": po_number,
             "TransportationCode": transportation_code,
-            "Address": self.address_to_string(order.billing_address),
-            "Address2": self.address_to_string(order.shipping_address),
+            "Address": cls.address_to_string(order.billing_address),
+            "Address2": cls.address_to_string(order.shipping_address),
         }
 
         document_lines = []
@@ -225,7 +241,7 @@ class SAPPlugin(BasePlugin):
         if result.get("DocEntry"):
             order.store_value_in_private_metadata(
                 items={
-                    "doc_entry": str(result["DocEntry"]),
+                    "doc_entry": result["DocEntry"],
                     "sap_bp_code": str(result["CardCode"]),
                 }
             )
@@ -296,7 +312,7 @@ class SAPPlugin(BasePlugin):
                         },
                     )
                     fulfillment.store_value_in_private_metadata(
-                        items={"doc_entry": str(response["DocEntry"])}
+                        items={"doc_entry": response["DocEntry"]}
                     )
                     fulfillment.save(update_fields=["private_metadata"])
         else:
@@ -325,5 +341,114 @@ class SAPPlugin(BasePlugin):
         """Trigger when order is fulfilled."""
         return NotImplemented
 
-    def fetch_delivery_document(self, doc_entry: str) -> dict:
+    def fetch_delivery_document(self, doc_entry: int) -> dict:
         return self.service_layer_request("get", f"DeliveryNotes({doc_entry})")
+
+    @classmethod
+    def generate_saleor_invoice(
+            cls, invoice: "Invoice", down_payment: Optional[float] = None
+    ) -> dict:
+        """Generates a dict containing all the information necessary for an invoice.
+        This dict can be saved as a JSON object or used to fill an HTML template, etc.
+
+        :param invoice: This object should already have been posted to SAP so
+            that it contains certain values that SAP generates for an invoice such as
+            the invoice number (doc_entry).
+        :param down_payment: Optionally provide a down payment amount from an SAP
+            invoice document.
+        """
+        now = datetime.now(tz=pytz.utc)
+        order = invoice.order
+        if not (business_partner := cls.get_business_partner_from_order(order)):
+            return
+
+        # Summarize the line items on this order
+        line_items = []
+        for line_item in order.lines.all():
+            # Gather all of the fulfillments so far on this line item
+            quantity_fulfilled = 0
+            fulfilled_items = []
+            for fulfillment_line in line_item.fulfillment_lines.all():
+                quantity_fulfilled += fulfillment_line.quantity
+                fulfillment = fulfillment_line.fulfillment
+                fulfilled_items.append(
+                    {
+                        "qty": fulfillment_line.quantity,
+                        "tracking_number": fulfillment.tracking_number,
+                        "ship_date": fulfillment.created,
+                        "shipped_from": fulfillment_line.stock.warehouse.name,
+                        "shipped_to": order.shipping_address.as_data(),
+                    }
+                )
+
+            line_items.append(
+                {
+                    "line_total": line_item.total_price_net,
+                    "name": line_item.product_name,
+                    "sku": line_item.variant.sku,
+                    "price": line_item.unit_price_net,
+                    "quantity_fulfilled": quantity_fulfilled,
+                    "quantity_ordered": line_item.quantity,
+                    "quantity_unfulfilled": line_item.quantity - quantity_fulfilled,
+                    "deliveries": fulfilled_items,
+                }
+            )
+
+        # Summarize all of the payments so far for this order
+        payments = []
+        for payment in order.payments.all():
+            percentage_paid = 100 * round(
+                payment.captured_amount / order.total_gross_amount, 2
+            )
+            payments.append(
+                {
+                    "payment_date": payment.created,
+                    "percentage_paid": percentage_paid,
+                    "total": payment.captured_amount,
+                }
+            )
+
+        invoice = {
+            "invoice_number": invoice.number,
+            "billing_address": order.billing_address.as_data(),
+            "company_name": business_partner.company_name,
+            "create_date": now,
+            "outside_sales_rep": business_partner.outside_sales_rep,
+            "payment_due_date": None,  # TODO
+            "po_number": order.metadata.get("po_number"),
+            "remarks": order.metadata.get("remarks"),
+            "sap_bp_code": business_partner.sap_bp_code,
+            "shipping_preference": order.shipping_method_name,
+            "status": order.status,
+            "sub_total": order.get_subtotal().net,
+            "tax": order.total.tax,
+            "total": order.total_gross,
+            "down_payment": down_payment,
+            "early_pay_discount": None,  # TODO
+            "amount_paid": order.total_paid,
+            "total_amount_due": order.total_gross - order.total_paid,
+            "items": line_items,
+            "payments": payments,
+        }
+
+        return invoice
+
+    def fetch_invoice(self, doc_entry: int) -> dict:
+        """Used to get an invoice from SAP when we know the Doc Entry"""
+        return self.service_layer_request("get", f"Invoices({doc_entry})")
+
+    def invoice_request(
+        self,
+        order: "Order",
+        invoice: "Invoice",
+        number: Optional[str],
+        previous_value: Any,
+    ) -> Any:
+        """Trigger when invoice creation starts.
+
+        Invoices are only created in SAP, then synced to saleor. Never the other way
+        around. This is because we do not have the appropriate product license in SAP
+        to create invoices. They are instead created in batches daily.
+        """
+
+        return NotImplemented
