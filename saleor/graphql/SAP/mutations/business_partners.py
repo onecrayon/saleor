@@ -53,14 +53,24 @@ class BusinessPartnerCreateInput(graphene.InputObjectType):
     credit_limit = Decimal()
     customer_type = graphene.String()
     debit_limit = Decimal()
-    inside_sales_rep = graphene.String()
+    inside_sales_rep = graphene.String(
+        description="Email address of the inside sales rep for this business partner."
+    )
     internal_ft_notes = graphene.String()
-    outside_sales_rep = graphene.String()
-    outside_sales_rep_emails = graphene.List(of_type=graphene.String)
+    outside_sales_rep = graphene.List(
+        of_type=graphene.String,
+        description="List of email addresses belonging to outside sales reps."
+    )
+    outside_sales_rep_name = graphene.String(
+        description="Organization name that the outside sales reps on this business "
+                    "partner belong to."
+    )
     payment_terms = graphene.String()
     channel = graphene.ID()
     channel_name = graphene.String()
-    sales_manager = graphene.String()
+    sales_manager = graphene.String(
+        description="Email address of the sales manager for this business partner."
+    )
     sap_bp_code = graphene.String(required=True)
     shipping_preference = graphene.String()
     sync_partner = graphene.Boolean()
@@ -118,7 +128,41 @@ class MigrateBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
             channel = models.Channel.objects.filter(name=channel_name).first()
             cleaned_input["channel"] = channel
 
+        if inside_sales_rep_email := data.pop("inside_sales_rep", None):
+            cleaned_input["inside_sales_rep"] = user_models.User.objects.get(
+                email=inside_sales_rep_email
+            )
+
+        if outside_sales_rep_emails := data.pop("outside_sales_rep", None):
+            cleaned_input["outside_sales_rep"] = list(user_models.User.objects.filter(
+                email__in=outside_sales_rep_emails
+            ))
+
+        if sales_manager_email := data.pop("sales_manager", None):
+            cleaned_input["sales_manager"] = user_models.User.objects.get(
+                email=sales_manager_email
+            )
+
         return cleaned_input
+
+    @classmethod
+    def perform_mutation(cls, _root, info, **data):
+        instance = cls.get_instance(info, **data)
+        data = data.get("input")
+        cleaned_input = cls.clean_input(info, instance, data)
+        instance = cls.construct_instance(instance, cleaned_input)
+        cls.clean_instance(info, instance)
+        cls.save(info, instance, cleaned_input)
+        # Need to manually handle the m2m relationship on outside sales reps so that
+        # we can set the 'name' field on the through table
+        instance.outside_sales_rep.set(
+            cleaned_input["outside_sales_rep"],
+            through_defaults={"name": cleaned_input.get("outside_sales_rep_name")},
+            clear=True
+        )
+        cls.post_save_action(info, instance, cleaned_input)
+        return cls.success_response(instance)
+
 
 
 class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):

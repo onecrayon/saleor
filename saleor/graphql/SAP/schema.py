@@ -2,17 +2,18 @@ import graphene
 
 from firstech.SAP import models
 from saleor.graphql.SAP.mutations.business_partners import (
-    CreateSAPUserProfile,
-    BulkMigrateContacts,
-    MigrateBusinessPartner,
-    BusinessPartnerAddressCreate,
-    BulkBusinessPartnerAddressCreate,
     AssignApprovedBrands,
+    BulkBusinessPartnerAddressCreate,
+    BulkMigrateContacts,
+    BusinessPartnerAddressCreate,
     CreateDroneRewardsProfile,
+    CreateSAPUserProfile,
+    MigrateBusinessPartner,
 )
 from saleor.graphql.SAP.mutations.deliveries import UpsertSAPDeliveryDocument
 from saleor.graphql.SAP.mutations.orders import UpsertSAPOrder
 from saleor.graphql.SAP.mutations.products import UpsertSAPProduct
+
 from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions
 from ..core.fields import FilterInputConnectionField

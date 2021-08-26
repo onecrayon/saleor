@@ -7,7 +7,6 @@ from saleor.checkout import AddressType
 
 from . import DroneDistribution
 
-
 DEFAULT_CHANNEL_ID = 1
 
 
@@ -16,7 +15,7 @@ class BusinessPartner(models.Model):
         Address,
         blank=True,
         related_name="business_partner_addresses",
-        through="BusinessPartnerAddresses"
+        through="BusinessPartnerAddresses",
     )
     account_balance = models.DecimalField(
         decimal_places=2,
@@ -29,17 +28,11 @@ class BusinessPartner(models.Model):
     company_name = models.CharField(max_length=256, blank=True, null=True)
     company_url = models.CharField(max_length=256, blank=True, null=True)
     credit_limit = models.DecimalField(
-        decimal_places=2,
-        max_digits=10,
-        null=True,
-        blank=True
+        decimal_places=2, max_digits=10, null=True, blank=True
     )
     customer_type = models.CharField(max_length=256, blank=True, null=True)
     debit_limit = models.DecimalField(
-        decimal_places=2,
-        max_digits=10,
-        null=True,
-        blank=True
+        decimal_places=2, max_digits=10, null=True, blank=True
     )
     # Setting default shipping and billing addresses here mimics the design of Accounts
     # and billing/shipping addresses
@@ -49,13 +42,12 @@ class BusinessPartner(models.Model):
     default_billing_address = models.ForeignKey(
         Address, related_name="+", null=True, blank=True, on_delete=models.SET_NULL
     )
-    inside_sales_rep = models.CharField(max_length=256, blank=True, null=True)
+    inside_sales_rep = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL
+    )
     internal_ft_notes = models.TextField(blank=True, null=True)
-    outside_sales_rep = models.CharField(max_length=256, blank=True, null=True)
-    outside_sales_rep_emails = ArrayField(
-        base_field=models.EmailField(),
-        blank=True,
-        null=True
+    outside_sales_rep = models.ManyToManyField(
+        User, blank=True, related_name="outside_sales_reps", through="OutsideSalesRep"
     )
     payment_terms = models.CharField(max_length=256, blank=True, null=True)
     channel = models.ForeignKey(
@@ -65,7 +57,9 @@ class BusinessPartner(models.Model):
         blank=False,
         default=DEFAULT_CHANNEL_ID,
     )
-    sales_manager = models.CharField(max_length=256, blank=True, null=True)
+    sales_manager = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="sales_manager"
+    )
     sap_bp_code = models.CharField(max_length=256, blank=True, null=True, unique=True)
     shipping_preference = models.CharField(max_length=256, blank=True, null=True)
     sync_partner = models.BooleanField(default=True)
@@ -118,7 +112,11 @@ class BusinessPartnerAddresses(models.Model):
     business_partner = models.ForeignKey(BusinessPartner, on_delete=models.CASCADE)
     address = models.ForeignKey(Address, on_delete=models.CASCADE)
     type = models.CharField(
-        choices=AddressType.CHOICES,
-        max_length=10,
-        default=AddressType.SHIPPING
+        choices=AddressType.CHOICES, max_length=10, default=AddressType.SHIPPING
     )
+
+
+class OutsideSalesRep(models.Model):
+    name = models.CharField(max_length=256, blank=False, null=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    business_partner = models.ForeignKey(BusinessPartner, on_delete=models.CASCADE)
