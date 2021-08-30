@@ -17,12 +17,13 @@ def is_truthy(value):
     return value in (True, 1, "True", "true", "TRUE")
 
 
-def get_sap_cookies(config: SAPServiceLayerConfiguration):
+def get_sap_cookies(config: SAPServiceLayerConfiguration, skip_cache=False):
     """Either returns the session cookies for our connection to SAP service layer if
     they exist, or logs in to SAP service layer and caches the session cookies."""
     cache = caches["default"]
-    if cookies := cache.get("sap_login_cookies"):
-        return cookies
+    if not skip_cache:
+        if cookies := cache.get("sap_login_cookies"):
+            return cookies
 
     response = requests.post(
         url=config.url + "Login",
