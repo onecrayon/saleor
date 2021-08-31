@@ -461,3 +461,7 @@ class SAPPlugin(BasePlugin):
         """
 
         return NotImplemented
+
+    def fetch_return(self, doc_entry: int) -> dict:
+        """Used to get a return document from SAP from the doc_entry"""
+        return self.service_layer_request("get", f"Returns({doc_entry})")

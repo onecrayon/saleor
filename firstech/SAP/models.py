@@ -1,9 +1,13 @@
-from django.contrib.postgres.fields import ArrayField
+from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
+from django_prices.models import MoneyField
 
 from saleor.account.models import Address, User
 from saleor.channel.models import Channel
 from saleor.checkout import AddressType
+from saleor.order.models import Order
+from saleor.product.models import ProductVariant
 
 from . import DroneDistribution
 
@@ -58,7 +62,11 @@ class BusinessPartner(models.Model):
         default=DEFAULT_CHANNEL_ID,
     )
     sales_manager = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="sales_manager"
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sales_manager",
     )
     sap_bp_code = models.CharField(max_length=256, blank=True, null=True, unique=True)
     shipping_preference = models.CharField(max_length=256, blank=True, null=True)
@@ -120,3 +128,35 @@ class OutsideSalesRep(models.Model):
     name = models.CharField(max_length=256, blank=False, null=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     business_partner = models.ForeignKey(BusinessPartner, on_delete=models.CASCADE)
+
+
+class SAPReturn(models.Model):
+    """This is a really basic table for holding return info that we receive from SAP.
+    These returns aren't created through myFirstech or the dashboard."""
+
+    doc_entry = models.IntegerField(unique=True)
+    # This is the creation date of the SAP return document, not the timestamp for being
+    # added to this table
+    create_date = models.DateField(blank=True, null=True)
+    business_partner = models.ForeignKey(BusinessPartner, on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
+    remarks = models.TextField(blank=True, null=True)
+    purchase_order = models.CharField(max_length=255, blank=True, null=True)
+
+
+class SAPReturnLine(models.Model):
+    sap_return = models.ForeignKey(
+        SAPReturn, related_name="lines", on_delete=models.CASCADE
+    )
+    product_variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
+    quantity = models.IntegerField(validators=[MinValueValidator(1)])
+    currency = models.CharField(
+        max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH,
+    )
+    unit_price_amount = models.DecimalField(
+        max_digits=settings.DEFAULT_MAX_DIGITS,
+        decimal_places=settings.DEFAULT_DECIMAL_PLACES,
+        blank=True,
+        null=True,
+    )
+    unit_price = MoneyField(amount_field="unit_price_amount", currency_field="currency")
