@@ -223,6 +223,9 @@ class SAPReturn(CountableDjangoObjectType):
             "remarks",
             "purchase_order",
             "lines",
+            "total",
+            "total_net",
+            "total_gross",
         ]
 
     @staticmethod

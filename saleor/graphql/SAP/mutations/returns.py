@@ -1,7 +1,9 @@
 from datetime import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 import graphene
+from django.core.exceptions import ValidationError
 
 from firstech.SAP import models
 from saleor.core.permissions import OrderPermissions
@@ -61,6 +63,12 @@ class UpsertSAPReturnDocument(ModelMutation):
         business_partner = models.BusinessPartner.objects.get(
             sap_bp_code=sap_return["CardCode"]
         )
+        if sap_return["DocCurrency"] == "$":
+            # We currently only support USD but conceivably could accept others in the
+            # future
+            currency = "USD"
+        else:
+            raise ValidationError(f"Unknown currency: {sap_return['DocCurrency']}")
 
         _return, _ = models.SAPReturn.objects.update_or_create(
             business_partner=business_partner,
@@ -70,6 +78,10 @@ class UpsertSAPReturnDocument(ModelMutation):
                 "order": order,
                 "remarks": sap_return.get("Comments"),
                 "purchase_order": sap_return.get("NumAtCard"),
+                "currency": currency,
+                "total_net_amount": Decimal(sap_return["DocTotal"])
+                - Decimal(sap_return["VatSum"]),
+                "total_gross_amount": Decimal(sap_return["DocTotal"]),
             },
         )
 
@@ -80,8 +92,8 @@ class UpsertSAPReturnDocument(ModelMutation):
                 product_variant=variant,
                 defaults={
                     "quantity": line["Quantity"],
-                    "unit_price_amount": line["Price"],
-                    "currency": "USD",
+                    "unit_price_amount": Decimal(line["Price"]),
+                    "currency": currency,
                 },
             )
 

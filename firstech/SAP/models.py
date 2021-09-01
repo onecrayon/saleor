@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
-from django_prices.models import MoneyField
+from django_prices.models import MoneyField, TaxedMoneyField
 
 from saleor.account.models import Address, User
 from saleor.channel.models import Channel
@@ -142,6 +142,34 @@ class SAPReturn(models.Model):
     order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
     remarks = models.TextField(blank=True, null=True)
     purchase_order = models.CharField(max_length=255, blank=True, null=True)
+
+    currency = models.CharField(
+        max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH,
+    )
+
+    total_net_amount = models.DecimalField(
+        max_digits=settings.DEFAULT_MAX_DIGITS,
+        decimal_places=settings.DEFAULT_DECIMAL_PLACES,
+        default=0,
+    )
+
+    total_net = MoneyField(amount_field="total_net_amount", currency_field="currency")
+
+    total_gross_amount = models.DecimalField(
+        max_digits=settings.DEFAULT_MAX_DIGITS,
+        decimal_places=settings.DEFAULT_DECIMAL_PLACES,
+        default=0,
+    )
+
+    total_gross = MoneyField(
+        amount_field="total_gross_amount", currency_field="currency"
+    )
+
+    total = TaxedMoneyField(
+        net_amount_field="total_net_amount",
+        gross_amount_field="total_gross_amount",
+        currency_field="currency",
+    )
 
 
 class SAPReturnLine(models.Model):
