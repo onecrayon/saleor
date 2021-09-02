@@ -161,10 +161,6 @@ class SAPReturnLine(CountableDjangoObjectType):
         ]
 
     @staticmethod
-    def resolve_sku(root: "models.SAPReturnLine", _info):
-        return root.product_variant.sku
-
-    @staticmethod
     def resolve_price(root: "models.SAPReturnLine", _info):
         return root.unit_price
 
@@ -230,4 +226,95 @@ class SAPReturn(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_lines(root: models.SAPReturn, _info):
+        return root.lines.all()
+
+
+class SAPCreditMemoLine(CountableDjangoObjectType):
+
+    price = graphene.Field(
+        Money,
+        description="The price at which the item was returned for."
+    )
+    variant = graphene.Field(
+        "saleor.graphql.product.types.ProductVariant",
+        description="The product variant of the credited item."
+    )
+
+    class Meta:
+        description = "Line item in an SAP credit memo document."
+        model = models.SAPCreditMemoLine
+        interfaces = [relay.Node]
+        only_fields = [
+            "quantity",
+            "variant",
+        ]
+
+    @staticmethod
+    def resolve_price(root: "models.SAPReturnLine", _info):
+        return root.unit_price
+
+    @staticmethod
+    @traced_resolver
+    def resolve_variant(root, info):
+        """This whole mess is copy/pasted over from the OrderLine type. It appears to
+        do some permission checking. Also if you don't use those dataloader classes
+        the resolver will crash and burn because it's looking for a ChannelContext type.
+        """
+
+        context = info.context
+        if not root.product_variant_id:
+            return None
+
+        def requestor_has_access_to_variant(data):
+            variant, channel = data
+
+            requester = get_user_or_app_from_context(context)
+            is_staff = requestor_is_staff_member_or_app(requester)
+            if is_staff:
+                return ChannelContext(node=variant, channel_slug=channel.slug)
+
+            def product_is_available(product_channel_listing):
+                if product_channel_listing and product_channel_listing.is_visible:
+                    return ChannelContext(node=variant, channel_slug=channel.slug)
+                return None
+
+            return (
+                ProductChannelListingByProductIdAndChannelSlugLoader(context)
+                .load((variant.product_id, channel.slug))
+                .then(product_is_available)
+            )
+
+        variant = ProductVariantByIdLoader(context).load(root.product_variant_id)
+        channel = ChannelByOrderLineIdLoader(context).load(root.id)
+
+        return Promise.all([variant, channel]).then(requestor_has_access_to_variant)
+
+
+class SAPCreditMemo(CountableDjangoObjectType):
+    lines = graphene.List(
+        SAPCreditMemoLine,
+        description="The list of line items included in the credit memo."
+    )
+
+    class Meta:
+        description = "SAP Credit Memo Document"
+        model = models.SAPCreditMemo
+        interfaces = [relay.Node]
+        only_fields = [
+            "doc_entry",
+            "create_date",
+            "business_partner",
+            "order",
+            "remarks",
+            "purchase_order",
+            "lines",
+            "total",
+            "total_net",
+            "total_gross",
+            "refunded",
+            "status",
+        ]
+
+    @staticmethod
+    def resolve_lines(root: models.SAPCreditMemo, _info):
         return root.lines.all()

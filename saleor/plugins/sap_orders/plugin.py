@@ -465,3 +465,7 @@ class SAPPlugin(BasePlugin):
     def fetch_return(self, doc_entry: int) -> dict:
         """Used to get a return document from SAP from the doc_entry"""
         return self.service_layer_request("get", f"Returns({doc_entry})")
+
+    def fetch_credit_memo(self, doc_entry: int) -> dict:
+        """Used to get a credit memo document from SAP from the doc_entry"""
+        return self.service_layer_request("get", f"CreditNotes({doc_entry})")
