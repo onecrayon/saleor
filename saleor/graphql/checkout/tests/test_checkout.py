@@ -31,7 +31,7 @@ from ....plugins.manager import PluginsManager, get_plugins_manager
 from ....plugins.tests.sample_plugins import ActiveDummyPaymentGateway
 from ....product.models import ProductChannelListing, ProductVariant
 from ....shipping import models as shipping_models
-from ....warehouse.models import Stock, Warehouse
+from ....warehouse.models import Stock
 from ...tests.utils import assert_no_permission, get_graphql_content
 from ..mutations import (
     clean_shipping_method,
@@ -1030,11 +1030,10 @@ def test_checkout_create_sets_country_when_no_shipping_address_is_given(
     }
     assert not Checkout.objects.exists()
 
-    # should set address of a first warehouse in the channel
+    # should set channel's default_country
     api_client.post_graphql(MUTATION_CHECKOUT_CREATE, variables)
     checkout = Checkout.objects.first()
-    first_warehouse = Warehouse.objects.get_first_warehouse_for_channel(channel_USD.pk)
-    assert checkout.country == first_warehouse.address.country
+    assert checkout.country == channel_USD.default_country
 
 
 @override_settings(DEFAULT_COUNTRY="DE")
@@ -1523,6 +1522,75 @@ def test_checkout_customer_attach(
     assert checkout.email == customer_user.email
 
 
+def test_checkout_customer_attach_by_app(
+    app_api_client, checkout_with_item, customer_user, permission_impersonate_user
+):
+    checkout = checkout_with_item
+    checkout.email = "old@email.com"
+    checkout.save()
+    assert checkout.user is None
+
+    query = """
+        mutation checkoutCustomerAttach($token: UUID, $customerId: ID) {
+            checkoutCustomerAttach(token: $token, customerId: $customerId) {
+                checkout {
+                    token
+                }
+                errors {
+                    field
+                    message
+                }
+            }
+        }
+    """
+    customer_id = graphene.Node.to_global_id("User", customer_user.pk)
+    variables = {"token": checkout.token, "customerId": customer_id}
+
+    # Mutation should succeed for authenticated customer
+    response = app_api_client.post_graphql(
+        query, variables, permissions=[permission_impersonate_user]
+    )
+    content = get_graphql_content(response)
+    data = content["data"]["checkoutCustomerAttach"]
+    assert not data["errors"]
+    checkout.refresh_from_db()
+    assert checkout.user == customer_user
+    assert checkout.email == customer_user.email
+
+
+def test_checkout_customer_attach_by_app_without_permission(
+    app_api_client, checkout_with_item, customer_user
+):
+    checkout = checkout_with_item
+    checkout.email = "old@email.com"
+    checkout.save()
+    assert checkout.user is None
+
+    query = """
+        mutation checkoutCustomerAttach($token: UUID, $customerId: ID) {
+            checkoutCustomerAttach(token: $token, customerId: $customerId) {
+                checkout {
+                    token
+                }
+                errors {
+                    field
+                    message
+                }
+            }
+        }
+    """
+    customer_id = graphene.Node.to_global_id("User", customer_user.pk)
+    variables = {"token": checkout.token, "customerId": customer_id}
+
+    # Mutation should succeed for authenticated customer
+    response = app_api_client.post_graphql(
+        query,
+        variables,
+    )
+
+    assert_no_permission(response)
+
+
 def test_checkout_customer_attach_user_to_checkout_with_user(
     user_api_client, customer_user, user_checkout, address
 ):
@@ -1599,6 +1667,43 @@ def test_checkout_customer_detach(user_api_client, checkout_with_item, customer_
     response = user_api_client.post_graphql(
         MUTATION_CHECKOUT_CUSTOMER_DETACH, variables
     )
+    assert_no_permission(response)
+
+
+def test_checkout_customer_detach_by_app(
+    app_api_client, checkout_with_item, customer_user, permission_impersonate_user
+):
+    checkout = checkout_with_item
+    checkout.user = customer_user
+    checkout.save(update_fields=["user"])
+
+    variables = {"token": checkout.token}
+
+    # Mutation should succeed if the user owns this checkout.
+    response = app_api_client.post_graphql(
+        MUTATION_CHECKOUT_CUSTOMER_DETACH,
+        variables,
+        permissions=[permission_impersonate_user],
+    )
+    content = get_graphql_content(response)
+    data = content["data"]["checkoutCustomerDetach"]
+    assert not data["errors"]
+    checkout.refresh_from_db()
+    assert checkout.user is None
+
+
+def test_checkout_customer_detach_by_app_without_permissions(
+    app_api_client, checkout_with_item, customer_user
+):
+    checkout = checkout_with_item
+    checkout.user = customer_user
+    checkout.save(update_fields=["user"])
+
+    variables = {"token": checkout.token}
+
+    # Mutation should succeed if the user owns this checkout.
+    response = app_api_client.post_graphql(MUTATION_CHECKOUT_CUSTOMER_DETACH, variables)
+
     assert_no_permission(response)
 
 
