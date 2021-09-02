@@ -94,18 +94,27 @@ class SAPPlugin(BasePlugin):
         )
 
     def service_layer_request(
-        self, method: str, entity: str, body: Optional[dict] = None
+        self,
+        method: str,
+        entity: str,
+        body: Optional[dict] = None,
+        skip_cache: Optional[bool] = False,
     ) -> dict:
         method = getattr(requests, method, "get")
         response = method(
             url=self.config.url + entity,
             json=body,
-            cookies=get_sap_cookies(self.config),
+            cookies=get_sap_cookies(self.config, skip_cache=skip_cache),
             headers={"B1S-ReplaceCollectionsOnPatch": "true"},
             verify=self.config.verify_ssl,
         )
         try:
-            return response.json()
+            response_json = response.json()
+            if response_json.get("error", {}).get("code") == 301 and not skip_cache:
+                # only try again if skip_cache was initially false so that we don't get
+                # stuck in a loop
+                return self.service_layer_request(method, entity, body, skip_cache=True)
+            return response_json
         except JSONDecodeError:
             return {}
 
@@ -346,7 +355,7 @@ class SAPPlugin(BasePlugin):
 
     @classmethod
     def generate_saleor_invoice(
-            cls, invoice: "Invoice", down_payment: Optional[float] = None
+        cls, invoice: "Invoice", down_payment: Optional[float] = None
     ) -> dict:
         """Generates a dict containing all the information necessary for an invoice.
         This dict can be saved as a JSON object or used to fill an HTML template, etc.
@@ -452,3 +461,7 @@ class SAPPlugin(BasePlugin):
         """
 
         return NotImplemented
+
+    def fetch_return(self, doc_entry: int) -> dict:
+        """Used to get a return document from SAP from the doc_entry"""
+        return self.service_layer_request("get", f"Returns({doc_entry})")
