@@ -1,23 +1,14 @@
 import graphene
 from graphene import relay
 from graphene_federation import key
-from promise import Promise
 
 from firstech.SAP import models
 from saleor.account.models import User as UserModel
 
-from ...account.utils import requestor_is_staff_member_or_app
 from ...core.tracing import traced_resolver
-from ...graphql.utils import get_user_or_app_from_context
-from ..channel import ChannelContext
-from ..channel.dataloaders import ChannelByOrderLineIdLoader
 from ..core.connection import CountableDjangoObjectType
 from ..core.types import Error
 from ..core.types.money import Money
-from ..product.dataloaders import (
-    ProductChannelListingByProductIdAndChannelSlugLoader,
-    ProductVariantByIdLoader,
-)
 
 
 class BusinessPartnerError(Error):
@@ -171,38 +162,9 @@ class SAPReturnLine(CountableDjangoObjectType):
     @staticmethod
     @traced_resolver
     def resolve_variant(root, info):
-        """This whole mess is copy/pasted over from the OrderLine type. It appears to
-        do some permission checking. Also if you don't use those dataloader classes
-        the resolver will crash and burn because it's looking for a ChannelContext type.
-        """
-
-        context = info.context
-        if not root.product_variant_id:
-            return None
-
-        def requestor_has_access_to_variant(data):
-            variant, channel = data
-
-            requester = get_user_or_app_from_context(context)
-            is_staff = requestor_is_staff_member_or_app(requester)
-            if is_staff:
-                return ChannelContext(node=variant, channel_slug=channel.slug)
-
-            def product_is_available(product_channel_listing):
-                if product_channel_listing and product_channel_listing.is_visible:
-                    return ChannelContext(node=variant, channel_slug=channel.slug)
-                return None
-
-            return (
-                ProductChannelListingByProductIdAndChannelSlugLoader(context)
-                .load((variant.product_id, channel.slug))
-                .then(product_is_available)
-            )
-
-        variant = ProductVariantByIdLoader(context).load(root.product_variant_id)
-        channel = ChannelByOrderLineIdLoader(context).load(root.id)
-
-        return Promise.all([variant, channel]).then(requestor_has_access_to_variant)
+        # Need to import here to avoid circular import
+        from saleor.graphql.order.types import OrderLine
+        return OrderLine.resolve_variant(root, info)
 
 
 class SAPReturn(CountableDjangoObjectType):
