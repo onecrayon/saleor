@@ -67,7 +67,7 @@ from ..order.models import FulfillmentStatus, Order, OrderEvent, OrderLine
 from ..order.utils import recalculate_order
 from ..page.models import Page, PageTranslation, PageType
 from ..payment import ChargeStatus, TransactionKind
-from ..payment.interface import GatewayConfig, PaymentData
+from ..payment.interface import AddressData, GatewayConfig, PaymentData
 from ..payment.models import Payment
 from ..plugins.manager import get_plugins_manager
 from ..plugins.models import PluginConfiguration
@@ -3146,6 +3146,23 @@ def dummy_payment_data(payment_dummy):
 
 
 @pytest.fixture
+def dummy_address_data(address):
+    return AddressData(
+        first_name=address.first_name,
+        last_name=address.last_name,
+        company_name=address.company_name,
+        street_address_1=address.street_address_1,
+        street_address_2=address.street_address_2,
+        city=address.city,
+        city_area=address.city_area,
+        postal_code=address.postal_code,
+        country=address.country,
+        country_area=address.country_area,
+        phone=address.phone,
+    )
+
+
+@pytest.fixture
 def dummy_webhook_app_payment_data(dummy_payment_data, payment_app):
     dummy_payment_data.gateway = to_payment_app_id(payment_app, "credit-card")
     return dummy_payment_data
@@ -3235,6 +3252,11 @@ def permission_manage_shipping():
 @pytest.fixture
 def permission_manage_users():
     return Permission.objects.get(codename="manage_users")
+
+
+@pytest.fixture
+def permission_impersonate_user():
+    return Permission.objects.get(codename="impersonate_user")
 
 
 @pytest.fixture
