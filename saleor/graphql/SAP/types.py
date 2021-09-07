@@ -212,7 +212,7 @@ class SAPCreditMemoLine(CountableDjangoObjectType):
         ]
 
     @staticmethod
-    def resolve_price(root: "models.SAPReturnLine", _info):
+    def resolve_price(root: "models.SAPCreditMemoLine", _info):
         return root.unit_price
 
     @staticmethod

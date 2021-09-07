@@ -176,7 +176,7 @@ class SAPReturnLine(models.Model):
     sap_return = models.ForeignKey(
         SAPReturn, related_name="lines", on_delete=models.CASCADE
     )
-    product_variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
     quantity = models.IntegerField(validators=[MinValueValidator(1)])
     currency = models.CharField(
         max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH,
@@ -231,15 +231,15 @@ class SAPCreditMemo(models.Model):
         currency_field="currency",
     )
 
-    refunded = models.BooleanField(default=False)  # TODO Verify this
-    status = models.CharField(max_length=255, blank=True, null=True)  # TODO Verify this
+    refunded = models.BooleanField(default=False)
+    status = models.CharField(max_length=255, blank=True, null=True)
 
 
 class SAPCreditMemoLine(models.Model):
     sap_credit_memo = models.ForeignKey(
         SAPCreditMemo, related_name="lines", on_delete=models.CASCADE
     )
-    product_variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
     quantity = models.IntegerField(validators=[MinValueValidator(1)])
     currency = models.CharField(
         max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH,
