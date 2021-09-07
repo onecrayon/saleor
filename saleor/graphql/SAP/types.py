@@ -152,10 +152,6 @@ class SAPReturnLine(CountableDjangoObjectType):
         ]
 
     @staticmethod
-    def resolve_sku(root: "models.SAPReturnLine", _info):
-        return root.product_variant.sku
-
-    @staticmethod
     def resolve_price(root: "models.SAPReturnLine", _info):
         return root.unit_price
 
@@ -192,4 +188,66 @@ class SAPReturn(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_lines(root: models.SAPReturn, _info):
+        return root.lines.all()
+
+
+class SAPCreditMemoLine(CountableDjangoObjectType):
+
+    price = graphene.Field(
+        Money,
+        description="The price at which the item was returned for."
+    )
+    variant = graphene.Field(
+        "saleor.graphql.product.types.ProductVariant",
+        description="The product variant of the credited item."
+    )
+
+    class Meta:
+        description = "Line item in an SAP credit memo document."
+        model = models.SAPCreditMemoLine
+        interfaces = [relay.Node]
+        only_fields = [
+            "quantity",
+            "variant",
+        ]
+
+    @staticmethod
+    def resolve_price(root: "models.SAPCreditMemoLine", _info):
+        return root.unit_price
+
+    @staticmethod
+    @traced_resolver
+    def resolve_variant(root, info):
+        # Need to import here to avoid circular import
+        from saleor.graphql.order.types import OrderLine
+        return OrderLine.resolve_variant(root, info)
+
+
+class SAPCreditMemo(CountableDjangoObjectType):
+    lines = graphene.List(
+        SAPCreditMemoLine,
+        description="The list of line items included in the credit memo."
+    )
+
+    class Meta:
+        description = "SAP Credit Memo Document"
+        model = models.SAPCreditMemo
+        interfaces = [relay.Node]
+        only_fields = [
+            "doc_entry",
+            "create_date",
+            "business_partner",
+            "order",
+            "remarks",
+            "purchase_order",
+            "lines",
+            "total",
+            "total_net",
+            "total_gross",
+            "refunded",
+            "status",
+        ]
+
+    @staticmethod
+    def resolve_lines(root: models.SAPCreditMemo, _info):
         return root.lines.all()

@@ -176,7 +176,70 @@ class SAPReturnLine(models.Model):
     sap_return = models.ForeignKey(
         SAPReturn, related_name="lines", on_delete=models.CASCADE
     )
-    product_variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
+    quantity = models.IntegerField(validators=[MinValueValidator(1)])
+    currency = models.CharField(
+        max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH,
+    )
+    unit_price_amount = models.DecimalField(
+        max_digits=settings.DEFAULT_MAX_DIGITS,
+        decimal_places=settings.DEFAULT_DECIMAL_PLACES,
+        blank=True,
+        null=True,
+    )
+    unit_price = MoneyField(amount_field="unit_price_amount", currency_field="currency")
+
+
+class SAPCreditMemo(models.Model):
+    """This is a really basic table for holding credit memo info that we receive from
+        SAP. These documents aren't created through myFirstech or the dashboard."""
+
+    doc_entry = models.IntegerField(unique=True)
+    # This is the creation date of the SAP return document, not the timestamp for being
+    # added to this table
+    create_date = models.DateField(blank=True, null=True)
+    business_partner = models.ForeignKey(BusinessPartner, on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
+    remarks = models.TextField(blank=True, null=True)
+    purchase_order = models.CharField(max_length=255, blank=True, null=True)
+
+    currency = models.CharField(
+        max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH,
+    )
+
+    total_net_amount = models.DecimalField(
+        max_digits=settings.DEFAULT_MAX_DIGITS,
+        decimal_places=settings.DEFAULT_DECIMAL_PLACES,
+        default=0,
+    )
+
+    total_net = MoneyField(amount_field="total_net_amount", currency_field="currency")
+
+    total_gross_amount = models.DecimalField(
+        max_digits=settings.DEFAULT_MAX_DIGITS,
+        decimal_places=settings.DEFAULT_DECIMAL_PLACES,
+        default=0,
+    )
+
+    total_gross = MoneyField(
+        amount_field="total_gross_amount", currency_field="currency"
+    )
+
+    total = TaxedMoneyField(
+        net_amount_field="total_net_amount",
+        gross_amount_field="total_gross_amount",
+        currency_field="currency",
+    )
+
+    refunded = models.BooleanField(default=False)
+    status = models.CharField(max_length=255, blank=True, null=True)
+
+
+class SAPCreditMemoLine(models.Model):
+    sap_credit_memo = models.ForeignKey(
+        SAPCreditMemo, related_name="lines", on_delete=models.CASCADE
+    )
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
     quantity = models.IntegerField(validators=[MinValueValidator(1)])
     currency = models.CharField(
         max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH,
