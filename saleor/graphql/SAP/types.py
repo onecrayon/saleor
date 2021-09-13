@@ -108,6 +108,7 @@ class SAPUserProfile(CountableDjangoObjectType):
             "user",
             "date_of_birth",
             "is_company_owner",
+            "middle_name"
         ]
 
     @staticmethod

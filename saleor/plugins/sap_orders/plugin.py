@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from json import JSONDecodeError
+from slugify import slugify
 from typing import TYPE_CHECKING, Any, Optional
 
 import pytz
@@ -469,3 +470,45 @@ class SAPPlugin(BasePlugin):
     def fetch_credit_memo(self, doc_entry: int) -> dict:
         """Used to get a credit memo document from SAP from the doc_entry"""
         return self.service_layer_request("get", f"CreditNotes({doc_entry})")
+
+    def fetch_business_partner(self, sap_bp_code: str) -> dict:
+        """Used to get a business partner from SAP using the card code. Also looks up
+        all the other information we need on business partners from other tables"""
+        business_partner: dict = self.service_layer_request(
+            "get", f"BusinessPartners('{sap_bp_code}')"
+        )
+
+        # Look up the name of the payment terms and add it to the dict
+        payment_terms: str = self.service_layer_request(
+            "get", f"PaymentTermsTypes({business_partner['PayTermsGrpCode']})"
+        )["PaymentTermsGroupName"]
+
+        business_partner["payment_terms"] = payment_terms
+
+        # Look up the channel and add it
+        channel_name: str = self.service_layer_request(
+            "get", f"PriceLists({business_partner['PriceListNum']})"
+        )["PriceListName"]
+
+        channel_slug = slugify(channel_name)
+        business_partner["channel_slug"] = channel_slug
+
+        # Get outside sales rep emails and add them
+        outside_sales_rep: dict = self.service_layer_request(
+            "get", f"SalesPersons({business_partner['SalesPersonCode']})"
+        )
+
+        # Turn the ; separated string into a list, and only keep email addresses that
+        # aren't compustar emails.
+        if outside_sales_rep["Email"]:
+            outside_sales_rep_emails: list = list(filter(
+                lambda email: not email.endswith("@compustar.com"),
+                outside_sales_rep["Email"].split("; ")
+            ))
+        else:
+            outside_sales_rep_emails = []
+
+        business_partner["outside_sales_rep_emails"] = outside_sales_rep_emails
+        business_partner["outside_sales_rep_name"] = outside_sales_rep["SalesEmployeeName"]
+
+        return business_partner
