@@ -13,7 +13,6 @@ from saleor.graphql.account.enums import AddressTypeEnum
 from saleor.graphql.account.mutations.staff import CustomerCreate
 from saleor.graphql.account.types import AddressInput, User
 from saleor.graphql.core.mutations import ModelMutation
-from saleor.graphql.core.scalars import Decimal
 from saleor.graphql.core.types.common import AccountError
 from saleor.graphql.SAP.enums import DistributionTypeEnum
 from saleor.graphql.SAP.types import (
@@ -37,30 +36,30 @@ def upsert_business_partner(bp: dict) -> models.BusinessPartner:
     :returns: The models.BusinessPartner object
     """
     try:
-        channel_id = Channel.objects \
-            .values_list("id", flat=True) \
-            .get(slug=bp["channel_slug"])
+        channel_id = Channel.objects.values_list("id", flat=True).get(
+            slug=bp["channel_slug"]
+        )
     except Channel.DoesNotExist:
         channel_id = None
 
     try:
-        sales_manager_user_id = models.SAPSalesManager.objects \
-            .values_list("id", flat=True) \
-            .get(name=bp["U_SalesManager"])
+        sales_manager_user_id = models.SAPSalesManager.objects.values_list(
+            "user_id", flat=True
+        ).get(name=bp["U_SalesManager"])
     except models.SAPSalesManager.DoesNotExist:
         sales_manager_user_id = None
 
     try:
-        inside_sales_rep_id = models.SAPSalesManager.objects \
-            .values_list("id", flat=True) \
-            .get(name=bp["U_SalesSupport"])
+        inside_sales_rep_id = models.SAPSalesManager.objects.values_list(
+            "user_id", flat=True
+        ).get(name=bp["U_SalesSupport"])
     except models.SAPSalesManager.DoesNotExist:
         inside_sales_rep_id = None
 
     try:
-        shipping_method_id = ShippingMethod.objects \
-            .values_list("id", flat=True) \
-            .get(private_metadata__TrnspCode=bp["ShippingType"])
+        shipping_method_id = ShippingMethod.objects.values_list("id", flat=True).get(
+            private_metadata__TrnspCode=bp["ShippingType"]
+        )
     except ShippingMethod.DoesNotExist:
         shipping_method_id = None
 
@@ -85,25 +84,38 @@ def upsert_business_partner(bp: dict) -> models.BusinessPartner:
             "shipping_preference_id": shipping_method_id,
             "sync_partner": sync_partner,
             "warranty_preference": bp["U_Warranty"],
-        }
+        },
     )
 
     # Get the outside sales rep users from the email addresses we have
-    outside_sales_rep_users = list(user_models.User.objects.filter(
-        email__in=bp["outside_sales_rep_emails"]
-    ))
+    outside_sales_rep_users = list(
+        user_models.User.objects.filter(email__in=bp["outside_sales_rep_emails"])
+    )
 
     business_partner.outside_sales_rep.set(
         outside_sales_rep_users,
         through_defaults={"name": bp["outside_sales_rep_name"]},
-        clear=True
+        clear=True,
+    )
+
+    # Set the approved brands for this business partner
+    models.ApprovedBrands.objects.update_or_create(
+        business_partner=business_partner,
+        defaults={
+            "compustar": True if bp["U_V33_COMPUSTAR"] == "YES" else False,
+            "compustar_pro": True if bp["U_V33_PRODLR"] == "YES" else False,
+            "ftx": True if bp["U_V33_FTX"] == "YES" else False,
+            "arctic_start": True if bp["U_V33_ARCSTART"] == "YES" else False,
+        }
     )
 
     return business_partner
 
 
-def upsert_business_partner_addresses(bp: dict, business_partner: models.BusinessPartner):
-    """ Function for upserting the addresses on an existing business partner. This will
+def upsert_business_partner_addresses(
+    bp: dict, business_partner: models.BusinessPartner
+):
+    """Function for upserting the addresses on an existing business partner. This will
     remove from saleor any addresses that have been removed from SAP. Removing addresses
     this way doesn't delete the addresses from the Address table, it just disassociates
     those addresses from the business partner. So any orders that are pointing to those
@@ -134,9 +146,7 @@ def upsert_business_partner_addresses(bp: dict, business_partner: models.Busines
         # check if the row number of the address from SAP matches one in our cache
         # if it does, then we will update an existing Address, otherwise we will
         # create a new Address and BusinessPartnerAddresses object for it.
-        if existing_bp_address := existing_bp_address_cache.get(
-                sap_address["RowNum"]
-        ):
+        if existing_bp_address := existing_bp_address_cache.get(sap_address["RowNum"]):
             address = existing_bp_address.address
             addresses_to_update.append(address)
         else:
@@ -154,8 +164,9 @@ def upsert_business_partner_addresses(bp: dict, business_partner: models.Busines
             "country": sap_address["Country"],
             "postal_code": sap_address["ZipCode"] or "",
             "row_number": sap_address["RowNum"],
-            "type": AddressType.SHIPPING if sap_address[
-                                                "AddressType"] == "bo_ShipTo" else AddressType.BILLING,
+            "type": AddressType.SHIPPING
+            if sap_address["AddressType"] == "bo_ShipTo"
+            else AddressType.BILLING,
         }
         for attribute, value in update_fields.items():
             setattr(address, attribute, value)
@@ -166,9 +177,7 @@ def upsert_business_partner_addresses(bp: dict, business_partner: models.Busines
         # (cause they're not real model fields)
         fields.remove("row_number")
         fields.remove("type")
-        user_models.Address.objects.bulk_update(
-            addresses_to_update, fields=fields
-        )
+        user_models.Address.objects.bulk_update(addresses_to_update, fields=fields)
 
     user_models.Address.objects.bulk_create(addresses_to_create)
 
@@ -185,14 +194,16 @@ def upsert_business_partner_addresses(bp: dict, business_partner: models.Busines
                 business_partner=business_partner,
                 address=new_address,
                 row_number=new_address.row_number,
-                type=new_address.type
+                type=new_address.type,
             )
         )
 
     models.BusinessPartnerAddresses.objects.bulk_create(bp_addresses_to_create)
 
 
-def upsert_business_partner_contacts(bp: dict, business_partner: models.BusinessPartner):
+def upsert_business_partner_contacts(
+    bp: dict, business_partner: models.BusinessPartner
+):
     """Function for upserting the contacts of an existing business partner. Will create
     or update User models for each SAP contact. If any contacts have been removed from
     SAP, those users will be detached from the business partner in Saleor, but the
@@ -222,9 +233,7 @@ def upsert_business_partner_contacts(bp: dict, business_partner: models.Business
         else:
             # It's possible that the user already exists, but it's not attached
             # to the business partner.
-            contact, _ = user_models.User.objects.get_or_create(
-                email=normalized_email
-            )
+            contact, _ = user_models.User.objects.get_or_create(email=normalized_email)
             contacts_to_update.append(contact)
             # Make sure we have an sap user profile (new users won't)
             if not hasattr(contact, "sapuserprofile"):
@@ -232,7 +241,7 @@ def upsert_business_partner_contacts(bp: dict, business_partner: models.Business
 
         update_user_fields = {
             "first_name": sap_contact["FirstName"] or "",
-            "last_name": sap_contact["LastName"] or ""
+            "last_name": sap_contact["LastName"] or "",
         }
         for attribute, value in update_user_fields.items():
             setattr(contact, attribute, value)
@@ -253,15 +262,14 @@ def upsert_business_partner_contacts(bp: dict, business_partner: models.Business
 
         models.SAPUserProfile.objects.bulk_update(
             [contact.sapuserprofile for contact in contacts_to_update],
-            fields=list(update_sap_profile_fields.keys())
+            fields=list(update_sap_profile_fields.keys()),
         )
 
     # Detach any other users that are connected to this business partner that were
     # not included in the update or creation process. They have been removed from
     # this business partner in SAP.
     business_partner.sapuserprofiles.set(
-        [contact.sapuserprofile for contact in contacts_to_update],
-        clear=True
+        [contact.sapuserprofile for contact in contacts_to_update], clear=True
     )
 
 
@@ -300,7 +308,8 @@ class UpsertBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
 
     class Arguments:
         sap_bp_code = graphene.String(
-            description="SAP Card code of a business partner."
+            description="SAP Card code of a business partner.",
+            required=True
         )
 
     class Meta:
@@ -327,6 +336,7 @@ class UpsertBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
         business_partner = upsert_business_partner(bp)
         upsert_business_partner_addresses(bp, business_partner)
         upsert_business_partner_contacts(bp, business_partner)
+        # TODO: Drone info?
 
         return cls.success_response(business_partner)
 
@@ -722,3 +732,38 @@ class AssignApprovedBrands(ModelMutation, GetBusinessPartnerMixin):
         approved_brands.save()
 
         return cls.success_response(approved_brands)
+
+
+class CreateSalesManager(ModelMutation):
+    """Mutation for making an existing user into a sales manager"""
+
+    user = graphene.Field(
+        User, description="The user that was made a sales manager."
+    )
+
+    class Arguments:
+        id = graphene.ID(
+            description="ID of the user to make into a sales manager.", required=True
+        )
+        name = graphene.String(
+            description="Unique name to assign to this sales manager. This should be"
+            " the name used in SAP's U_SalesManager or U_SalesSupport field."
+        )
+
+    class Meta:
+        description = "Mutation for making an existing user a sales manager."
+        exclude = []
+        model = user_models.User
+        permissions = (AccountPermissions.MANAGE_USERS,)
+        error_type_class = BusinessPartnerError
+        error_type_field = "business_partner_errors"
+
+    @classmethod
+    def perform_mutation(cls, _root, info, **data):
+        user: user_models.User = cls.get_instance(info, **data)
+        # TODO: It would probably be a good idea to validate that the user "is_staff".
+        #  However, the migration script can't create staff users because of a known
+        #  bug with saleor permissions, so for now we won't do that check.
+        models.SAPSalesManager.objects.get_or_create(name=data["name"], user=user)
+
+        return cls.success_response(user)

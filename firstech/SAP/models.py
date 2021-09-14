@@ -268,5 +268,5 @@ class SAPSalesManager(models.Model):
     name they have in the SAP database. So this table is simply to associate a name
     to a specific user object."""
     name = models.CharField(max_length=20, unique=True)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
 

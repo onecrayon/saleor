@@ -9,6 +9,7 @@ from saleor.graphql.SAP.mutations.business_partners import (
     CreateDroneRewardsProfile,
     CreateSAPUserProfile,
     UpsertBusinessPartner,
+    CreateSalesManager,
 )
 from saleor.graphql.SAP.mutations.credit_memos import UpsertSAPCreditMemoDocument
 from saleor.graphql.SAP.mutations.deliveries import UpsertSAPDeliveryDocument
@@ -88,3 +89,4 @@ class SAPMutations(graphene.ObjectType):
     upsert_sap_invoice = UpsertSAPInvoiceDocument.Field()
     upsert_sap_return = UpsertSAPReturnDocument.Field()
     upsert_sap_credit_memo = UpsertSAPCreditMemoDocument.Field()
+    create_sales_manager = CreateSalesManager.Field()

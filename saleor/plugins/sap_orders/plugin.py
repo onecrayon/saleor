@@ -501,14 +501,18 @@ class SAPPlugin(BasePlugin):
         # Turn the ; separated string into a list, and only keep email addresses that
         # aren't compustar emails.
         if outside_sales_rep["Email"]:
-            outside_sales_rep_emails: list = list(filter(
-                lambda email: not email.endswith("@compustar.com"),
-                outside_sales_rep["Email"].split("; ")
-            ))
+            outside_sales_rep_emails: list = list(
+                filter(
+                    lambda email: not email.endswith("@compustar.com"),
+                    outside_sales_rep["Email"].split("; "),
+                )
+            )
         else:
             outside_sales_rep_emails = []
 
         business_partner["outside_sales_rep_emails"] = outside_sales_rep_emails
-        business_partner["outside_sales_rep_name"] = outside_sales_rep["SalesEmployeeName"]
+        business_partner["outside_sales_rep_name"] = outside_sales_rep[
+            "SalesEmployeeName"
+        ]
 
         return business_partner
