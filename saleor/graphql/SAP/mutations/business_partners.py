@@ -56,12 +56,13 @@ def upsert_business_partner(bp: dict) -> models.BusinessPartner:
     except models.SAPSalesManager.DoesNotExist:
         inside_sales_rep_id = None
 
-    try:
-        shipping_method_id = ShippingMethod.objects.values_list("id", flat=True).get(
-            private_metadata__TrnspCode=bp["ShippingType"]
-        )
-    except ShippingMethod.DoesNotExist:
-        shipping_method_id = None
+    if shipping_method := ShippingMethod.objects.filter(
+        private_metadata__TrnspCode=str(bp["ShippingType"])
+    ).first():
+        shipping_method_name = shipping_method.private_metadata["TrnspName"]
+    else:
+        shipping_method_name = None
+
 
     sync_partner = True if bp["U_V33_SYNCB2B"] == "YES" else False
 
@@ -81,7 +82,7 @@ def upsert_business_partner(bp: dict) -> models.BusinessPartner:
             "payment_terms": bp["payment_terms"],
             "channel_id": channel_id,
             "sales_manager_id": sales_manager_user_id,
-            "shipping_preference_id": shipping_method_id,
+            "shipping_preference": shipping_method_name,
             "sync_partner": sync_partner,
             "warranty_preference": bp["U_Warranty"],
         },
@@ -157,11 +158,11 @@ def upsert_business_partner_addresses(
 
         update_fields = {
             "company_name": sap_address["AddressName"] or "",
-            "street_address_1": sap_address["Street"],
+            "street_address_1": sap_address["Street"] or "",
             "street_address_2": sap_address["BuildingFloorRoom"] or "",
-            "city": sap_address["City"],
-            "country_area": sap_address["State"],
-            "country": sap_address["Country"],
+            "city": sap_address["City"] or "",
+            "country_area": sap_address["State"] or "",
+            "country": sap_address["Country"] or "",
             "postal_code": sap_address["ZipCode"] or "",
             "row_number": sap_address["RowNum"],
             "type": AddressType.SHIPPING

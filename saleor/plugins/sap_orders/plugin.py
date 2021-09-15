@@ -479,40 +479,46 @@ class SAPPlugin(BasePlugin):
         )
 
         # Look up the name of the payment terms and add it to the dict
-        payment_terms: str = self.service_layer_request(
-            "get", f"PaymentTermsTypes({business_partner['PayTermsGrpCode']})"
-        )["PaymentTermsGroupName"]
+        if business_partner['PayTermsGrpCode']:
+            payment_terms: str = self.service_layer_request(
+                "get", f"PaymentTermsTypes({business_partner['PayTermsGrpCode']})"
+            ).get("PaymentTermsGroupName")
 
-        business_partner["payment_terms"] = payment_terms
+            business_partner["payment_terms"] = payment_terms
+        else:
+            business_partner["payment_terms"] = None
 
         # Look up the channel and add it
-        channel_name: str = self.service_layer_request(
-            "get", f"PriceLists({business_partner['PriceListNum']})"
-        )["PriceListName"]
+        if business_partner['PriceListNum']:
+            channel_name: str = self.service_layer_request(
+                "get", f"PriceLists({business_partner['PriceListNum']})"
+            ).get("PriceListName")
 
-        channel_slug = slugify(channel_name)
-        business_partner["channel_slug"] = channel_slug
+            channel_slug = slugify(channel_name)
+            business_partner["channel_slug"] = channel_slug
+        else:
+            business_partner["channel_slug"] = None
 
         # Get outside sales rep emails and add them
-        outside_sales_rep: dict = self.service_layer_request(
-            "get", f"SalesPersons({business_partner['SalesPersonCode']})"
-        )
-
-        # Turn the ; separated string into a list, and only keep email addresses that
-        # aren't compustar emails.
-        if outside_sales_rep["Email"]:
-            outside_sales_rep_emails: list = list(
-                filter(
-                    lambda email: not email.endswith("@compustar.com"),
-                    outside_sales_rep["Email"].split("; "),
-                )
+        outside_sales_rep_emails = []
+        if business_partner['SalesPersonCode']:
+            outside_sales_rep: dict = self.service_layer_request(
+                "get", f"SalesPersons({business_partner['SalesPersonCode']})"
             )
-        else:
-            outside_sales_rep_emails = []
 
-        business_partner["outside_sales_rep_emails"] = outside_sales_rep_emails
-        business_partner["outside_sales_rep_name"] = outside_sales_rep[
-            "SalesEmployeeName"
-        ]
+            # Turn the ; separated string into a list, and only keep email addresses
+            # that aren't compustar emails.
+            if outside_sales_rep.get("Email"):
+                outside_sales_rep_emails = list(
+                    filter(
+                        lambda email: not email.endswith("@compustar.com"),
+                        outside_sales_rep["Email"].split(";"),
+                    )
+                )
+
+            business_partner["outside_sales_rep_emails"] = outside_sales_rep_emails
+            business_partner["outside_sales_rep_name"] = outside_sales_rep.get(
+                "SalesEmployeeName"
+            )
 
         return business_partner
