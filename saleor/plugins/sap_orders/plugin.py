@@ -522,3 +522,6 @@ class SAPPlugin(BasePlugin):
             )
 
         return business_partner
+
+    def fetch_order(self, doc_entry: int) -> dict:
+        return self.service_layer_request("get", f"Orders({doc_entry})")
