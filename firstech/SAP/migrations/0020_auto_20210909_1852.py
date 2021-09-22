@@ -25,11 +25,6 @@ class Migration(migrations.Migration):
             name='row_number',
             field=models.IntegerField(null=True),
         ),
-        migrations.AlterField(
-            model_name='businesspartner',
-            name='shipping_preference',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='shipping.shippingmethod'),
-        ),
         migrations.AlterUniqueTogether(
             name='businesspartneraddresses',
             unique_together={('business_partner', 'row_number')},

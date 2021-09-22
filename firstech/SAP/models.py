@@ -72,7 +72,7 @@ class BusinessPartner(models.Model):
     sap_bp_code = models.CharField(max_length=256, blank=True, null=True, unique=True)
     # The shipping preference is the name of the shipping method from SAP. The exact
     # `ShippingMethod` used on an order depends on the value of the order.
-    shipping_preference = models.CharField(max_length=50, blank=True, null=True)
+    shipping_preference = models.CharField(max_length=256, blank=True, null=True)
     sync_partner = models.BooleanField(default=True)
     warranty_preference = models.CharField(max_length=256, blank=True, null=True)
 
