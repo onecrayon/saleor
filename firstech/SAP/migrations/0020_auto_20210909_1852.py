@@ -5,11 +5,6 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
-def clear_shipping_methods(apps, schema_editor):
-    business_partner = apps.get_model("SAP", "BusinessPartner")
-    business_partner.objects.all().update(shipping_preference=None)
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -19,7 +14,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(clear_shipping_methods),
         migrations.AddField(
             model_name='businesspartneraddresses',
             name='row_number',
