@@ -525,3 +525,29 @@ class SAPPlugin(BasePlugin):
 
     def fetch_order(self, doc_entry: int) -> dict:
         return self.service_layer_request("get", f"Orders({doc_entry})")
+
+    def fetch_product(self, sku: str) -> dict:
+        sap_product = self.service_layer_request("get", f"Items('{sku}')")
+
+        # Get all of the price lists names / slugs
+        # the code and name are unlikely to change, so it seems very unnecessary to look
+        # this up every time. Maybe save this in the database somewhere?
+        skip = 0
+        price_list_cache = {}
+        while skip is not None:
+            price_lists = self.service_layer_request("get", f"PriceLists?$skip={skip}")
+            for price_list in price_lists["value"]:
+                price_list_cache[price_list["PriceListNo"]] = price_list[
+                    "PriceListName"
+                ]
+
+            if "odata.nextLink" in price_lists:
+                skip += 20
+            else:
+                skip = None
+
+        # insert the price list name into the product's price lists
+        for item_price in sap_product.get("ItemPrices", []):
+            item_price["PriceListName"] = price_list_cache[item_price["PriceList"]]
+
+        return sap_product
