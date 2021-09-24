@@ -135,12 +135,14 @@ class UpsertSAPProduct(BaseMutation):
             AttributeAssignmentMixin.save(product, attributes)
         # Populate the public metadata for the product
         metadata = {
-            "inventoryUom": sap_product.get("InventoryUOM", "") or "",
+            "inventory_uom": sap_product.get("InventoryUOM", "") or "",
             "manufacture": sap_product.get("Mainsupplier", "") or "",
-            "onHold": sap_product.get("CapitalGoodsOnHoldPercent", "") or "",
-            "onLimitedHold": sap_product.get("CapitalGoodsOnHoldLimit", "") or "",
-            "reservedQty": sap_product.get("QuantityOrderedByCustomers", "") or "",
-            "websiteCode": sap_product.get("U_website_code", "") or "",
+            "on_hold": sap_product.get("CapitalGoodsOnHoldPercent", "") or "",
+            "on_limited_hold": sap_product.get("CapitalGoodsOnHoldLimit", "") or "",
+            "reserved_qty": sap_product.get("QuantityOrderedByCustomers", "") or "",
+            "website_code": sap_product.get("U_website_code", "") or "",
+            "manufacture_case_qty": sap_product.get("SalesQtyPerPackUnit", "") or "",
+
         }
         if metadata:
             product.store_value_in_metadata(items=metadata)
@@ -149,13 +151,14 @@ class UpsertSAPProduct(BaseMutation):
         # TODO: We are not sure how to get the "x" data fields using the service layer.
         #  They can be retrieved from the database, but aren't exposed otherwise.
         private_metadata = {
-            "lastEvalPrice": sap_product.get("x", "") or "",
-            "lastPurchasePrice": sap_product.get("x", "") or "",
-            "lastUpdated": sap_product.get("UpdateDate", "") or "",
-            "retailTaxable": sap_product.get("x", "") or "",
-            "wholesaleTaxable": sap_product.get("x", "") or "",
-            "comLevel": sap_product.get("U_V33_COMLEVEL", "") or "",
+            "last_eval_price": sap_product.get("x", "") or "",
+            "last_purchase_price": sap_product.get("x", "") or "",
+            "last_updated": sap_product.get("UpdateDate", "") or "",
+            "retail_taxable": sap_product.get("x", "") or "",
+            "wholesale_taxable": sap_product.get("x", "") or "",
+            "com_level": sap_product.get("U_V33_COMLEVEL", "") or "",
             "synced": sap_product.get("U_sync", "") or "",
+            "created_date": sap_product.get("CreateDate", "") or "",
         }
         if private_metadata:
             product.store_value_in_private_metadata(items=private_metadata)
@@ -225,15 +228,15 @@ class UpsertSAPProduct(BaseMutation):
             AttributeAssignmentMixin.save(variant, attributes)
         # Update the variant metadata
         variant_metadata = {
-            "barCode": sap_product.get("BarCode", "") or ""
+            "bar_code": sap_product.get("BarCode", "") or ""
         }
         if variant_metadata:
             variant.store_value_in_metadata(items=variant_metadata)
             variant.save(update_fields=["metadata"])
 
         variant_private_metadata = {
-            "onOrderWithVendor": sap_product.get("QuantityOrderedFromVendors", ""),
-            "bestBuySku": sap_product.get("U_V33_BESTBUYSKU", "") or "",
+            "on_order_with_vendor": sap_product.get("QuantityOrderedFromVendors", ""),
+            "best_buy_sku": sap_product.get("U_V33_BESTBUYSKU", "") or "",
         }
         if variant_private_metadata:
             variant.store_value_in_private_metadata(items=variant_private_metadata)

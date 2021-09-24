@@ -1,6 +1,7 @@
 import graphene
 from typing import TYPE_CHECKING
 
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from firstech.SAP import models
@@ -234,7 +235,21 @@ def upsert_business_partner_contacts(
         else:
             # It's possible that the user already exists, but it's not attached
             # to the business partner.
-            contact, _ = user_models.User.objects.get_or_create(email=normalized_email)
+            try:
+                contact = user_models.User.objects.get(email=normalized_email)
+            except user_models.User.DoesNotExist:
+                # Can't use get_or_create method because if we don't use the
+                # UserManager the fields won't be validated
+                contact = user_models.User(email=normalized_email)
+                try:
+                    # We are ok with creating the user without a password
+                    contact.clean_fields(exclude="password")
+                except ValidationError:
+                    # The email address is invalid. Skip this contact
+                    continue
+                else:
+                    contact.save()
+
             contacts_to_update.append(contact)
             # Make sure we have an sap user profile (new users won't)
             if not hasattr(contact, "sapuserprofile"):
@@ -250,7 +265,6 @@ def upsert_business_partner_contacts(
         update_sap_profile_fields = {
             "middle_name": sap_contact["MiddleName"],
             "date_of_birth": sap_contact["DateOfBirth"],
-            "is_company_owner": False,  # TODO where does this come from??
         }
         for attribute, value in update_sap_profile_fields.items():
             setattr(contact.sapuserprofile, attribute, value)

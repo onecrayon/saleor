@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from json import JSONDecodeError
 from slugify import slugify
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, List
 
 import pytz
 import requests
@@ -14,6 +14,7 @@ from saleor.discount import DiscountValueType
 from saleor.order import FulfillmentStatus, OrderStatus
 from saleor.plugins.sap_orders import (
     SAPServiceLayerConfiguration,
+    get_price_list_cache,
     get_sap_cookies,
     is_truthy,
 )
@@ -93,6 +94,10 @@ class SAPPlugin(BasePlugin):
             url=configuration["SAP Service Layer URL"],
             verify_ssl=is_truthy(configuration["SSL Verification"]),
         )
+
+    @property
+    def price_list_cache(self):
+        return get_price_list_cache(self.config)
 
     def service_layer_request(
         self,
@@ -471,6 +476,15 @@ class SAPPlugin(BasePlugin):
         """Used to get a credit memo document from SAP from the doc_entry"""
         return self.service_layer_request("get", f"CreditNotes({doc_entry})")
 
+    @staticmethod
+    def clean_email_list(email_text: str) -> List[str]:
+        """Given a string of semi-colon, comma, or whitespace separated emails,
+        return a list of emails"""
+        for separator in (";", " "):
+            email_text.replace(separator, ",")
+
+        return [email.strip() for email in email_text.split(",")]
+
     def fetch_business_partner(self, sap_bp_code: str) -> dict:
         """Used to get a business partner from SAP using the card code. Also looks up
         all the other information we need on business partners from other tables"""
@@ -490,10 +504,7 @@ class SAPPlugin(BasePlugin):
 
         # Look up the channel and add it
         if business_partner['PriceListNum']:
-            channel_name: str = self.service_layer_request(
-                "get", f"PriceLists({business_partner['PriceListNum']})"
-            ).get("PriceListName")
-
+            channel_name = self.price_list_cache[business_partner["PriceListNum"]]
             channel_slug = slugify(channel_name)
             business_partner["channel_slug"] = channel_slug
         else:
@@ -512,7 +523,7 @@ class SAPPlugin(BasePlugin):
                 outside_sales_rep_emails = list(
                     filter(
                         lambda email: not email.endswith("@compustar.com"),
-                        outside_sales_rep["Email"].split(";"),
+                        self.clean_email_list(outside_sales_rep["Email"]),
                     )
                 )
 
@@ -529,25 +540,8 @@ class SAPPlugin(BasePlugin):
     def fetch_product(self, sku: str) -> dict:
         sap_product = self.service_layer_request("get", f"Items('{sku}')")
 
-        # Get all of the price lists names / slugs
-        # the code and name are unlikely to change, so it seems very unnecessary to look
-        # this up every time. Maybe save this in the database somewhere?
-        skip = 0
-        price_list_cache = {}
-        while skip is not None:
-            price_lists = self.service_layer_request("get", f"PriceLists?$skip={skip}")
-            for price_list in price_lists["value"]:
-                price_list_cache[price_list["PriceListNo"]] = price_list[
-                    "PriceListName"
-                ]
-
-            if "odata.nextLink" in price_lists:
-                skip += 20
-            else:
-                skip = None
-
         # insert the price list name into the product's price lists
         for item_price in sap_product.get("ItemPrices", []):
-            item_price["PriceListName"] = price_list_cache[item_price["PriceList"]]
+            item_price["PriceListName"] = self.price_list_cache[item_price["PriceList"]]
 
         return sap_product

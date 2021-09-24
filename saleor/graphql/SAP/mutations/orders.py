@@ -203,7 +203,10 @@ class UpsertSAPOrder(DraftOrderUpdate):
         # Figure out which user should be attached to this Order
         for contact in contact_list:
             if contact["InternalCode"] == sap_order["ContactPersonCode"]:
-                user = user_models.User.objects.get(email=contact["E_Mail"])
+                normalized_email = user_models.UserManager.normalize_email(
+                    contact["E_Mail"]
+                )
+                user = user_models.User.objects.get(email=normalized_email)
                 break
         else:
             user = None
