@@ -3642,14 +3642,24 @@ def test_create_product_with_boolean_attribute(
 
 SEARCH_PRODUCTS_QUERY = """
     query Products(
-        $filters: ProductFilterInput, $sortBy: ProductOrder, $channel: String
+        $filters: ProductFilterInput,
+        $sortBy: ProductOrder,
+        $channel: String,
+        $after: String,
     ) {
-        products(first: 5, filter: $filters, sortBy: $sortBy, channel: $channel) {
+        products(
+            first: 5,
+            filter: $filters,
+            sortBy: $sortBy,
+            channel: $channel,
+            after: $after,
+        ) {
             edges {
                 node {
                     id
                     name
                 }
+                cursor
             }
         }
     }
@@ -3791,6 +3801,44 @@ def test_search_product_by_description_and_name_without_sort_by(
     assert data[0]["node"]["name"] == product_2.name
     assert data[1]["node"]["name"] == product.name
     assert data[2]["node"]["name"] == product_1.name
+
+
+def test_search_product_by_description_and_name_and_use_cursor(
+    user_api_client, product_list, product, channel_USD, category, product_type
+):
+    product.description_plaintext = "red big red product"
+    product.save()
+
+    product_2 = product_list[1]
+    product_2.name = "red product"
+    product_2.save()
+    product_1 = product_list[0]
+    product_1.description_plaintext = "some red product"
+    product_1.save()
+
+    variables = {
+        "filters": {
+            "search": "red",
+        },
+        "channel": channel_USD.slug,
+    }
+    response = user_api_client.post_graphql(SEARCH_PRODUCTS_QUERY, variables)
+    content = get_graphql_content(response)
+    cursor = content["data"]["products"]["edges"][0]["cursor"]
+
+    variables = {
+        "filters": {
+            "search": "red",
+        },
+        "after": cursor,
+        "channel": channel_USD.slug,
+    }
+    response = user_api_client.post_graphql(SEARCH_PRODUCTS_QUERY, variables)
+    content = get_graphql_content(response)
+    data = content["data"]["products"]["edges"]
+
+    assert data[0]["node"]["name"] == product.name
+    assert data[1]["node"]["name"] == product_1.name
 
 
 @freeze_time("2020-03-18 12:00:00")
@@ -10512,3 +10560,107 @@ def test_hidden_product_access_with_permission_manage_channels(
     content = get_graphql_content(response)
     total_count = content["data"]["products"]["totalCount"]
     assert total_count == 2
+
+
+def test_query_product_for_federation(api_client, product, channel_USD):
+    product_id = graphene.Node.to_global_id("Product", product.pk)
+    variables = {
+        "representations": [
+            {
+                "__typename": "Product",
+                "id": product_id,
+                "channel": channel_USD.slug,
+            },
+        ],
+    }
+    query = """
+      query GetProductInFederation($representations: [_Any]) {
+        _entities(representations: $representations) {
+          __typename
+          ... on Product {
+            id
+            name
+          }
+        }
+      }
+    """
+
+    response = api_client.post_graphql(query, variables)
+    content = get_graphql_content(response)
+    assert content["data"]["_entities"] == [
+        {
+            "__typename": "Product",
+            "id": product_id,
+            "name": product.name,
+        }
+    ]
+
+
+def test_query_product_media_for_federation(
+    api_client, product_with_image, channel_USD
+):
+    media = product_with_image.media.first()
+    media_id = graphene.Node.to_global_id("ProductMedia", media.pk)
+    variables = {
+        "representations": [
+            {
+                "__typename": "ProductMedia",
+                "id": media_id,
+            },
+        ],
+    }
+    query = """
+      query GetProductMediaInFederation($representations: [_Any]) {
+        _entities(representations: $representations) {
+          __typename
+          ... on ProductMedia {
+            id
+            url
+          }
+        }
+      }
+    """
+
+    response = api_client.post_graphql(query, variables)
+    content = get_graphql_content(response)
+    assert content["data"]["_entities"] == [
+        {
+            "__typename": "ProductMedia",
+            "id": media_id,
+            "url": "http://testserver/media/products/product.jpg",
+        }
+    ]
+
+
+def test_query_product_type_for_federation(api_client, product, channel_USD):
+    product_type = product.product_type
+    product_type_id = graphene.Node.to_global_id("ProductType", product_type.pk)
+    variables = {
+        "representations": [
+            {
+                "__typename": "ProductType",
+                "id": product_type_id,
+            },
+        ],
+    }
+    query = """
+      query GetProductTypeInFederation($representations: [_Any]) {
+        _entities(representations: $representations) {
+          __typename
+          ... on ProductType {
+            id
+            name
+          }
+        }
+      }
+    """
+
+    response = api_client.post_graphql(query, variables)
+    content = get_graphql_content(response)
+    assert content["data"]["_entities"] == [
+        {
+            "__typename": "ProductType",
+            "id": product_type_id,
+            "name": product_type.name,
+        }
+    ]
