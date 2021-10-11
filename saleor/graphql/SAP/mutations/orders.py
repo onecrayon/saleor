@@ -1,12 +1,20 @@
-from typing import List, Tuple
+from decimal import Decimal
+from typing import TYPE_CHECKING, List, Tuple
 
 import graphene
 from django.core.exceptions import ValidationError
-from django.utils.text import slugify
 
 import saleor.product.models as product_models
+from saleor.account import models as user_models
 from saleor.core.permissions import OrderPermissions
+from saleor.discount import DiscountValueType
+from saleor.discount import models as discount_models
 from saleor.graphql.core.types.common import OrderError
+from saleor.graphql.order.mutations.discount_order import (
+    OrderDiscountAdd,
+    OrderDiscountUpdate,
+    OrderLineDiscountUpdate,
+)
 from saleor.graphql.order.mutations.draft_orders import (
     DraftOrderComplete,
     DraftOrderInput,
@@ -19,6 +27,12 @@ from saleor.graphql.order.mutations.orders import (
 )
 from saleor.order import models as order_models
 from saleor.order.utils import get_valid_shipping_methods_for_order
+
+from ....core.tracing import traced_atomic_transaction
+
+if TYPE_CHECKING:
+    from saleor.plugins.manager import PluginsManager
+    from saleor.plugins.sap_orders.plugin import SAPPlugin
 
 
 class SAPLineItemInput(graphene.InputObjectType):
@@ -54,28 +68,15 @@ class UpsertSAPOrder(DraftOrderUpdate):
     """
 
     class Arguments:
-        input = SAPOrderInput(
-            required=True,
-            description="Input data for upserting a draft order from SAP.",
-        )
         doc_entry = graphene.Int(
             required=True,
             description="The DocEntry value from SAP (primary key for SAP orders).",
-        )
-        sap_bp_code = graphene.String(
-            required=True, description="The SAP CardCode for the order."
         )
         confirm_order = graphene.Boolean(
             required=False,
             default_value=False,
             description="Whether or not to attempt to confirm this order automatically.",
         )
-        shipping_method_name = graphene.String(
-            description="Name of the shipping method to use."
-        )
-        channel_name = graphene.String(description="Name of the channel to use.")
-        shipping_address = graphene.String(description="Semicolon delimited address.")
-        billing_address = graphene.String(description="Semicolon delimited address.")
 
     class Meta:
         description = "Creates or updates a draft order."
@@ -88,8 +89,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
     def get_instance(cls, info, **data):
         instance = (
             order_models.Order.objects.filter(
-                metadata__doc_entry=data["doc_entry"],
-                metadata__sap_bp_code=data["sap_bp_code"],
+                private_metadata__doc_entry=data["doc_entry"],
             )
             .prefetch_related("lines")
             .first()
@@ -104,12 +104,13 @@ class UpsertSAPOrder(DraftOrderUpdate):
     def parse_address_etc(city_state_zip: str, country: str) -> Tuple[str, str, str]:
         """This function takes part of an address line that has the city, state and zip
         in it and splits them up into those pieces. Assumes that the last word is the
-        zip, the next to last word is the state abbreviation, and the remaining words.
+        zip, the next to last word is the state abbreviation, and the remaining words
+        are the city.
 
         The country is also needed as an input because canadian postal codes are two
         words.
 
-        are the city. Example:
+        Example:
         "Lake Forest Park WA 98765" -> "Lake Forest Park", "WA", "98765"
         """
         words = city_state_zip.split()
@@ -142,28 +143,19 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
     @classmethod
     def parse_address_string(cls, address_string):
-        """<rant> Because of what can happen on the SAP side, getting the shipping and
-        billing addresses from a sales order is a real mess. Ideally the integration
-        framework would be able to include the billing/shipping addresses inside the
-        DraftOrderInput type. However, when we pull the address from the database it's
-        normalized and we have to parse out street1, street2, city, state, zip, country
-        manually. We can do a little bit of that on the SQL side by replacing linebreaks
-        with a `;`. Unfortunately the city, state, and zip code are all on one line. And
-        then there's no good way to break those pieces up inside the integration
-        framework because we can't figure out how to get the javascript plug-in working,
-        and God only knows how to do that with xslt/xpath. And of course there are some
-        subtle differences in how US and Canadian addresses work. So instead we send it
-        over as a string, then we do the rest of the address parsing here in python
-        land, and then finally stuff everything back into the DraftOrderInput.</rant>
+        """We're pulling billing and shipping addresses from the SAP Order's Address
+        and Address2 fields, respectively. These fields normalize the address into a
+        single text field where different address elements are separated by \r. This
+        function parses those out into a dict.
 
         Example inputs for US address:
-            123 Fake St.;Unit A;Townsville NY 12345;USA
-            742 Evergreen Terrace;;Springfield OR 98123;USA
+            123 Fake St.\rUnit A\rTownsville NY 12345\rUSA
+            742 Evergreen Terrace\r\rSpringfield OR 98123\rUSA
 
         Example input for CA address:
-            3213 Curling Lane Apt. C;Vancouver BC V1E 4X3;CANADA
+            3213 Curling Lane Apt. C\rVancouver BC V1E 4X3\rCANADA
         """
-        address_lines: List = address_string.split(";")
+        address_lines: List = address_string.split("\r")
         # The last line is always the country
         country = cls.parse_country(address_lines.pop())
 
@@ -191,34 +183,67 @@ class UpsertSAPOrder(DraftOrderUpdate):
         }
 
     @classmethod
+    @traced_atomic_transaction()
     def perform_mutation(cls, _root, info, **data):
+        manager: PluginsManager = info.context.plugins
+        sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
+        if not sap_plugin:
+            # the SAP plugin is inactive or doesn't exist
+            return
+
         # Get the order instance
         order: order_models.Order = cls.get_instance(info, **data)
         new_order = False if order.pk else True
-        input: dict = data["input"]
-        draft_order_input = input["draft_order_input"]
-        channel_name = data.get("channel_name")
-        shipping_method_name = data.get("shipping_method_name")
+        sap_order = sap_plugin.fetch_order(data["doc_entry"])
+        bp = sap_plugin.fetch_business_partner(sap_order["CardCode"])
+        billing_address = cls.parse_address_string(sap_order["Address"])
+        shipping_address = cls.parse_address_string(sap_order["Address2"])
+        contact_list: List[dict] = bp["ContactEmployees"]
 
-        if shipping_address := data.get("shipping_address"):
-            draft_order_input["shipping_address"] = cls.parse_address_string(
-                shipping_address
-            )
+        # Figure out which user should be attached to this Order
+        for contact in contact_list:
+            if contact["InternalCode"] == sap_order["ContactPersonCode"]:
+                normalized_email = user_models.UserManager.normalize_email(
+                    contact["E_Mail"]
+                )
+                user = user_models.User.objects.get(email=normalized_email)
+                break
+        else:
+            user = None
 
-        if billing_address := data.get("billing_address"):
-            draft_order_input["billing_address"] = cls.parse_address_string(
-                billing_address
-            )
+        channel_id = product_models.Channel.objects.values_list("id", flat=True).get(
+            slug=bp["channel_slug"]
+        )
 
-        # Get the channel model object from the channel name
-        if channel_name:
-            channel = product_models.Channel.objects.get(slug=slugify(channel_name))
-            draft_order_input["channel_id"] = graphene.Node.to_global_id(
-                "Channel", channel.id
-            )
+        draft_order_input = {
+            "billing_address": billing_address,
+            "user": graphene.Node.to_global_id("User", user.id) if user else None,
+            "user_email": user.email if user else None,
+            "shipping_address": shipping_address,
+            "channel_id": graphene.Node.to_global_id("Channel", channel_id),
+        }
+
+        # The SAP order has all the line items, but we need to rename the keys that it
+        # uses to match what Saleor's Order mutations expect. We also only care about
+        # sku and quantity and not any of the other dozens of fields SAP has.
+        lines = []
+        # We will make a note of any discounts on line items for later on
+        line_item_discounts = {}
+        shipping_method_code = None
+        document_lines = sap_order.get("DocumentLines", [])
+        if document_lines:
+            shipping_method_code = document_lines[0].get("ShippingMethod")
+            for document_line in document_lines:
+                lines.append(
+                    {
+                        "sku": document_line["ItemCode"],
+                        "quantity": int(document_line["Quantity"]),
+                        "discount_percent": document_line["DiscountPercent"],
+                    }
+                )
 
         # Form the line items for the order
-        if lines := input.get("lines", []):
+        if lines:
             # We need to translate SKU into variant ids.
             # Sort our line items by SKU
             lines = sorted(lines, key=lambda line: line["sku"])
@@ -246,7 +271,9 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     sap_line["variant_id"] = graphene.Node.to_global_id(
                         "ProductVariant", product_variants[i]["id"]
                     )
+                    line_item_discounts[sap_line["sku"]] = sap_line["discount_percent"]
                     del sap_line["sku"]
+                    del sap_line["discount_percent"]
                     i += 1
                 else:
                     bad_line_items.append(sap_line["sku"])
@@ -256,12 +283,16 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     f"The following SKUs do not exist in Saleor: {bad_line_items}"
                 )
 
-        metadata = input.get("metadata", {})
+        metadata = {
+            "due_date": sap_order["DocDueDate"] or "",
+            "payment_method": sap_order["PaymentMethod"] or "",
+            "po_number": sap_order["NumAtCard"] or "",
+        }
         # Keep SAP's DocEntry field and business partner code in the private meta data
         # so we can refer to this order again
         private_metadata = {
             "doc_entry": data["doc_entry"],
-            "sap_bp_code": data["sap_bp_code"],
+            "sap_bp_code": sap_order["CardCode"],
         }
 
         # If this is a new order then we can use the draftOrderCreate mutation which
@@ -337,17 +368,67 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     _root, info, id=graphene.Node.to_global_id("OrderLine", line.id)
                 )
 
-        # Lookup the shipping method by name and update the order
-        if shipping_method_name:
+        # Lookup the shipping method by code and update the order
+        if shipping_method_code:
             available_shipping_methods = get_valid_shipping_methods_for_order(order)
             shipping_method = available_shipping_methods.filter(
-                private_metadata__TrnspName=shipping_method_name
+                private_metadata__TrnspCode=str(shipping_method_code)
             ).first()
             order.shipping_method = shipping_method
             order.shipping_method_name = shipping_method.name
             order.save()
 
-        if input.get("confirm_order", False):
+        # Include line item discounts
+        for line in order.lines.all():
+            discount = line_item_discounts[line.product_sku]
+            if discount > 0:
+                OrderLineDiscountUpdate.perform_mutation(
+                    _root,
+                    info,
+                    input={
+                        "value_type": DiscountValueType.PERCENTAGE,
+                        "value": Decimal(discount),
+                        "reason": "From SAP Order",
+                    },
+                    order_line_id=graphene.Node.to_global_id("OrderLine", line.id),
+                )
+
+        # Include any discounts on the entire sales order
+        if sap_order["TotalDiscount"]:
+            discount_input = {
+                "value_type": DiscountValueType.FIXED,
+                "value": Decimal(sap_order["TotalDiscount"]),
+                "reason": "From SAP Order",
+            }
+            try:
+                existing_discount_id = (
+                    discount_models.OrderDiscount.objects.values_list(
+                        "id", flat=True
+                    ).get(order_id=order.id)
+                )
+            except discount_models.OrderDiscount.DoesNotExist:
+                OrderDiscountAdd.perform_mutation(
+                    _root,
+                    info,
+                    order_id=graphene.Node.to_global_id("Order", order.id),
+                    input=discount_input,
+                )
+            else:
+                OrderDiscountUpdate.perform_mutation(
+                    _root,
+                    info,
+                    discount_id=graphene.Node.to_global_id(
+                        "OrderDiscount", existing_discount_id
+                    ),
+                    input=discount_input,
+                )
+
+        # Sanity check to make sure all of the discounts / tax have been copied over
+        # correctly.
+        if order.total.net.amount != Decimal(sap_order["DocTotal"]):
+            raise ValidationError("Saleor order total does not match SAP order total")
+
+        if data.get("confirm_order", False):
             # Try to move this draft order to confirmed
             try:
                 DraftOrderComplete.perform_mutation(

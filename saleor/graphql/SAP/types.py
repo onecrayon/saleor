@@ -94,10 +94,23 @@ class BusinessPartner(CountableDjangoObjectType):
             return None
 
 
+class SAPSalesManager(CountableDjangoObjectType):
+    class Meta:
+        description = "SAP sales manager status"
+        model = models.SAPSalesManager
+        only_fields = [
+            "name",
+            "user",
+        ]
+
+
 @key("id")
 class SAPUserProfile(CountableDjangoObjectType):
     business_partners = graphene.List(
         BusinessPartner, description="List of business partners this user belongs to."
+    )
+    sales_manager = graphene.Field(
+        SAPSalesManager, description="Sales manager details."
     )
 
     class Meta:
@@ -108,11 +121,19 @@ class SAPUserProfile(CountableDjangoObjectType):
             "user",
             "date_of_birth",
             "is_company_owner",
+            "middle_name"
         ]
 
     @staticmethod
     def resolve_business_partners(root: models.SAPUserProfile, _info, **kwargs):
         return root.business_partners.all()
+
+    @staticmethod
+    def resolve_sales_manager(root: models.SAPUserProfile, _info, **kwargs):
+        try:
+            return root.user.sapsalesmanager
+        except models.SAPSalesManager.DoesNotExist:
+            return None
 
 
 class SAPProductError(Error):

@@ -8,7 +8,8 @@ from saleor.graphql.SAP.mutations.business_partners import (
     BusinessPartnerAddressCreate,
     CreateDroneRewardsProfile,
     CreateSAPUserProfile,
-    MigrateBusinessPartner,
+    UpsertBusinessPartner,
+    CreateSalesManager,
 )
 from saleor.graphql.SAP.mutations.credit_memos import UpsertSAPCreditMemoDocument
 from saleor.graphql.SAP.mutations.deliveries import UpsertSAPDeliveryDocument
@@ -75,7 +76,7 @@ class SAPQueries(graphene.ObjectType):
 
 
 class SAPMutations(graphene.ObjectType):
-    business_partner_migrate = MigrateBusinessPartner.Field()
+    upsert_business_partner = UpsertBusinessPartner.Field()
     create_sap_profile = CreateSAPUserProfile.Field()
     bulk_migrate_contacts = BulkMigrateContacts.Field()
     business_partner_address_create = BusinessPartnerAddressCreate.Field()
@@ -88,3 +89,4 @@ class SAPMutations(graphene.ObjectType):
     upsert_sap_invoice = UpsertSAPInvoiceDocument.Field()
     upsert_sap_return = UpsertSAPReturnDocument.Field()
     upsert_sap_credit_memo = UpsertSAPCreditMemoDocument.Field()
+    create_sales_manager = CreateSalesManager.Field()

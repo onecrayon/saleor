@@ -8,6 +8,7 @@ from saleor.channel.models import Channel
 from saleor.checkout import AddressType
 from saleor.order.models import Order
 from saleor.product.models import ProductVariant
+from saleor.shipping.models import ShippingMethod
 
 from . import DroneDistribution
 
@@ -69,6 +70,8 @@ class BusinessPartner(models.Model):
         related_name="sales_manager",
     )
     sap_bp_code = models.CharField(max_length=256, blank=True, null=True, unique=True)
+    # The shipping preference is the name of the shipping method from SAP. The exact
+    # `ShippingMethod` used on an order depends on the value of the order.
     shipping_preference = models.CharField(max_length=256, blank=True, null=True)
     sync_partner = models.BooleanField(default=True)
     warranty_preference = models.CharField(max_length=256, blank=True, null=True)
@@ -122,6 +125,12 @@ class BusinessPartnerAddresses(models.Model):
     type = models.CharField(
         choices=AddressType.CHOICES, max_length=10, default=AddressType.SHIPPING
     )
+    # SAP assigns an id to addresses that is unique with the business partner. We can
+    # use this to track if an address is new/updated/removed
+    row_number = models.IntegerField(null=True)
+
+    class Meta:
+        unique_together = ["business_partner", "row_number"]
 
 
 class OutsideSalesRep(models.Model):
@@ -251,3 +260,13 @@ class SAPCreditMemoLine(models.Model):
         null=True,
     )
     unit_price = MoneyField(amount_field="unit_price_amount", currency_field="currency")
+
+
+class SAPSalesManager(models.Model):
+    """Business partners point to sales managers and inside sales reps in SAP. However,
+    instead of being linked via an id or email address, they are linked via whatever
+    name they have in the SAP database. So this table is simply to associate a name
+    to a specific user object."""
+    name = models.CharField(max_length=20, unique=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+

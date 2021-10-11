@@ -147,6 +147,20 @@ class UserManager(BaseUserManager):
     def staff(self):
         return self.get_queryset().filter(is_staff=True)
 
+    @classmethod
+    def normalize_email(cls, email):
+        """This method is being overridden by the fine folks at Firstech! This is almost
+        the same except we are lowercasing the entire email address and not just the
+        domain part."""
+        email = email or ''
+        try:
+            email_name, domain_part = email.strip().rsplit('@', 1)
+        except ValueError:
+            pass
+        else:
+            email = email_name.lower() + '@' + domain_part.lower()
+        return email
+
 
 class User(PermissionsMixin, ModelWithMetadata, AbstractBaseUser):
     email = models.EmailField(unique=True)
