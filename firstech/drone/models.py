@@ -36,7 +36,7 @@ class DroneUserProfile(models.Model):
     )
     update_date = models.DateTimeField(auto_now=True)
     installer_id = models.IntegerField(unique=True, null=True)
-    dealer_id = models.IntegerField(unique=True, null=True)
+    dealer_id = models.IntegerField(unique=False, null=True)
     dealer_retired_date = models.DateTimeField(blank=True, null=True)
 
     def refresh_drone_profile(self):
