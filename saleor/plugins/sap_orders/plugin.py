@@ -106,8 +106,8 @@ class SAPPlugin(BasePlugin):
         body: Optional[dict] = None,
         skip_cache: Optional[bool] = False,
     ) -> dict:
-        method = getattr(requests, method, "get")
-        response = method(
+        method_func = getattr(requests, method, "get")
+        response = method_func(
             url=self.config.url + entity,
             json=body,
             cookies=get_sap_cookies(self.config, skip_cache=skip_cache),

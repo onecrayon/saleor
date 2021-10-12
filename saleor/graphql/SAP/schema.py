@@ -14,9 +14,17 @@ from saleor.graphql.SAP.mutations.business_partners import (
 from saleor.graphql.SAP.mutations.credit_memos import UpsertSAPCreditMemoDocument
 from saleor.graphql.SAP.mutations.deliveries import UpsertSAPDeliveryDocument
 from saleor.graphql.SAP.mutations.invoices import UpsertSAPInvoiceDocument
-from saleor.graphql.SAP.mutations.orders import UpsertSAPOrder
+from saleor.graphql.SAP.mutations.orders import (
+    UpsertSAPOrder,
+    FirstechOrderLineUpdate,
+    FirstechOrderLineDelete,
+)
 from saleor.graphql.SAP.mutations.products import UpsertSAPProduct
 from saleor.graphql.SAP.mutations.returns import UpsertSAPReturnDocument
+from saleor.graphql.SAP.mutations.permission_group import (
+    CustomerPermissionGroupCreate,
+    CustomerPermissionGroupUpdate,
+)
 
 from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions
@@ -90,3 +98,7 @@ class SAPMutations(graphene.ObjectType):
     upsert_sap_return = UpsertSAPReturnDocument.Field()
     upsert_sap_credit_memo = UpsertSAPCreditMemoDocument.Field()
     create_sales_manager = CreateSalesManager.Field()
+    create_customer_permission_group = CustomerPermissionGroupCreate.Field()
+    update_customer_permission_group = CustomerPermissionGroupUpdate.Field()
+    firstech_order_line_update = FirstechOrderLineUpdate.Field()
+    firstech_order_line_delete = FirstechOrderLineDelete.Field()

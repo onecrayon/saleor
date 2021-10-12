@@ -2,8 +2,12 @@ import graphene
 from graphene import relay
 from graphene_federation import key
 
+from firstech.permissions import SAPCustomerPermissions, SAPStaffPermissions
 from firstech.SAP import models
 from saleor.account.models import User as UserModel
+from saleor.order.models import Order as OrderModel
+from saleor.core.permissions import AccountPermissions, OrderPermissions
+from ..core.fields import PrefetchingConnectionField
 
 from ...core.tracing import traced_resolver
 from ..core.connection import CountableDjangoObjectType
@@ -42,6 +46,7 @@ class SAPApprovedBrands(CountableDjangoObjectType):
 class DroneRewardsProfile(CountableDjangoObjectType):
     class Meta:
         description = "Define the drone rewards information for a dealer."
+        permissions = (SAPCustomerPermissions.VIEW_DRONE_REWARDS,)
         model = models.DroneRewardsProfile
         interfaces = [relay.Node]
         fields = "__all__"
@@ -63,9 +68,14 @@ class BusinessPartner(CountableDjangoObjectType):
     drone_rewards_profile = graphene.Field(
         DroneRewardsProfile, description="Drone rewards information for the dealer."
     )
+    orders = graphene.List(
+        "saleor.graphql.order.types.Order",
+        description="List of business partner's orders."
+    )
 
     class Meta:
         description = "Business partner"
+        permissions = ()
         model = models.BusinessPartner
         interfaces = [relay.Node]
         fields = "__all__"
@@ -87,11 +97,42 @@ class BusinessPartner(CountableDjangoObjectType):
             return []
 
     @staticmethod
-    def resolve_drone_rewards_profile(root: models.BusinessPartner, _info, **kwargs):
-        try:
-            return root.dronerewardsprofile
-        except models.DroneRewardsProfile.DoesNotExist:
+    def resolve_drone_rewards_profile(root: models.BusinessPartner, info, **kwargs):
+        requesting_user = info.context.user
+        if requesting_user.has_perm(SAPCustomerPermissions.VIEW_DRONE_REWARDS):
+            try:
+                return root.dronerewardsprofile
+            except models.DroneRewardsProfile.DoesNotExist:
+                return None
+        else:
             return None
+
+    @staticmethod
+    def resolve_sapuserprofiles(root: models.BusinessPartner, info, **kwargs):
+        requesting_user = info.context.user
+        if (
+                requesting_user.has_perm(SAPCustomerPermissions.MANAGE_LINKED_INSTALLERS)
+                or requesting_user.has_perm(AccountPermissions.MANAGE_USERS)
+            ):
+            return root.sapuserprofiles
+        elif requesting_user.has_perm(SAPCustomerPermissions.VIEW_PROFILE):
+            # Without elevated privileges only show the requesting user's own profile
+            return root.sapuserprofiles.filter(user=requesting_user)
+        else:
+            return []
+
+    @staticmethod
+    def resolve_orders(root: models.BusinessPartner, info, **kwargs):
+        requesting_user = info.context.user
+        if (
+                requesting_user.has_perm(SAPCustomerPermissions.MANAGE_BP_ORDERS)
+                or requesting_user.has_perm(OrderPermissions.MANAGE_ORDERS)
+        ):
+            return OrderModel.objects.filter(
+                private_metadata__sap_bp_code=root.sap_bp_code
+            )
+        else:
+            return []
 
 
 class SAPSalesManager(CountableDjangoObjectType):
@@ -120,7 +161,6 @@ class SAPUserProfile(CountableDjangoObjectType):
         only_fields = [
             "user",
             "date_of_birth",
-            "is_company_owner",
             "middle_name"
         ]
 
@@ -130,6 +170,7 @@ class SAPUserProfile(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_sales_manager(root: models.SAPUserProfile, _info, **kwargs):
+        # This allows a user who is a sales manager to see what their "name" is in SAP
         try:
             return root.user.sapsalesmanager
         except models.SAPSalesManager.DoesNotExist:

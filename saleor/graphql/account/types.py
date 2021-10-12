@@ -36,6 +36,7 @@ from .dataloaders import CustomerEventsByUserLoader
 from .enums import CountryCodeEnum, CustomerEventsEnum
 from .utils import can_user_manage_group, get_groups_which_user_can_manage
 
+from firstech.permissions import SAPCustomerPermissions, SAPStaffPermissions
 
 class AddressInput(graphene.InputObjectType):
     first_name = graphene.String(description="Given name.")
@@ -294,11 +295,14 @@ class User(CountableDjangoObjectType):
 
     @staticmethod
     @traced_resolver
-    def resolve_sap_profile(root: models.User, _info, **kwargs):
-        try:
-            return root.sapuserprofile
-        except sap_models.SAPUserProfile.DoesNotExist:
-            return None
+    def resolve_sap_profile(root: models.User, info, **kwargs):
+        requesting_user = info.context.user
+        if requesting_user.has_perm(SAPCustomerPermissions.VIEW_PROFILE):
+            try:
+                return root.sapuserprofile
+            except sap_models.SAPUserProfile.DoesNotExist:
+                return None
+
 
     @staticmethod
     def resolve_addresses(root: models.User, _info, **_kwargs):
