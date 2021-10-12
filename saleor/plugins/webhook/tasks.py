@@ -6,12 +6,15 @@ from urllib.parse import urlparse, urlunparse
 
 import boto3
 import requests
+from botocore.exceptions import ClientError
+from celery.exceptions import MaxRetriesExceededError
 from celery.utils.log import get_task_logger
 from google.cloud import pubsub_v1
 from requests.exceptions import RequestException
 
 from ...celeryconf import app
 from ...payment import PaymentError
+from ...settings import WEBHOOK_SYNC_TIMEOUT, WEBHOOK_TIMEOUT
 from ...site.models import Site
 from ...webhook.event_types import WebhookEventType
 from ...webhook.models import Webhook
@@ -22,8 +25,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 task_logger = get_task_logger(__name__)
-
-WEBHOOK_TIMEOUT = 10
 
 
 class WebhookSchemes(str, Enum):
@@ -80,17 +81,21 @@ def trigger_webhook_sync(event_type: str, data: str, app: "App"):
     )
 
 
-def send_webhook_using_http(target_url, message, domain, signature, event_type):
+def send_webhook_using_http(
+    target_url, message, domain, signature, event_type, timeout=WEBHOOK_TIMEOUT
+):
     headers = {
         "Content-Type": "application/json",
+        # X- headers will be deprecated in Saleor 4.0, proper headers are without X-
         "X-Saleor-Event": event_type,
         "X-Saleor-Domain": domain,
         "X-Saleor-Signature": signature,
+        "Saleor-Event": event_type,
+        "Saleor-Domain": domain,
+        "Saleor-Signature": signature,
     }
 
-    response = requests.post(
-        target_url, data=message, headers=headers, timeout=WEBHOOK_TIMEOUT
-    )
+    response = requests.post(target_url, data=message, headers=headers, timeout=timeout)
     response.raise_for_status()
     return response
 
@@ -145,32 +150,49 @@ def send_webhook_using_google_cloud_pubsub(
 
 
 @app.task(
-    autoretry_for=(RequestException,),
+    bind=True,
     retry_backoff=10,
     retry_kwargs={"max_retries": 5},
     compression="zlib",
 )
-def send_webhook_request(webhook_id, target_url, secret, event_type, data):
+def send_webhook_request(self, webhook_id, target_url, secret, event_type, data):
     parts = urlparse(target_url)
     domain = Site.objects.get_current().domain
     message = data.encode("utf-8")
     signature = signature_for_payload(message, secret)
-    if parts.scheme.lower() in [WebhookSchemes.HTTP, WebhookSchemes.HTTPS]:
-        send_webhook_using_http(target_url, message, domain, signature, event_type)
-    elif parts.scheme.lower() == WebhookSchemes.AWS_SQS:
-        send_webhook_using_aws_sqs(target_url, message, domain, signature, event_type)
-    elif parts.scheme.lower() == WebhookSchemes.GOOGLE_CLOUD_PUBSUB:
-        send_webhook_using_google_cloud_pubsub(
-            target_url, message, domain, signature, event_type
+
+    scheme_matrix = {
+        WebhookSchemes.HTTP: (send_webhook_using_http, RequestException),
+        WebhookSchemes.HTTPS: (send_webhook_using_http, RequestException),
+        WebhookSchemes.AWS_SQS: (send_webhook_using_aws_sqs, ClientError),
+        WebhookSchemes.GOOGLE_CLOUD_PUBSUB: (
+            send_webhook_using_google_cloud_pubsub,
+            pubsub_v1.publisher.exceptions.MessageTooLargeError,
+        ),
+    }
+
+    if methods := scheme_matrix.get(parts.scheme.lower()):
+        send_method, send_exception = methods
+        try:
+            send_method(target_url, message, domain, signature, event_type)
+        except send_exception as e:
+            task_logger.info("[Webhook] Failed request to %r: %r.", target_url, e)
+            try:
+                countdown = self.retry_backoff * (2 ** self.request.retries)
+                self.retry(countdown=countdown, **self.retry_kwargs)
+            except MaxRetriesExceededError:
+                task_logger.warning(
+                    "[Webhook] Failed request to %r: exceeded retry limit.",
+                    target_url,
+                )
+        task_logger.info(
+            "[Webhook ID:%r] Payload sent to %r for event %r",
+            webhook_id,
+            target_url,
+            event_type,
         )
     else:
         raise ValueError("Unknown webhook scheme: %r" % (parts.scheme,))
-    task_logger.debug(
-        "[Webhook ID:%r] Payload sent to %r for event %r",
-        webhook_id,
-        target_url,
-        event_type,
-    )
 
 
 def send_webhook_request_sync(target_url, secret, event_type, data: str):
@@ -186,7 +208,12 @@ def send_webhook_request_sync(target_url, secret, event_type, data: str):
         )
         try:
             response = send_webhook_using_http(
-                target_url, message, domain, signature, event_type
+                target_url,
+                message,
+                domain,
+                signature,
+                event_type,
+                timeout=WEBHOOK_SYNC_TIMEOUT,
             )
             response_data = response.json()
         except RequestException as e:

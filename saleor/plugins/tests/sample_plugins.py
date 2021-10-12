@@ -221,6 +221,9 @@ class PluginSample(BasePlugin):
     def get_order_shipping_tax_rate(self, order: "Order", previous_value: Decimal):
         return Decimal("0.080").quantize(Decimal(".01"))
 
+    def sample_not_implemented(self, previous_value):
+        return NotImplemented
+
 
 class ChannelPluginSample(PluginSample):
     PLUGIN_ID = "channel.plugin.sample"
@@ -318,6 +321,31 @@ class ActiveDummyPaymentGateway(BasePlugin):
 class InactivePaymentGateway(BasePlugin):
     PLUGIN_ID = "gateway.inactive"
     PLUGIN_NAME = "stripe"
+    DEFAULT_ACTIVE = False
+    SUPPORTED_CURRENCIES = []
+    CLIENT_CONFIG = []
 
     def process_payment(self, payment_information, previous_value):
         pass
+
+    def get_supported_currencies(self, previous_value):
+        return self.SUPPORTED_CURRENCIES
+
+    def get_payment_config(self, previous_value):
+        return self.CLIENT_CONFIG
+
+
+ACTIVE_PLUGINS = (
+    ChannelPluginSample,
+    ActivePaymentGateway,
+    ActivePlugin,
+    ActiveDummyPaymentGateway,
+)
+
+INACTIVE_PLUGINS = (
+    InactivePaymentGateway,
+    PluginInactive,
+    InactiveChannelPluginSample,
+)
+
+ALL_PLUGINS = ACTIVE_PLUGINS + INACTIVE_PLUGINS

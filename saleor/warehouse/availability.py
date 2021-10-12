@@ -47,6 +47,7 @@ def check_stock_quantity_bulk(
     quantities: Iterable[int],
     channel_slug: str,
     existing_lines: Iterable = None,
+    replace=False,
 ):
     """Validate if there is stock available for given variants in given country.
 
@@ -67,22 +68,22 @@ def check_stock_quantity_bulk(
         line.variant.pk: line.line.quantity for line in existing_lines or []
     }
     for variant, quantity in zip(variants, quantities):
-
-        quantity += variants_quantities.get(variant.pk, 0)
+        if not replace:
+            quantity += variants_quantities.get(variant.pk, 0)
 
         stocks = variant_stocks.get(variant.pk, [])
         available_quantity = sum(
             [stock.available_quantity for stock in stocks]  # type: ignore
         )
 
-        if not stocks:
-            insufficient_stocks.append(
-                InsufficientStockData(
-                    variant=variant, available_quantity=available_quantity
+        if quantity > 0:
+            if not stocks:
+                insufficient_stocks.append(
+                    InsufficientStockData(
+                        variant=variant, available_quantity=available_quantity
+                    )
                 )
-            )
-        elif variant.track_inventory:
-            if quantity > available_quantity:
+            elif variant.track_inventory and quantity > available_quantity:
                 insufficient_stocks.append(
                     InsufficientStockData(
                         variant=variant, available_quantity=available_quantity

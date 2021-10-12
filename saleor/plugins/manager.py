@@ -116,9 +116,9 @@ class PluginsManager(PaymentInterface):
         channel_slug: Optional[str] = None,
         **kwargs
     ):
-        """Try to run a method with the given name on each declared plugin."""
+        """Try to run a method with the given name on each declared active plugin."""
         value = default_value
-        plugins = self.get_plugins(channel_slug=channel_slug)
+        plugins = self.get_plugins(channel_slug=channel_slug, active_only=True)
         for plugin in plugins:
             value = self.__run_method_on_single_plugin(
                 plugin, method_name, value, *args, **kwargs
@@ -527,6 +527,24 @@ class PluginsManager(PaymentInterface):
         default_value = None
         return self.__run_method_on_plugins(
             "order_confirmed", default_value, order, channel_slug=order.channel.slug
+        )
+
+    def draft_order_created(self, order: "Order"):
+        default_value = None
+        return self.__run_method_on_plugins(
+            "draft_order_created", default_value, order, channel_slug=order.channel.slug
+        )
+
+    def draft_order_updated(self, order: "Order"):
+        default_value = None
+        return self.__run_method_on_plugins(
+            "draft_order_updated", default_value, order, channel_slug=order.channel.slug
+        )
+
+    def draft_order_deleted(self, order: "Order"):
+        default_value = None
+        return self.__run_method_on_plugins(
+            "draft_order_deleted", default_value, order, channel_slug=order.channel.slug
         )
 
     def invoice_request(
