@@ -1,12 +1,15 @@
-from django.contrib.auth import models as auth_models
+from typing import Dict, List, Optional
+
 import graphene
-from typing import Dict, Optional, List
+from django.contrib.auth import models as auth_models
 from django.core.exceptions import ValidationError
+
 from saleor.graphql.account.mutations.permission_group import (
     PermissionGroupCreate,
     PermissionGroupUpdate,
 )
 from saleor.graphql.SAP.enums import CustomerPermissionEnum
+
 from ....core.permissions import AccountPermissions
 from ...core.types.common import PermissionGroupError
 
@@ -32,7 +35,7 @@ class CustomerPermissionGroupCreate(PermissionGroupCreate):
     class Arguments:
         input = CustomerPermissionGroupCreateInput(
             description="Input fields to create customer permission group.",
-            required=True
+            required=True,
         )
 
     class Meta:
@@ -59,7 +62,7 @@ class CustomerPermissionGroupUpdateInput(CustomerPermissionGroupInput):
     remove_permissions = graphene.List(
         graphene.NonNull(CustomerPermissionEnum),
         description="List of customer permission code names "
-                    "to unassign from this group.",
+        "to unassign from this group.",
         required=False,
     )
     remove_users = graphene.List(
@@ -85,10 +88,10 @@ class CustomerPermissionGroupUpdate(PermissionGroupUpdate):
 
     @classmethod
     def ensure_users_are_staff(
-            cls,
-            errors: Dict[Optional[str], List[ValidationError]],
-            field: str,
-            cleaned_input: dict,
+        cls,
+        errors: Dict[Optional[str], List[ValidationError]],
+        field: str,
+        cleaned_input: dict,
     ):
         # The base class we are inheriting from uses this method to ensure only staff
         # users are assigned to a permission group, but we want to bypass that check.

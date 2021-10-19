@@ -16,9 +16,12 @@ from saleor.graphql.order.mutations.discount_order import (
     OrderLineDiscountUpdate,
 )
 from saleor.graphql.order.mutations.draft_orders import (
+    DraftOrderCreate,
     DraftOrderComplete,
     DraftOrderInput,
     DraftOrderUpdate,
+    DraftOrderDelete,
+    DraftOrderCreateInput,
 )
 from saleor.graphql.order.mutations.orders import (
     OrderLineDelete,
@@ -28,8 +31,11 @@ from saleor.graphql.order.mutations.orders import (
 )
 from saleor.order import models as order_models
 from saleor.graphql.order.types import Order, OrderLine
+from firstech.SAP.models import BusinessPartner
 from firstech.permissions import SAPCustomerPermissions
 from saleor.order.utils import get_valid_shipping_methods_for_order
+from ...utils import get_user_or_app_from_context
+from ....core.exceptions import PermissionDenied
 
 from ....core.tracing import traced_atomic_transaction
 
@@ -449,6 +455,7 @@ class FirstechOrderLineUpdate(OrderLineUpdate):
     """This mutation mimics the OrderLineUpdate mutation it inherits. It exists so that
     users with the `MANAGE_BP_ORDERS` permission can update confirmed orders. The only
     thing that we allow changing is a reduction in line item quantity."""
+
     order = graphene.Field(Order, description="Related order.")
 
     class Arguments:
@@ -471,9 +478,7 @@ class FirstechOrderLineUpdate(OrderLineUpdate):
 
         quantity = data["quantity"]
         if quantity >= instance.old_quantity:
-            raise ValidationError(
-                "New quantity must be less than existing quantity."
-            )
+            raise ValidationError("New quantity must be less than existing quantity.")
 
         if quantity < instance.quantity_fulfilled:
             raise ValidationError(
@@ -492,9 +497,10 @@ class FirstechOrderLineUpdate(OrderLineUpdate):
 
 class FirstechOrderLineDelete(OrderLineDelete):
     """This mutation mimics the OrderLineDelete mutation it inherits. It exists so that
-        users with the `MANAGE_BP_ORDERS` permission can remove line items from a
-        confirmed order. Only line items that do not have any fulfillments can be
-        removed."""
+    users with the `MANAGE_BP_ORDERS` permission can remove line items from a
+    confirmed order. Only line items that do not have any fulfillments can be
+    removed."""
+
     order = graphene.Field(Order, description="A related order.")
     order_line = graphene.Field(
         OrderLine, description="An order line that was deleted."

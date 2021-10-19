@@ -2,17 +2,24 @@ import graphene
 from graphene import relay
 from graphene_federation import key
 
-from firstech.permissions import SAPCustomerPermissions, SAPStaffPermissions
+from firstech.permissions import SAPCustomerPermissions
 from firstech.SAP import models
 from saleor.account.models import User as UserModel
-from saleor.order.models import Order as OrderModel
-from saleor.core.permissions import AccountPermissions, OrderPermissions
-from ..core.fields import PrefetchingConnectionField
+from saleor.core.permissions import (
+    AccountPermissions,
+    OrderPermissions,
+    has_one_of_permissions,
+)
+from saleor.graphql.SAP.dataloaders import OrdersByBusinessPartnerLoader
 
 from ...core.tracing import traced_resolver
 from ..core.connection import CountableDjangoObjectType
+from ..core.fields import PrefetchingConnectionField
 from ..core.types import Error
 from ..core.types.money import Money
+from ..decorators import one_of_permissions_required
+from ..utils import get_user_or_app_from_context
+from .resolvers import filter_business_partner_by_permissions
 
 
 class BusinessPartnerError(Error):
@@ -40,7 +47,19 @@ class SAPApprovedBrands(CountableDjangoObjectType):
         description = "Approved brands from SAP"
         model = models.ApprovedBrands
         interfaces = [relay.Node]
-        fields = "__all__"
+        fields = (
+            "business_partner",
+            "momento",
+            "tesa",
+            "idatalink",
+            "maestro",
+            "compustar",
+            "compustar_pro",
+            "ftx",
+            "arctic_start",
+            "compustar_mesa_only",
+            "replacements",
+        )
 
 
 class DroneRewardsProfile(CountableDjangoObjectType):
@@ -49,7 +68,12 @@ class DroneRewardsProfile(CountableDjangoObjectType):
         permissions = (SAPCustomerPermissions.VIEW_DRONE_REWARDS,)
         model = models.DroneRewardsProfile
         interfaces = [relay.Node]
-        fields = "__all__"
+        fields = (
+            "business_partner",
+            "enrolled",
+            "onboarded",
+            "distribution",
+        )
 
 
 @key("id")
@@ -58,7 +82,7 @@ class BusinessPartner(CountableDjangoObjectType):
     """Business partners can be looked up using either their id or cardCode."""
 
     company_contacts = graphene.List(
-        "saleor.graphql.account.types.User",
+        "saleor.graphql.account.types.RedactedUser",
         description="List of users at this business partner.",
     )
     approved_brands = graphene.List(
@@ -68,19 +92,65 @@ class BusinessPartner(CountableDjangoObjectType):
     drone_rewards_profile = graphene.Field(
         DroneRewardsProfile, description="Drone rewards information for the dealer."
     )
-    orders = graphene.List(
+    orders = PrefetchingConnectionField(
         "saleor.graphql.order.types.Order",
-        description="List of business partner's orders."
+        description="List of business partner's orders.",
     )
+    inside_sales_rep = graphene.Field("saleor.graphql.account.types.RedactedUser")
+    outside_sales_rep = graphene.List("saleor.graphql.account.types.RedactedUser")
+    sales_manager = graphene.Field("saleor.graphql.account.types.RedactedUser")
+    addresses = graphene.List("saleor.graphql.account.types.Address")
 
     class Meta:
         description = "Business partner"
-        permissions = ()
         model = models.BusinessPartner
         interfaces = [relay.Node]
-        fields = "__all__"
+        fields = (
+            "addresses",
+            "account_balance",
+            "account_is_active",
+            "account_purchasing_restricted",
+            "company_name",
+            "company_url",
+            "credit_limit",
+            "customer_type",
+            "debit_limit",
+            "default_shipping_address",
+            "default_billing_address",
+            "inside_sales_rep",
+            "internal_ft_notes",  # Custom resolver below
+            "outside_sales_rep",
+            "payment_terms",
+            "channel",
+            "sales_manager",
+            "sap_bp_code",
+            "shipping_preference",
+            "sync_partner",
+            "warranty_preference",
+        )
 
     @staticmethod
+    @one_of_permissions_required(
+        [AccountPermissions.MANAGE_USERS, AccountPermissions.MANAGE_STAFF]
+    )
+    def resolve_internal_ft_notes(root: models.BusinessPartner, _info, **kwargs):
+        return root.internal_ft_notes
+
+    @staticmethod
+    @one_of_permissions_required(
+        [AccountPermissions.MANAGE_USERS, AccountPermissions.MANAGE_STAFF]
+    )
+    def resolve_sync_partner(root: models.BusinessPartner, _info, **kwargs):
+        return root.sync_partner
+
+    @staticmethod
+    @one_of_permissions_required(
+        [
+            AccountPermissions.MANAGE_USERS,
+            AccountPermissions.MANAGE_STAFF,
+            SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS,
+        ]
+    )
     def resolve_company_contacts(root: models.BusinessPartner, _info, **kwargs):
         return UserModel.objects.filter(sapuserprofile__business_partners=root)
 
@@ -97,42 +167,58 @@ class BusinessPartner(CountableDjangoObjectType):
             return []
 
     @staticmethod
-    def resolve_drone_rewards_profile(root: models.BusinessPartner, info, **kwargs):
-        requesting_user = info.context.user
-        if requesting_user.has_perm(SAPCustomerPermissions.VIEW_DRONE_REWARDS):
-            try:
-                return root.dronerewardsprofile
-            except models.DroneRewardsProfile.DoesNotExist:
-                return None
-        else:
+    @one_of_permissions_required([SAPCustomerPermissions.VIEW_DRONE_REWARDS])
+    def resolve_drone_rewards_profile(root: models.BusinessPartner, _info, **kwargs):
+        try:
+            return root.dronerewardsprofile
+        except models.DroneRewardsProfile.DoesNotExist:
             return None
 
     @staticmethod
     def resolve_sapuserprofiles(root: models.BusinessPartner, info, **kwargs):
-        requesting_user = info.context.user
-        if (
-                requesting_user.has_perm(SAPCustomerPermissions.MANAGE_LINKED_INSTALLERS)
-                or requesting_user.has_perm(AccountPermissions.MANAGE_USERS)
-            ):
+        requester = get_user_or_app_from_context(info.context)
+        if has_one_of_permissions(
+            requester,
+            [
+                SAPCustomerPermissions.MANAGE_LINKED_INSTALLERS,
+                AccountPermissions.MANAGE_USERS,
+            ],
+        ):
             return root.sapuserprofiles
-        elif requesting_user.has_perm(SAPCustomerPermissions.VIEW_PROFILE):
+        elif requester.has_perm(SAPCustomerPermissions.VIEW_PROFILE):
             # Without elevated privileges only show the requesting user's own profile
-            return root.sapuserprofiles.filter(user=requesting_user)
+            return root.sapuserprofiles.filter(user=requester)
         else:
             return []
 
     @staticmethod
-    def resolve_orders(root: models.BusinessPartner, info, **kwargs):
-        requesting_user = info.context.user
-        if (
-                requesting_user.has_perm(SAPCustomerPermissions.MANAGE_BP_ORDERS)
-                or requesting_user.has_perm(OrderPermissions.MANAGE_ORDERS)
-        ):
-            return OrderModel.objects.filter(
-                private_metadata__sap_bp_code=root.sap_bp_code
-            )
-        else:
+    def resolve_orders(root: models.BusinessPartner, info, **_kwargs):
+        def _resolve_orders(orders):
+            requester = get_user_or_app_from_context(info.context)
+            if has_one_of_permissions(
+                requester,
+                [
+                    OrderPermissions.MANAGE_ORDERS,
+                    SAPCustomerPermissions.MANAGE_BP_ORDERS,
+                ],
+            ):
+                return orders
+
             return []
+
+        return (
+            OrdersByBusinessPartnerLoader(info.context)
+            .load(root.id)
+            .then(_resolve_orders)
+        )
+
+    @staticmethod
+    def resolve_addresses(root: models.BusinessPartner, _info, **kwargs):
+        return root.addresses.annotate_default(root).all()
+
+    @staticmethod
+    def resolve_outside_sales_rep(root: models.BusinessPartner, _info, **kwargs):
+        return root.outside_sales_rep.all()
 
 
 class SAPSalesManager(CountableDjangoObjectType):
@@ -158,15 +244,14 @@ class SAPUserProfile(CountableDjangoObjectType):
         description = "SAP User Profile"
         model = models.SAPUserProfile
         interfaces = [relay.Node]
-        only_fields = [
-            "user",
-            "date_of_birth",
-            "middle_name"
-        ]
+        only_fields = ["user", "date_of_birth", "middle_name"]
 
     @staticmethod
-    def resolve_business_partners(root: models.SAPUserProfile, _info, **kwargs):
-        return root.business_partners.all()
+    def resolve_business_partners(root: models.SAPUserProfile, info, **kwargs):
+        requester = get_user_or_app_from_context(info.context)
+        return filter_business_partner_by_permissions(
+            root.business_partners.all(), requester
+        )
 
     @staticmethod
     def resolve_sales_manager(root: models.SAPUserProfile, _info, **kwargs):
@@ -196,12 +281,11 @@ class OutsideSalesRep(CountableDjangoObjectType):
 class SAPReturnLine(CountableDjangoObjectType):
 
     price = graphene.Field(
-        Money,
-        description="The price at which the item was returned for."
+        Money, description="The price at which the item was returned for."
     )
     variant = graphene.Field(
         "saleor.graphql.product.types.ProductVariant",
-        description="The product variant of the returned item."
+        description="The product variant of the returned item.",
     )
 
     class Meta:
@@ -222,13 +306,13 @@ class SAPReturnLine(CountableDjangoObjectType):
     def resolve_variant(root, info):
         # Need to import here to avoid circular import
         from saleor.graphql.order.types import OrderLine
+
         return OrderLine.resolve_variant(root, info)
 
 
 class SAPReturn(CountableDjangoObjectType):
     lines = graphene.List(
-        SAPReturnLine,
-        description="The list of line items included in the return."
+        SAPReturnLine, description="The list of line items included in the return."
     )
 
     class Meta:
@@ -256,12 +340,11 @@ class SAPReturn(CountableDjangoObjectType):
 class SAPCreditMemoLine(CountableDjangoObjectType):
 
     price = graphene.Field(
-        Money,
-        description="The price at which the item was returned for."
+        Money, description="The price at which the item was returned for."
     )
     variant = graphene.Field(
         "saleor.graphql.product.types.ProductVariant",
-        description="The product variant of the credited item."
+        description="The product variant of the credited item.",
     )
 
     class Meta:
@@ -282,13 +365,14 @@ class SAPCreditMemoLine(CountableDjangoObjectType):
     def resolve_variant(root, info):
         # Need to import here to avoid circular import
         from saleor.graphql.order.types import OrderLine
+
         return OrderLine.resolve_variant(root, info)
 
 
 class SAPCreditMemo(CountableDjangoObjectType):
     lines = graphene.List(
         SAPCreditMemoLine,
-        description="The list of line items included in the credit memo."
+        description="The list of line items included in the credit memo.",
     )
 
     class Meta:

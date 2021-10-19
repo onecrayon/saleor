@@ -110,28 +110,81 @@ class SAPUserProfile(models.Model):
             (SAPCustomerPermissions.DRONE_ACTIVATION.codename, "Can activate drone."),
             (SAPCustomerPermissions.VIEW_WIRING.codename, "Can view wiring diagrams."),
             (SAPCustomerPermissions.VIEW_DOCUMENTS.codename, "Can view documents."),
-            (SAPCustomerPermissions.VIEW_DRONE_REWARDS.codename, "Can view Drone dealer rewards."),
-            (SAPCustomerPermissions.VIEW_PROFILE.codename, "Can view SAP user profile."),
-            (SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B.codename, "Can purchase B2B products."),
-            (SAPCustomerPermissions.REPORTING.codename, "Can reports?"),
-            (SAPCustomerPermissions.INVITE_NEW_INSTALLERS.codename, "Can invite new installers to business partner."),
-            (SAPCustomerPermissions.MANAGE_DRONE_BILLING_METHODS.codename, "Can manage drone billing methods."),
-            (SAPCustomerPermissions.MANAGE_LINKED_INSTALLERS.codename, "Can modify linked installers."),
+            (
+                SAPCustomerPermissions.VIEW_DRONE_REWARDS.codename,
+                "Can view Drone dealer rewards.",
+            ),
+            (
+                SAPCustomerPermissions.VIEW_PROFILE.codename,
+                "Can view SAP user profile.",
+            ),
+            (
+                SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B.codename,
+                "Can purchase B2B products.",
+            ),
+            (SAPCustomerPermissions.REPORTING.codename, "Can create reports"),
+            (
+                SAPCustomerPermissions.INVITE_NEW_INSTALLERS.codename,
+                "Can invite new installers to business partner.",
+            ),
+            (
+                SAPCustomerPermissions.MANAGE_DRONE_BILLING_METHODS.codename,
+                "Can manage drone billing methods.",
+            ),
+            (
+                SAPCustomerPermissions.MANAGE_LINKED_INSTALLERS.codename,
+                "Can modify linked installers.",
+            ),
             (SAPCustomerPermissions.MANAGE_CONTRACT.codename, "Can manage contract."),
-            (SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS.codename, "Can view linked accounts."),
+            (
+                SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS.codename,
+                "Can view linked accounts.",
+            ),
             (SAPCustomerPermissions.VIEW_BACKORDERS.codename, "Can view backorders."),
-            (SAPCustomerPermissions.PLACE_ORDERS_FOR_LINKED_ACCOUNTS.codename, "Can place orders for linked accounts."),
-            (SAPCustomerPermissions.MANAGE_BP_ORDERS.codename, "Can manage orders for business partner."),
-
-            (SAPStaffPermissions.DEFINE_PAYMENT_METHODS.codename, "Can define new payment methods."),
-            (SAPStaffPermissions.DEFINE_BRAND_ACCESS.codename, "Can define brand access."),
-            (SAPStaffPermissions.PLACE_ORDERS_FOR_DEALER.codename, "Can place orders for a dealer."),
-            (SAPStaffPermissions.BACKORDER_MANAGEMENT.codename, "Can manage backorders."),
-            (SAPStaffPermissions.VOLUME_INCENTIVE_REBATES.codename, "Can manage volume incentive rebates."),
-            (SAPStaffPermissions.DEFINE_DEALER_ROLES.codename, "Can define dealer roles."),
-            (SAPStaffPermissions.DISABLE_DEALER_ACCOUNT.codename, "Can disable dealer accounts."),
-            (SAPStaffPermissions.GENERATE_PAST_DUE_NOTICE.codename, "Can generate past due notices."),
-            (SAPStaffPermissions.MANAGE_ACCOUNT_STATEMENTS.codename, "Can manage account statements."),
+            (
+                SAPCustomerPermissions.PLACE_ORDERS_FOR_LINKED_ACCOUNTS.codename,
+                "Can place orders for linked accounts.",
+            ),
+            (
+                SAPCustomerPermissions.MANAGE_BP_ORDERS.codename,
+                "Can manage orders for business partner.",
+            ),
+            (
+                SAPStaffPermissions.DEFINE_PAYMENT_METHODS.codename,
+                "Can define new payment methods.",
+            ),
+            (
+                SAPStaffPermissions.DEFINE_BRAND_ACCESS.codename,
+                "Can define brand access.",
+            ),
+            (
+                SAPStaffPermissions.PLACE_ORDERS_FOR_DEALER.codename,
+                "Can place orders for a dealer.",
+            ),
+            (
+                SAPStaffPermissions.BACKORDER_MANAGEMENT.codename,
+                "Can manage backorders.",
+            ),
+            (
+                SAPStaffPermissions.VOLUME_INCENTIVE_REBATES.codename,
+                "Can manage volume incentive rebates.",
+            ),
+            (
+                SAPStaffPermissions.DEFINE_DEALER_ROLES.codename,
+                "Can define dealer roles.",
+            ),
+            (
+                SAPStaffPermissions.DISABLE_DEALER_ACCOUNT.codename,
+                "Can disable dealer accounts.",
+            ),
+            (
+                SAPStaffPermissions.GENERATE_PAST_DUE_NOTICE.codename,
+                "Can generate past due notices.",
+            ),
+            (
+                SAPStaffPermissions.MANAGE_ACCOUNT_STATEMENTS.codename,
+                "Can manage account statements.",
+            ),
         )
 
 
@@ -238,7 +291,7 @@ class SAPReturnLine(models.Model):
 
 class SAPCreditMemo(models.Model):
     """This is a really basic table for holding credit memo info that we receive from
-        SAP. These documents aren't created through myFirstech or the dashboard."""
+    SAP. These documents aren't created through myFirstech or the dashboard."""
 
     doc_entry = models.IntegerField(unique=True)
     # This is the creation date of the SAP return document, not the timestamp for being
@@ -304,6 +357,6 @@ class SAPSalesManager(models.Model):
     instead of being linked via an id or email address, they are linked via whatever
     name they have in the SAP database. So this table is simply to associate a name
     to a specific user object."""
+
     name = models.CharField(max_length=20, unique=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-

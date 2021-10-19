@@ -6,6 +6,7 @@ class SAPCustomerPermissions(BasePermissionEnum):
     creating the permissions via the SAP User Profile model's Meta information.
     Therefore, they all need to have the SAP prefix since that is the app they are being
     created in."""
+
     # Customer/Installer/Dealer/Outside permissions
     DRONE_ACTIVATION = "SAP.drone_activation"
     VIEW_PRODUCTS = "SAP.view_products"
@@ -60,8 +61,5 @@ PERMISSIONS_ENUMS.extend(
 
 
 def get_customer_permissions_enum_list():
-    permissions_list = [
-        (enum.name, enum.value)
-        for enum in SAPCustomerPermissions
-    ]
+    permissions_list = [(enum.name, enum.value) for enum in SAPCustomerPermissions]
     return permissions_list
