@@ -22,6 +22,7 @@ class SAPCustomerPermissions(BasePermissionEnum):
 
     MANAGE_BP_ORDERS = "SAP.manage_business_partner_orders"
 
+    VIEW_ACCOUNT_BALANCE = "SAP.view_account_balance"
     REPORTING = "SAP.manage_reporting"
     INVITE_NEW_INSTALLERS = "SAP.invite_installers"
 
@@ -48,6 +49,7 @@ class SAPStaffPermissions(BasePermissionEnum):
     DISABLE_DEALER_ACCOUNT = "SAP.disable_dealer_account"
     GENERATE_PAST_DUE_NOTICE = "SAP.create_past_due_notice"
     MANAGE_ACCOUNT_STATEMENTS = "SAP.manage_account_statements"
+    INSIDE_SALES_REP_VIEW = "SAP.inside_sales_rep_view"
 
 
 # Add the new permissions to Saleor's existing list of permission classes so that

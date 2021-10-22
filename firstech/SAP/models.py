@@ -122,7 +122,11 @@ class SAPUserProfile(models.Model):
                 SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B.codename,
                 "Can purchase B2B products.",
             ),
-            (SAPCustomerPermissions.REPORTING.codename, "Can create reports"),
+            (
+                SAPCustomerPermissions.VIEW_ACCOUNT_BALANCE.codename,
+                "Can view business partner account balance."
+            ),
+            (SAPCustomerPermissions.REPORTING.codename, "Can create reports."),
             (
                 SAPCustomerPermissions.INVITE_NEW_INSTALLERS.codename,
                 "Can invite new installers to business partner.",
@@ -184,6 +188,10 @@ class SAPUserProfile(models.Model):
             (
                 SAPStaffPermissions.MANAGE_ACCOUNT_STATEMENTS.codename,
                 "Can manage account statements.",
+            ),
+            (
+                SAPStaffPermissions.INSIDE_SALES_REP_VIEW.codename,
+                "Can view business partners as an inside sales rep (all fields)."
             ),
         )
 
