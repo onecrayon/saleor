@@ -143,17 +143,28 @@ class SAPPlugin(BasePlugin):
 
     @staticmethod
     def get_business_partner_from_order(order: "Order"):
+        # If the order came from a b2bcheckout, the card code should be in the private
+        # metadata.
+        if order.checkout_token:
+            checkout = Checkout.objects.get(token=order.checkout_token)
+            if checkout.private_metadata["sap_bp_code"]:
+                return sap_models.BusinessPartner.objects.get(
+                    sap_bp_code=checkout.private_metadata["sap_bp_code"]
+                )
+
+        # Otherwise the card code can be inferred from the user the order is for.
         try:
             return sap_models.BusinessPartner.objects.get(
                 sapuserprofiles__user_id=order.user_id
             )
         except sap_models.BusinessPartner.MultipleObjectsReturned:
-            # TODO:
-            # Supposedly it's possible for a user to belong to more than one business
-            # partner, but when an order is placed, how do we know which BP the order
-            # should go to?
-            return
+            raise ValidationError(
+                "The customer belongs to more than one business partner. Orders for "
+                "this user must be created using the B2BCheckoutCreate mutation."
+            )
         except sap_models.BusinessPartner.DoesNotExist:
+            # The order could be for a guest/anonymous user, or a logged in user that
+            # doesn't belong to a business partner using the normal b2c checkout
             return
 
     @classmethod
