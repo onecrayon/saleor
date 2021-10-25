@@ -26,7 +26,10 @@ from saleor.graphql.SAP.mutations.permission_group import (
     CustomerPermissionGroupUpdate,
 )
 
-from .resolvers import resolve_business_partner, filter_business_partner_by_permissions
+from .resolvers import (
+    resolve_business_partner,
+    filter_business_partner_by_view_permissions,
+)
 
 from ...core.exceptions import PermissionDenied
 from ..core.fields import FilterInputConnectionField
@@ -61,7 +64,7 @@ class SAPQueries(graphene.ObjectType):
             filter_kwargs = {}
             # TODO Support filtering
             queryset = models.BusinessPartner.objects.filter(**filter_kwargs).all()
-            return filter_business_partner_by_permissions(queryset, requester)
+            return filter_business_partner_by_view_permissions(queryset, requester)
 
         return PermissionDenied()
 

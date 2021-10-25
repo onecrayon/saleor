@@ -16,12 +16,9 @@ from saleor.graphql.order.mutations.discount_order import (
     OrderLineDiscountUpdate,
 )
 from saleor.graphql.order.mutations.draft_orders import (
-    DraftOrderCreate,
     DraftOrderComplete,
     DraftOrderInput,
     DraftOrderUpdate,
-    DraftOrderDelete,
-    DraftOrderCreateInput,
 )
 from saleor.graphql.order.mutations.orders import (
     OrderLineDelete,
@@ -34,8 +31,7 @@ from saleor.graphql.order.types import Order, OrderLine
 from firstech.SAP.models import BusinessPartner
 from firstech.permissions import SAPCustomerPermissions
 from saleor.order.utils import get_valid_shipping_methods_for_order
-from ...utils import get_user_or_app_from_context
-from ....core.exceptions import PermissionDenied
+from ..resolvers import filter_business_partner_by_view_permissions
 
 from ....core.tracing import traced_atomic_transaction
 
@@ -473,6 +469,16 @@ class FirstechOrderLineUpdate(OrderLineUpdate):
 
     @classmethod
     def clean_input(cls, info, instance: order_models.OrderLine, data):
+        # Check requester has permission to edit this instance
+        requester: user_models.User = info.context.user
+        card_code = instance.order.private_metadata.get("sap_bp_code")
+
+        if not filter_business_partner_by_view_permissions(
+                    BusinessPartner.objects.filter(sap_bp_code=card_code),
+                    requester
+                ).exists():
+            raise PermissionError()
+
         instance.old_quantity = instance.quantity
         cleaned_input = super().clean_input(info, instance, data)
 
@@ -522,6 +528,16 @@ class FirstechOrderLineDelete(OrderLineDelete):
             id,
             only_type=OrderLine,
         )
+        # Check requester has permission to edit this instance
+        requester: user_models.User = info.context.user
+        card_code = line.order.private_metadata.get("sap_bp_code")
+
+        if not filter_business_partner_by_view_permissions(
+                    BusinessPartner.objects.filter(sap_bp_code=card_code),
+                    requester
+                ).exists():
+            raise PermissionError()
+
         if line.quantity_fulfilled > 0:
             raise ValidationError(
                 "Cannot cancel a line item if it already has one or more fulfillments."

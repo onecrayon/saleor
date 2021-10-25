@@ -17,9 +17,9 @@ from ..core.connection import CountableDjangoObjectType
 from ..core.fields import PrefetchingConnectionField
 from ..core.types import Error
 from ..core.types.money import Money
-from ..decorators import one_of_permissions_required
+from ..decorators import one_of_permissions_required, permission_required
 from ..utils import get_user_or_app_from_context
-from .resolvers import filter_business_partner_by_permissions
+from .resolvers import filter_business_partner_by_view_permissions
 
 
 class BusinessPartnerError(Error):
@@ -79,7 +79,9 @@ class DroneRewardsProfile(CountableDjangoObjectType):
 @key("id")
 @key("sapBpCode")
 class BusinessPartner(CountableDjangoObjectType):
-    """Business partners can be looked up using either their id or cardCode."""
+    """Business partners can be looked up using either their id or cardCode. Many of the
+    fields have resolvers specified for them for the sole purpose of restricting them
+    by permissions."""
 
     company_contacts = graphene.List(
         "saleor.graphql.account.types.RedactedUser",
@@ -118,7 +120,7 @@ class BusinessPartner(CountableDjangoObjectType):
             "default_shipping_address",
             "default_billing_address",
             "inside_sales_rep",
-            "internal_ft_notes",  # Custom resolver below
+            "internal_ft_notes",
             "outside_sales_rep",
             "payment_terms",
             "channel",
@@ -128,6 +130,46 @@ class BusinessPartner(CountableDjangoObjectType):
             "sync_partner",
             "warranty_preference",
         )
+
+    @staticmethod
+    @permission_required(SAPCustomerPermissions.MANAGE_BP_ORDERS)
+    def resolve_payment_terms(root, _info, **kwargs):
+        return root.payment_terms
+
+    @staticmethod
+    @permission_required(SAPCustomerPermissions.MANAGE_BP_ORDERS)
+    def resolve_channel(root, _info, **kwargs):
+        return root.channel
+
+    @staticmethod
+    @permission_required(SAPCustomerPermissions.MANAGE_BP_ORDERS)
+    def resolve_warranty_preference(root, _info, **kwargs):
+        return root.channel
+
+    @staticmethod
+    @permission_required(SAPCustomerPermissions.VIEW_ACCOUNT_BALANCE)
+    def resolve_account_balance(root, _info, **kwargs):
+        return root.account_balance
+
+    @staticmethod
+    @permission_required(SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS)
+    def resolve_account_is_active(root, _info, **kwargs):
+        return root.account_is_active
+
+    @staticmethod
+    @permission_required(SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS)
+    def resolve_account_is_purchasing_restricted(root, _info, **kwargs):
+        return root.account_is_purchasing_restricted
+
+    @staticmethod
+    @permission_required(SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS)
+    def resolve_credit_limit(root, _info, **kwargs):
+        return root.credit_limit
+
+    @staticmethod
+    @permission_required(SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS)
+    def resolve_debit_limit(root, _info, **kwargs):
+        return root.debit_limit
 
     @staticmethod
     @one_of_permissions_required(
@@ -144,13 +186,6 @@ class BusinessPartner(CountableDjangoObjectType):
         return root.sync_partner
 
     @staticmethod
-    @one_of_permissions_required(
-        [
-            AccountPermissions.MANAGE_USERS,
-            AccountPermissions.MANAGE_STAFF,
-            SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS,
-        ]
-    )
     def resolve_company_contacts(root: models.BusinessPartner, _info, **kwargs):
         return UserModel.objects.filter(sapuserprofile__business_partners=root)
 
@@ -167,7 +202,7 @@ class BusinessPartner(CountableDjangoObjectType):
             return []
 
     @staticmethod
-    @one_of_permissions_required([SAPCustomerPermissions.VIEW_DRONE_REWARDS])
+    @permission_required(SAPCustomerPermissions.VIEW_DRONE_REWARDS)
     def resolve_drone_rewards_profile(root: models.BusinessPartner, _info, **kwargs):
         try:
             return root.dronerewardsprofile
@@ -249,7 +284,7 @@ class SAPUserProfile(CountableDjangoObjectType):
     @staticmethod
     def resolve_business_partners(root: models.SAPUserProfile, info, **kwargs):
         requester = get_user_or_app_from_context(info.context)
-        return filter_business_partner_by_permissions(
+        return filter_business_partner_by_view_permissions(
             root.business_partners.all(), requester
         )
 
