@@ -101,13 +101,17 @@ class SAPUserProfile(models.Model):
         BusinessPartner,
         related_name="sapuserprofiles",
         blank=True,
-        through="SAPBusinessPartnerMembership",
     )
     middle_name = models.CharField(max_length=256, blank=True, null=True)
 
     class Meta:
         permissions = (
             (SAPCustomerPermissions.DRONE_ACTIVATION.codename, "Can activate drone."),
+            (SAPCustomerPermissions.VIEW_PRODUCTS.codename, "Can view products."),
+            (
+                SAPCustomerPermissions.PURCHASE_PRODUCTS_B2C.codename,
+                "Can purchase products B2C."
+            ),
             (SAPCustomerPermissions.VIEW_WIRING.codename, "Can view wiring diagrams."),
             (SAPCustomerPermissions.VIEW_DOCUMENTS.codename, "Can view documents."),
             (
@@ -116,11 +120,15 @@ class SAPUserProfile(models.Model):
             ),
             (
                 SAPCustomerPermissions.VIEW_PROFILE.codename,
-                "Can view SAP user profile.",
+                "Can view SAP user and business partner profiles.",
             ),
             (
                 SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B.codename,
-                "Can purchase B2B products.",
+                "Can purchase products B2B.",
+            ),
+            (
+                SAPCustomerPermissions.MANAGE_BP_ORDERS.codename,
+                "Can manage orders for business partner."
             ),
             (
                 SAPCustomerPermissions.VIEW_ACCOUNT_BALANCE.codename,
@@ -136,6 +144,10 @@ class SAPUserProfile(models.Model):
                 "Can manage drone billing methods.",
             ),
             (
+                SAPCustomerPermissions.MANAGE_BILLING_METHODS.codename,
+                "Can manage billing methods."
+            ),
+            (
                 SAPCustomerPermissions.MANAGE_LINKED_INSTALLERS.codename,
                 "Can modify linked installers.",
             ),
@@ -148,10 +160,6 @@ class SAPUserProfile(models.Model):
             (
                 SAPCustomerPermissions.PLACE_ORDERS_FOR_LINKED_ACCOUNTS.codename,
                 "Can place orders for linked accounts.",
-            ),
-            (
-                SAPCustomerPermissions.MANAGE_BP_ORDERS.codename,
-                "Can manage orders for business partner.",
             ),
             (
                 SAPStaffPermissions.DEFINE_PAYMENT_METHODS.codename,
@@ -194,13 +202,6 @@ class SAPUserProfile(models.Model):
                 "Can view business partners as an inside sales rep (all fields)."
             ),
         )
-
-
-class SAPBusinessPartnerMembership(models.Model):
-    sap_user_profile = models.ForeignKey(SAPUserProfile, on_delete=models.CASCADE)
-    business_partner = models.ForeignKey(BusinessPartner, on_delete=models.CASCADE)
-    is_company_owner = models.BooleanField(default=False)
-    is_installer = models.BooleanField(default=False)
 
 
 class DroneRewardsProfile(models.Model):

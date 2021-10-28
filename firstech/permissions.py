@@ -11,27 +11,20 @@ class SAPCustomerPermissions(BasePermissionEnum):
     DRONE_ACTIVATION = "SAP.drone_activation"
     VIEW_PRODUCTS = "SAP.view_products"
     PURCHASE_PRODUCTS_B2C = "SAP.purchase_products_b2c"
-
     VIEW_WIRING = "SAP.view_wiring"
     VIEW_DOCUMENTS = "SAP.view_documents"
     VIEW_DRONE_REWARDS = "SAP.view_drone_rewards"
     VIEW_PROFILE = "SAP.view_profile"
-
     PURCHASE_DRONE_SERVICE = "SAP.purchase_drone_service"
     PURCHASE_PRODUCTS_B2B = "SAP.purchase_products_b2b"
-
     MANAGE_BP_ORDERS = "SAP.manage_business_partner_orders"
-
     VIEW_ACCOUNT_BALANCE = "SAP.view_account_balance"
     REPORTING = "SAP.manage_reporting"
     INVITE_NEW_INSTALLERS = "SAP.invite_installers"
-
     MANAGE_DRONE_BILLING_METHODS = "SAP.manage_drone_billing_methods"
     MANAGE_BILLING_METHODS = "SAP.manage_billing_methods"
-
     MANAGE_LINKED_INSTALLERS = "SAP.manage_linked_installers"
     MANAGE_CONTRACT = "SAP.manage_contract"
-
     ACCESS_TO_LINKED_ACCOUNTS = "SAP.access_linked_accounts"
     VIEW_BACKORDERS = "SAP.view_backorders"
     PLACE_ORDERS_FOR_LINKED_ACCOUNTS = "SAP.place_orders_for_linked_accounts"
@@ -45,7 +38,6 @@ class SAPStaffPermissions(BasePermissionEnum):
     BACKORDER_MANAGEMENT = "SAP.manage_backorders"
     VOLUME_INCENTIVE_REBATES = "SAP.manage_volume_incentive_rebates"
     DEFINE_DEALER_ROLES = "SAP.define_dealer_roles"
-
     DISABLE_DEALER_ACCOUNT = "SAP.disable_dealer_account"
     GENERATE_PAST_DUE_NOTICE = "SAP.create_past_due_notice"
     MANAGE_ACCOUNT_STATEMENTS = "SAP.manage_account_statements"
