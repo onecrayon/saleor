@@ -3,8 +3,6 @@ import graphene
 from firstech.SAP import models
 from saleor.graphql.SAP.mutations.business_partners import (
     AssignApprovedBrands,
-    BulkBusinessPartnerAddressCreate,
-    BulkMigrateContacts,
     BusinessPartnerAddressCreate,
     CreateDroneRewardsProfile,
     CreateSAPUserProfile,
@@ -72,9 +70,7 @@ class SAPQueries(graphene.ObjectType):
 class SAPMutations(graphene.ObjectType):
     upsert_business_partner = UpsertBusinessPartner.Field()
     create_sap_profile = CreateSAPUserProfile.Field()
-    bulk_migrate_contacts = BulkMigrateContacts.Field()
     business_partner_address_create = BusinessPartnerAddressCreate.Field()
-    bulk_business_partner_address_create = BulkBusinessPartnerAddressCreate.Field()
     business_partner_assign_approved_brands = AssignApprovedBrands.Field()
     business_partner_drone_rewards_profile_create = CreateDroneRewardsProfile.Field()
     upsert_sap_product = UpsertSAPProduct.Field()

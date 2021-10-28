@@ -1,11 +1,9 @@
 import graphene
 from typing import TYPE_CHECKING
 
-from django.contrib.auth import models as auth_models
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
-from firstech.permissions import INSTALLER_GROUP_NAME
 from firstech.SAP import models
 from saleor.account import models as user_models
 from saleor.channel.models import Channel
@@ -13,7 +11,6 @@ from saleor.checkout import AddressType
 from saleor.core.permissions import AccountPermissions
 from saleor.core.tracing import traced_atomic_transaction
 from saleor.graphql.account.enums import AddressTypeEnum
-from saleor.graphql.account.mutations.staff import CustomerCreate
 from saleor.graphql.account.types import AddressInput, User
 from saleor.graphql.core.mutations import ModelMutation
 from saleor.graphql.core.types.common import AccountError
@@ -455,78 +452,6 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
                     business_partner.default_shipping_address = response.address
                 business_partner.save()
         return response
-
-
-class BulkAddressInput(graphene.InputObjectType):
-    type = AddressTypeEnum(
-        required=False,
-        description=(
-            "A type of address. If provided, the new address will be "
-            "automatically assigned as the business partner's default address "
-            "of that type."
-        ),
-    )
-    input = AddressInput(
-        description="Fields required to create address.", required=True
-    )
-    business_partner_id = graphene.ID(
-        description="ID of a business partner to create address for.",
-    )
-    sap_bp_code = graphene.String(description="Create Address for Card Code")
-
-
-class BulkBusinessPartnerAddressCreate(BusinessPartnerAddressCreate):
-    """Whenever a business partner (aka card-code) is updated in SAP it will trigger
-    an event in the integration framework. We don't have a way of knowing what changed
-    about the business partner. That means it's possible that existing addresses have
-    been updated, new addresses created, or old addresses removed. It's also possible
-    that addresses haven't been changed at all, but there's no way to know. So to work
-    around that the integration framework is going to call this mutation to upsert all
-    addresses for a business partner each time. This mutation will create, update, and
-    remove from saleor accordingly."""
-
-    class Arguments:
-        input = graphene.List(of_type=BulkAddressInput)
-        business_partner_id = graphene.ID(
-            description="ID of a business partner to create address for.",
-        )
-        sap_bp_code = graphene.String(description="Create Address for Card Code")
-
-    class Meta:
-        description = "Creates many business partner addresses."
-        model = models.Address
-        permissions = (AccountPermissions.MANAGE_USERS,)
-        error_type_class = AccountError
-        error_type_field = "account_errors"
-
-    @classmethod
-    def perform_mutation(cls, root, info, **data):
-        address_inputs = data.get("input")
-        business_partner = cls.get_business_partner(data, info)
-
-        existing_addresses = set(
-            models.BusinessPartnerAddresses.objects.filter(
-                business_partner=business_partner
-            ).values_list("address__company_name", "type")
-        )
-
-        responses = []
-        upserted_addresses = set()
-        for address in address_inputs:
-            response = super().perform_mutation(root, info, **address)
-            responses.append(response)
-            upserted_addresses.add((address["input"]["company_name"], address["type"]))
-
-        # Remove any addresses that weren't included in the mutation
-        addresses_to_delete = existing_addresses - upserted_addresses
-        for company_name, address_type in addresses_to_delete:
-            models.Address.objects.filter(
-                businesspartneraddresses__business_partner=business_partner,
-                businesspartneraddresses__type=address_type,
-                company_name=company_name,
-            ).delete()
-
-        return cls(**{cls._meta.return_field_name: responses, "errors": []})
 
 
 class DroneRewardsCreateInput(graphene.InputObjectType):
