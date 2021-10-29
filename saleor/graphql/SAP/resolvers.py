@@ -12,8 +12,9 @@ from saleor.graphql.utils import get_user_or_app_from_context
 if TYPE_CHECKING:
     from saleor.account.models import User, App
 
+
 def filter_business_partner_by_view_permissions(
-        business_partner_qs: "queryset", requester: Union[User, App]
+        business_partner_qs, requester: Union["User", "App"]
 ):
     """Given a queryset of BusinessPartner, and a requesting user, filter and return
     the queryset to only contain business partners that the user has permission to view
