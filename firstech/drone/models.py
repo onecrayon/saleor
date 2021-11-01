@@ -40,14 +40,20 @@ class DroneUserProfile(models.Model):
     dealer_retired_date = models.DateTimeField(blank=True, null=True)
     is_company_owner = models.BooleanField(default=False)
 
-    def refresh_drone_profile(self):
+    def refresh_drone_profile(self, drone_user_info: "DroneUser" = None):
         """Gets the latest and greatest user information from the Drone API. Updates the
         saleor user and/or drone_user_profile if any changes are detected. Only saves if
-        there are changes to keep database writes to a minimum."""
+        there are changes to keep database writes to a minimum.
 
-        drone_user_info = DroneUser.get_user_from_drone(self.user.email)
+        :param drone_user_info: Optional DroneUser object. If provided, this function
+            will update the drone profile using the provided information and will skip
+            fetching the information from the Drone database.
+        """
+        if not drone_user_info:
+            drone_user_info = DroneUser.get_user_from_drone(self.user.email)
 
         field_mappings = [
+            (self.user, 'email', drone_user_info.email),
             (self.user, 'first_name', drone_user_info.first_name),
             (self.user, 'last_name', drone_user_info.last_name),
             (self.user, 'is_staff',
@@ -142,10 +148,15 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
 
     drone_user_info = None
     drone_user_checked = False
+    drone_profile = None
 
     # Get or create the Saleor User object
     try:
         saleor_user = User.objects.get(email=email)
+        try:
+            drone_profile = saleor_user.droneuserprofile
+        except DroneUserProfile.DoesNotExist:
+            pass
     except User.DoesNotExist:
         if drone_user_info := DroneUser.get_user_from_drone(email):
             user_info = {
@@ -153,16 +164,26 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
                 'first_name': drone_user_info.first_name,
                 'last_name': drone_user_info.last_name,
             }
+            # It's possible a user with the given email does not exist, because the user
+            # has changed their email inside Drone. Check to see if we already have a
+            # drone profile matching the drone user_id.
+            drone_profile = DroneUserProfile.objects.filter(
+                drone_user_id=drone_user_info.user_id,
+            ).first()
         else:
             user_info = {}
             drone_user_checked = True
 
-        saleor_user = User.objects.create_user(email=email, **user_info)
+        if drone_profile:
+            # This user already exists, but they have changed their email through the
+            # drone API
+            saleor_user = drone_profile.user
+        else:
+            # This user definitely doesn't exist yet, so create them now
+            saleor_user = User.objects.create_user(email=email, **user_info)
 
-    # Get or create the DroneUserProfile for the Saleor User
-    try:
-        drone_profile = DroneUserProfile.objects.get(user=saleor_user)
-    except DroneUserProfile.DoesNotExist:
+    # Get or create the DroneUserProfile for the Saleor User if we haven't found it yet
+    if not drone_profile:
         if not drone_user_info and not drone_user_checked:
             drone_user_info = DroneUser.get_user_from_drone(email)
         if drone_user_info:
@@ -181,14 +202,18 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
         # The saleor user and drone profile already exist. Refresh the user info from
         # drone if the auth token is newer than the last update timestamp. Or update the
         # profile if it's been more than 1 hour since the last update (needed for our
-        # never expiring internal tokens)
+        # never expiring internal tokens). Or update if we already have the
+        # drone_user_info.
         token_iat = timezone.datetime.fromtimestamp(
             jwt_payload.get('iat', 0),
             tz=timezone.utc
         )
-        if token_iat > drone_profile.update_date or \
-                timezone.now() > drone_profile.update_date + relativedelta(hours=1):
-            drone_profile.refresh_drone_profile()
+        if (
+                drone_user_info
+                or token_iat > drone_profile.update_date
+                or timezone.now() > drone_profile.update_date + relativedelta(hours=1)
+        ):
+            drone_profile.refresh_drone_profile(drone_user_info=drone_user_info)
             saleor_user.refresh_from_db()
 
     return saleor_user
