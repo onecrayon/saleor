@@ -24,9 +24,14 @@ from saleor.graphql.order.mutations.orders import (
     OrderLineDelete,
     OrderLinesCreate,
     OrderLineUpdate,
+    OrderLineInput,
 )
 from saleor.order import models as order_models
+from saleor.graphql.order.types import Order, OrderLine
+from firstech.SAP.models import BusinessPartner
+from firstech.permissions import SAPCustomerPermissions
 from saleor.order.utils import get_valid_shipping_methods_for_order
+from ..resolvers import filter_business_partner_by_view_permissions
 
 from ....core.tracing import traced_atomic_transaction
 
@@ -79,7 +84,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
         )
 
     class Meta:
-        description = "Creates or updates a draft order."
+        description = "Upserts an order from SAP."
         model = order_models.Order
         permissions = (OrderPermissions.MANAGE_ORDERS,)
         error_type_class = OrderError
@@ -440,3 +445,107 @@ class UpsertSAPOrder(DraftOrderUpdate):
                 pass
 
         return cls.success_response(order)
+
+
+class FirstechOrderLineUpdate(OrderLineUpdate):
+    """This mutation mimics the OrderLineUpdate mutation it inherits. It exists so that
+    users with the `MANAGE_BP_ORDERS` permission can update confirmed orders. The only
+    thing that we allow changing is a reduction in line item quantity."""
+
+    order = graphene.Field(Order, description="Related order.")
+
+    class Arguments:
+        id = graphene.ID(description="ID of the order line to update.", required=True)
+        input = OrderLineInput(
+            required=True, description="Fields required to update an order line."
+        )
+
+    class Meta:
+        description = "Updates an order line of an order."
+        model = order_models.OrderLine
+        permissions = (SAPCustomerPermissions.MANAGE_BP_ORDERS,)
+        error_type_class = OrderError
+        error_type_field = "order_errors"
+
+    @classmethod
+    def clean_input(cls, info, instance: order_models.OrderLine, data):
+        # Check requester has permission to edit this instance
+        requester: user_models.User = info.context.user
+        card_code = instance.order.private_metadata.get("sap_bp_code")
+
+        if not filter_business_partner_by_view_permissions(
+                    BusinessPartner.objects.filter(sap_bp_code=card_code),
+                    requester
+                ).exists():
+            raise PermissionError()
+
+        instance.old_quantity = instance.quantity
+        cleaned_input = super().clean_input(info, instance, data)
+
+        quantity = data["quantity"]
+        if quantity >= instance.old_quantity:
+            raise ValidationError("New quantity must be less than existing quantity.")
+
+        if quantity < instance.quantity_fulfilled:
+            raise ValidationError(
+                "New quantity must be greater than the quantity that has already been "
+                "fulfilled."
+            )
+
+        return cleaned_input
+
+    @classmethod
+    def validate_order(cls, order):
+        # Need to override this method so that we can update orders that are already
+        # confirmed.
+        pass
+
+
+class FirstechOrderLineDelete(OrderLineDelete):
+    """This mutation mimics the OrderLineDelete mutation it inherits. It exists so that
+    users with the `MANAGE_BP_ORDERS` permission can remove line items from a
+    confirmed order. Only line items that do not have any fulfillments can be
+    removed."""
+
+    order = graphene.Field(Order, description="A related order.")
+    order_line = graphene.Field(
+        OrderLine, description="An order line that was deleted."
+    )
+
+    class Arguments:
+        id = graphene.ID(description="ID of the order line to delete.", required=True)
+
+    class Meta:
+        description = "Deletes an order line from an order."
+        permissions = (SAPCustomerPermissions.MANAGE_BP_ORDERS,)
+        error_type_class = OrderError
+        error_type_field = "order_errors"
+
+    @classmethod
+    def perform_mutation(cls, _root, info, id):
+        line: order_models.OrderLine = cls.get_node_or_error(
+            info,
+            id,
+            only_type=OrderLine,
+        )
+        # Check requester has permission to edit this instance
+        requester: user_models.User = info.context.user
+        card_code = line.order.private_metadata.get("sap_bp_code")
+
+        if not filter_business_partner_by_view_permissions(
+                    BusinessPartner.objects.filter(sap_bp_code=card_code),
+                    requester
+                ).exists():
+            raise PermissionError()
+
+        if line.quantity_fulfilled > 0:
+            raise ValidationError(
+                "Cannot cancel a line item if it already has one or more fulfillments."
+            )
+        return super().perform_mutation(_root, info, id)
+
+    @classmethod
+    def validate_order(cls, order):
+        # Need to override this method so that we can update orders that are already
+        # confirmed.
+        pass

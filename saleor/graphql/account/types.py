@@ -39,6 +39,8 @@ from .dataloaders import CustomerEventsByUserLoader
 from .enums import CountryCodeEnum, CustomerEventsEnum
 from .utils import can_user_manage_group, get_groups_which_user_can_manage
 
+from firstech.permissions import SAPCustomerPermissions
+
 
 class AddressInput(graphene.InputObjectType):
     first_name = graphene.String(description="Given name.")
@@ -223,6 +225,30 @@ class UserPermission(Permission):
         return groups
 
 
+class RedactedUser(CountableDjangoObjectType):
+    """Firstech custom type for representing a user with redacted fields. Needed to
+    display user types to non-staff users, for example through a business partner
+    contact.
+
+    This class needs to be defined BEFORE the full User type below. This ensures that
+    graphene will use the full User type as the default type for users when a resolver
+    is not explicitly specified."""
+
+    class Meta:
+        description = "Represents user data."
+        interfaces = [relay.Node]
+        model = get_user_model()
+        only_fields = [
+            "email",
+            "is_staff",
+            "is_active",
+            "first_name",
+            "last_name",
+            "avatar",
+            "language_code",
+        ]
+
+
 @key(fields="id")
 @key(fields="email")
 class User(CountableDjangoObjectType):
@@ -308,15 +334,16 @@ class User(CountableDjangoObjectType):
 
     @staticmethod
     @traced_resolver
-    def resolve_sap_profile(root: models.User, _info, **kwargs):
-        try:
-            return root.sapuserprofile
-        except sap_models.SAPUserProfile.DoesNotExist:
-            return None
+    def resolve_sap_profile(root: models.User, info, **kwargs):
+        requesting_user = info.context.user
+        if requesting_user.has_perm(SAPCustomerPermissions.VIEW_PROFILE):
+            try:
+                return root.sapuserprofile
+            except sap_models.SAPUserProfile.DoesNotExist:
+                return None
 
     @staticmethod
     def resolve_addresses(root: models.User, _info, **_kwargs):
-        # TODO: Include business partner addresses in this queryset?
         return root.addresses.annotate_default(root).all()  # type: ignore
 
     @staticmethod

@@ -3,6 +3,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django_prices.models import MoneyField, TaxedMoneyField
 
+from firstech.permissions import SAPStaffPermissions, SAPCustomerPermissions
 from saleor.account.models import Address, User
 from saleor.channel.models import Channel
 from saleor.checkout import AddressType
@@ -94,7 +95,6 @@ class ApprovedBrands(models.Model):
 class SAPUserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     date_of_birth = models.DateField(null=True, blank=True)
-    is_company_owner = models.BooleanField(default=False)
     # Most of the time a user will only be associated with 1 business partner, but there
     # are some examples where a user can have more.
     business_partners = models.ManyToManyField(
@@ -103,6 +103,105 @@ class SAPUserProfile(models.Model):
         blank=True,
     )
     middle_name = models.CharField(max_length=256, blank=True, null=True)
+
+    class Meta:
+        permissions = (
+            (SAPCustomerPermissions.DRONE_ACTIVATION.codename, "Can activate drone."),
+            (SAPCustomerPermissions.VIEW_PRODUCTS.codename, "Can view products."),
+            (
+                SAPCustomerPermissions.PURCHASE_PRODUCTS_B2C.codename,
+                "Can purchase products B2C."
+            ),
+            (SAPCustomerPermissions.VIEW_WIRING.codename, "Can view wiring diagrams."),
+            (SAPCustomerPermissions.VIEW_DOCUMENTS.codename, "Can view documents."),
+            (
+                SAPCustomerPermissions.VIEW_DRONE_REWARDS.codename,
+                "Can view Drone dealer rewards.",
+            ),
+            (
+                SAPCustomerPermissions.VIEW_PROFILE.codename,
+                "Can view SAP user and business partner profiles.",
+            ),
+            (
+                SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B.codename,
+                "Can purchase products B2B.",
+            ),
+            (
+                SAPCustomerPermissions.MANAGE_BP_ORDERS.codename,
+                "Can manage orders for business partner."
+            ),
+            (
+                SAPCustomerPermissions.VIEW_ACCOUNT_BALANCE.codename,
+                "Can view business partner account balance."
+            ),
+            (SAPCustomerPermissions.REPORTING.codename, "Can create reports."),
+            (
+                SAPCustomerPermissions.INVITE_NEW_INSTALLERS.codename,
+                "Can invite new installers to business partner.",
+            ),
+            (
+                SAPCustomerPermissions.MANAGE_DRONE_BILLING_METHODS.codename,
+                "Can manage drone billing methods.",
+            ),
+            (
+                SAPCustomerPermissions.MANAGE_BILLING_METHODS.codename,
+                "Can manage billing methods."
+            ),
+            (
+                SAPCustomerPermissions.MANAGE_LINKED_INSTALLERS.codename,
+                "Can modify linked installers.",
+            ),
+            (SAPCustomerPermissions.MANAGE_CONTRACT.codename, "Can manage contract."),
+            (
+                SAPCustomerPermissions.ACCESS_TO_LINKED_ACCOUNTS.codename,
+                "Can view linked accounts.",
+            ),
+            (SAPCustomerPermissions.VIEW_BACKORDERS.codename, "Can view backorders."),
+            (
+                SAPCustomerPermissions.PLACE_ORDERS_FOR_LINKED_ACCOUNTS.codename,
+                "Can place orders for linked accounts.",
+            ),
+            (
+                SAPStaffPermissions.DEFINE_PAYMENT_METHODS.codename,
+                "Can define new payment methods.",
+            ),
+            (
+                SAPStaffPermissions.DEFINE_BRAND_ACCESS.codename,
+                "Can define brand access.",
+            ),
+            (
+                SAPStaffPermissions.PLACE_ORDERS_FOR_DEALER.codename,
+                "Can place orders for a dealer.",
+            ),
+            (
+                SAPStaffPermissions.BACKORDER_MANAGEMENT.codename,
+                "Can manage backorders.",
+            ),
+            (
+                SAPStaffPermissions.VOLUME_INCENTIVE_REBATES.codename,
+                "Can manage volume incentive rebates.",
+            ),
+            (
+                SAPStaffPermissions.DEFINE_DEALER_ROLES.codename,
+                "Can define dealer roles.",
+            ),
+            (
+                SAPStaffPermissions.DISABLE_DEALER_ACCOUNT.codename,
+                "Can disable dealer accounts.",
+            ),
+            (
+                SAPStaffPermissions.GENERATE_PAST_DUE_NOTICE.codename,
+                "Can generate past due notices.",
+            ),
+            (
+                SAPStaffPermissions.MANAGE_ACCOUNT_STATEMENTS.codename,
+                "Can manage account statements.",
+            ),
+            (
+                SAPStaffPermissions.INSIDE_SALES_REP_VIEW.codename,
+                "Can view business partners as an inside sales rep (all fields)."
+            ),
+        )
 
 
 class DroneRewardsProfile(models.Model):
@@ -201,7 +300,7 @@ class SAPReturnLine(models.Model):
 
 class SAPCreditMemo(models.Model):
     """This is a really basic table for holding credit memo info that we receive from
-        SAP. These documents aren't created through myFirstech or the dashboard."""
+    SAP. These documents aren't created through myFirstech or the dashboard."""
 
     doc_entry = models.IntegerField(unique=True)
     # This is the creation date of the SAP return document, not the timestamp for being
@@ -267,6 +366,6 @@ class SAPSalesManager(models.Model):
     instead of being linked via an id or email address, they are linked via whatever
     name they have in the SAP database. So this table is simply to associate a name
     to a specific user object."""
+
     name = models.CharField(max_length=20, unique=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-

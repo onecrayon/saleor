@@ -106,8 +106,8 @@ class SAPPlugin(BasePlugin):
         body: Optional[dict] = None,
         skip_cache: Optional[bool] = False,
     ) -> dict:
-        method = getattr(requests, method, "get")
-        response = method(
+        method_func = getattr(requests, method, "get")
+        response = method_func(
             url=self.config.url + entity,
             json=body,
             cookies=get_sap_cookies(self.config, skip_cache=skip_cache),
@@ -143,17 +143,28 @@ class SAPPlugin(BasePlugin):
 
     @staticmethod
     def get_business_partner_from_order(order: "Order"):
+        # If the order came from a b2bcheckout, the card code should be in the private
+        # metadata.
+        if order.checkout_token:
+            checkout = Checkout.objects.get(token=order.checkout_token)
+            if checkout.private_metadata["sap_bp_code"]:
+                return sap_models.BusinessPartner.objects.get(
+                    sap_bp_code=checkout.private_metadata["sap_bp_code"]
+                )
+
+        # Otherwise the card code can be inferred from the user the order is for.
         try:
             return sap_models.BusinessPartner.objects.get(
                 sapuserprofiles__user_id=order.user_id
             )
         except sap_models.BusinessPartner.MultipleObjectsReturned:
-            # TODO:
-            # Supposedly it's possible for a user to belong to more than one business
-            # partner, but when an order is placed, how do we know which BP the order
-            # should go to?
-            return
+            raise ValidationError(
+                "The customer belongs to more than one business partner. Orders for "
+                "this user must be created using the B2BCheckoutCreate mutation."
+            )
         except sap_models.BusinessPartner.DoesNotExist:
+            # The order could be for a guest/anonymous user, or a logged in user that
+            # doesn't belong to a business partner using the normal b2c checkout
             return
 
     @classmethod
@@ -493,7 +504,7 @@ class SAPPlugin(BasePlugin):
         )
 
         # Look up the name of the payment terms and add it to the dict
-        if business_partner['PayTermsGrpCode']:
+        if business_partner["PayTermsGrpCode"]:
             payment_terms: str = self.service_layer_request(
                 "get", f"PaymentTermsTypes({business_partner['PayTermsGrpCode']})"
             ).get("PaymentTermsGroupName")
@@ -503,7 +514,7 @@ class SAPPlugin(BasePlugin):
             business_partner["payment_terms"] = None
 
         # Look up the channel and add it
-        if business_partner['PriceListNum']:
+        if business_partner["PriceListNum"]:
             channel_name = self.price_list_cache[business_partner["PriceListNum"]]
             channel_slug = slugify(channel_name)
             business_partner["channel_slug"] = channel_slug
@@ -512,7 +523,7 @@ class SAPPlugin(BasePlugin):
 
         # Get outside sales rep emails and add them
         outside_sales_rep_emails = []
-        if business_partner['SalesPersonCode']:
+        if business_partner["SalesPersonCode"]:
             outside_sales_rep: dict = self.service_layer_request(
                 "get", f"SalesPersons({business_partner['SalesPersonCode']})"
             )

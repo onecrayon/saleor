@@ -11,7 +11,6 @@ from saleor.checkout import AddressType
 from saleor.core.permissions import AccountPermissions
 from saleor.core.tracing import traced_atomic_transaction
 from saleor.graphql.account.enums import AddressTypeEnum
-from saleor.graphql.account.mutations.staff import CustomerCreate
 from saleor.graphql.account.types import AddressInput, User
 from saleor.graphql.core.mutations import ModelMutation
 from saleor.graphql.core.types.common import AccountError
@@ -455,78 +454,6 @@ class BusinessPartnerAddressCreate(ModelMutation, GetBusinessPartnerMixin):
         return response
 
 
-class BulkAddressInput(graphene.InputObjectType):
-    type = AddressTypeEnum(
-        required=False,
-        description=(
-            "A type of address. If provided, the new address will be "
-            "automatically assigned as the business partner's default address "
-            "of that type."
-        ),
-    )
-    input = AddressInput(
-        description="Fields required to create address.", required=True
-    )
-    business_partner_id = graphene.ID(
-        description="ID of a business partner to create address for.",
-    )
-    sap_bp_code = graphene.String(description="Create Address for Card Code")
-
-
-class BulkBusinessPartnerAddressCreate(BusinessPartnerAddressCreate):
-    """Whenever a business partner (aka card-code) is updated in SAP it will trigger
-    an event in the integration framework. We don't have a way of knowing what changed
-    about the business partner. That means it's possible that existing addresses have
-    been updated, new addresses created, or old addresses removed. It's also possible
-    that addresses haven't been changed at all, but there's no way to know. So to work
-    around that the integration framework is going to call this mutation to upsert all
-    addresses for a business partner each time. This mutation will create, update, and
-    remove from saleor accordingly."""
-
-    class Arguments:
-        input = graphene.List(of_type=BulkAddressInput)
-        business_partner_id = graphene.ID(
-            description="ID of a business partner to create address for.",
-        )
-        sap_bp_code = graphene.String(description="Create Address for Card Code")
-
-    class Meta:
-        description = "Creates many business partner addresses."
-        model = models.Address
-        permissions = (AccountPermissions.MANAGE_USERS,)
-        error_type_class = AccountError
-        error_type_field = "account_errors"
-
-    @classmethod
-    def perform_mutation(cls, root, info, **data):
-        address_inputs = data.get("input")
-        business_partner = cls.get_business_partner(data, info)
-
-        existing_addresses = set(
-            models.BusinessPartnerAddresses.objects.filter(
-                business_partner=business_partner
-            ).values_list("address__company_name", "type")
-        )
-
-        responses = []
-        upserted_addresses = set()
-        for address in address_inputs:
-            response = super().perform_mutation(root, info, **address)
-            responses.append(response)
-            upserted_addresses.add((address["input"]["company_name"], address["type"]))
-
-        # Remove any addresses that weren't included in the mutation
-        addresses_to_delete = existing_addresses - upserted_addresses
-        for company_name, address_type in addresses_to_delete:
-            models.Address.objects.filter(
-                businesspartneraddresses__business_partner=business_partner,
-                businesspartneraddresses__type=address_type,
-                company_name=company_name,
-            ).delete()
-
-        return cls(**{cls._meta.return_field_name: responses, "errors": []})
-
-
 class DroneRewardsCreateInput(graphene.InputObjectType):
     business_partner = graphene.ID()
     distribution = DistributionTypeEnum()
@@ -590,101 +517,6 @@ class CreateSAPUserProfile(ModelMutation, GetBusinessPartnerMixin):
         permissions = (AccountPermissions.MANAGE_USERS,)
         error_type_class = BusinessPartnerError
         error_type_field = "business_partner_errors"
-
-
-class MigrateContactInput(graphene.InputObjectType):
-    email = graphene.String(required=True)
-    first_name = graphene.String()
-    last_name = graphene.String()
-    date_of_birth = graphene.String()
-    middle_name = graphene.String()
-    is_company_owner = graphene.Boolean(default=False)
-
-
-class BulkMigrateContacts(CustomerCreate, GetBusinessPartnerMixin):
-    class Arguments:
-        input = graphene.List(of_type=MigrateContactInput)
-
-        business_partner_id = graphene.ID(
-            description="ID of a business partner to create address for.",
-        )
-        sap_bp_code = graphene.String(description="Create Address for Card Code")
-
-    class Meta:
-        description = "Updates or creates many business partner contacts."
-        exclude = ["password"]
-        model = models.User
-        permissions = (AccountPermissions.MANAGE_USERS,)
-        error_type_class = AccountError
-        error_type_field = "account_errors"
-
-    @classmethod
-    def clean_input(cls, info, instance, data, input_cls=None):
-        """This needs to clean the input for the create user mutation. We're using the
-        `CustomerCreate` class as a base class to ensure that all of the appropriate
-        events/triggers that should occur when a new user is created happen. But since
-        the input for this mutation is actually a graphene List as opposed to the
-        CustomerInput type, the usual clean input method will fail. Overriding this
-        method ensures that we grab the correct input class.
-        """
-        if not input_cls:
-            input_cls = User
-
-        cleaned_input = {}
-        for field_name, field_item in input_cls._meta.fields.items():
-            if field_name in data:
-                value = data[field_name]
-
-                cleaned_input[field_name] = value
-        return cleaned_input
-
-    @classmethod
-    def perform_mutation(cls, root, info, **data):
-        contact_inputs = data.get("input")
-        business_partner: models.BusinessPartner = cls.get_business_partner(data, info)
-        responses = []
-
-        # Grab all of the users we'll need and organize them by email address
-        contact_cache = {}
-        contacts = user_models.User.objects.filter(
-            email__in=set(contact["email"] for contact in contact_inputs)
-        ).prefetch_related("sapuserprofile__business_partners")
-        for contact in contacts:
-            contact_cache[contact.email] = contact
-
-        for contact in contact_inputs:
-            user = contact_cache.get(contact["email"])
-            if not user:
-                # Create a new user
-                create_user_data = {
-                    "email": contact["email"],
-                    "first_name": contact.get("first_name"),
-                    "last_name": contact.get("last_name"),
-                }
-                response = super().perform_mutation(root, info, input=create_user_data)
-                user = response.user
-            else:
-                # Update an existing user
-                cleaned_input = cls.clean_input(info, user, data)
-                user = cls.construct_instance(user, cleaned_input)
-                cls.clean_instance(info, user)
-                cls.save(info, user, cleaned_input)
-                cls._save_m2m(info, user, cleaned_input)
-
-            sap_profile, created = models.SAPUserProfile.objects.update_or_create(
-                user=user,
-                defaults={
-                    "date_of_birth": contact.get("date_of_birth"),
-                    "is_company_owner": contact.get("is_company_owner", False),
-                    "middle_name": contact.get("middle_name"),
-                },
-            )
-
-            responses.append(sap_profile)
-
-        business_partner.sapuserprofiles.set(responses)
-
-        return cls(**{cls._meta.return_field_name: responses, "errors": []})
 
 
 class SAPApprovedBrandsInput(graphene.InputObjectType):

@@ -38,6 +38,7 @@ class DroneUserProfile(models.Model):
     installer_id = models.IntegerField(unique=True, null=True)
     dealer_id = models.IntegerField(unique=False, null=True)
     dealer_retired_date = models.DateTimeField(blank=True, null=True)
+    is_company_owner = models.BooleanField(default=False)
 
     def refresh_drone_profile(self, drone_user_info: "DroneUser" = None):
         """Gets the latest and greatest user information from the Drone API. Updates the
@@ -64,6 +65,7 @@ class DroneUserProfile(models.Model):
             (self, 'installer_id', drone_user_info.installer_id),
             (self, 'dealer_id', drone_user_info.dealer_id),
             (self, 'dealer_retired_date', drone_user_info.dealer_retired_date),
+            (self, 'is_company_owner', drone_user_info.is_company_owner),
         ]
 
         update_profile_fields = {'update_date'}
@@ -97,6 +99,7 @@ class DroneUser:
     installer_id: int = None
     dealer_id: int = None
     dealer_retired_date: timezone.datetime = None
+    is_company_owner: bool = False
 
     @staticmethod
     def get_user_from_drone(email: str) -> 'DroneUser':  # pragma: no cover
@@ -110,7 +113,8 @@ class DroneUser:
                 SELECT us.id as drone_user_id, us.email, us.cognito_sub,
                     us.phone_number as id_phone_number, us.first_name, us.last_name,
                     us.access_type, us.latest_global_logout, inst.id as installer_id,
-                    deal.id as dealer_id, deal.retired_date as dealer_retired_date
+                    deal.id as dealer_id, deal.retired_date as dealer_retired_date,
+                    inst.is_owner as is_company_owner
                 FROM bmapi_user AS us
                 LEFT JOIN bmapi_installer as inst ON inst.user_id = us.id
                 LEFT JOIN bmapi_dealer as deal ON deal.id = inst.dealer_id
@@ -192,6 +196,7 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
                 dealer_id=drone_user_info.dealer_id,
                 dealer_retired_date=drone_user_info.dealer_retired_date,
                 id_phone_number=drone_user_info.id_phone_number,
+                is_company_owner=drone_user_info.is_company_owner,
             )
     else:
         # The saleor user and drone profile already exist. Refresh the user info from
