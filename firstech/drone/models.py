@@ -38,19 +38,18 @@ class DroneUserProfile(models.Model):
     installer_id = models.IntegerField(unique=True, null=True)
     dealer_id = models.IntegerField(unique=False, null=True)
     dealer_retired_date = models.DateTimeField(blank=True, null=True)
-    is_company_owner = models.BooleanField(default=False)
+    is_company_owner = models.BooleanField(null=True, default=None)
 
-    def refresh_drone_profile(self, drone_user_info: "DroneUser" = None):
+    def refresh_drone_profile(self, email: str = None):
         """Gets the latest and greatest user information from the Drone API. Updates the
         saleor user and/or drone_user_profile if any changes are detected. Only saves if
         there are changes to keep database writes to a minimum.
 
-        :param drone_user_info: Optional DroneUser object. If provided, this function
-            will update the drone profile using the provided information and will skip
-            fetching the information from the Drone database.
+        :param email: Optional email string. If provided, this function
+            will look up the drone profile with the provided email rather than the
+            existing email attached to the drone user profile.
         """
-        if not drone_user_info:
-            drone_user_info = DroneUser.get_user_from_drone(self.user.email)
+        drone_user_info = DroneUser.get_user_from_drone(email or self.user.email)
 
         field_mappings = [
             (self.user, 'email', drone_user_info.email),
@@ -99,7 +98,7 @@ class DroneUser:
     installer_id: int = None
     dealer_id: int = None
     dealer_retired_date: timezone.datetime = None
-    is_company_owner: bool = False
+    is_company_owner: bool = None
 
     @staticmethod
     def get_user_from_drone(email: str) -> 'DroneUser':  # pragma: no cover
@@ -142,50 +141,43 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
     :return: The Saleor User object"""
 
     if jwt_payload['iss'] == 'internal':
-        email = jwt_payload['sub']
+        token_email = jwt_payload['sub']
+        cognito_sub = None
     else:
-        email = jwt_payload['email']
+        token_email = jwt_payload['email']
+        cognito_sub = jwt_payload['sub']
 
-    drone_user_info = None
-    drone_user_checked = False
-    drone_profile = None
+    saleor_user = None
 
-    # Get or create the Saleor User object
+    # Try to find a saleor user with the cognito subscriber id given from the token
+    if cognito_sub:
+        saleor_user = User.objects.filter(
+            droneuserprofile__cognito_sub=cognito_sub
+        ).first()
+
     try:
-        saleor_user = User.objects.get(email=email)
-        try:
-            drone_profile = saleor_user.droneuserprofile
-        except DroneUserProfile.DoesNotExist:
-            pass
-    except User.DoesNotExist:
-        if drone_user_info := DroneUser.get_user_from_drone(email):
+        if not saleor_user:
+            # try to find a user from the token's email since we didn't find a matching
+            # cognito subscriber id
+            saleor_user = User.objects.get(email=token_email)
+
+        drone_profile = saleor_user.droneuserprofile
+
+    except (User.DoesNotExist, DroneUserProfile.DoesNotExist):
+        # Either we don't have a drone profile, or we don't have a user at all. In
+        # either case we will need to try to create a drone profile for the user.
+        if drone_user_info := DroneUser.get_user_from_drone(token_email):
             user_info = {
                 'is_staff': drone_user_info.access_type == constants.FIRSTECH_ADMIN,
                 'first_name': drone_user_info.first_name,
                 'last_name': drone_user_info.last_name,
             }
-            # It's possible a user with the given email does not exist, because the user
-            # has changed their email inside Drone. Check to see if we already have a
-            # drone profile matching the drone user_id.
-            drone_profile = DroneUserProfile.objects.filter(
-                drone_user_id=drone_user_info.user_id,
-            ).first()
         else:
             user_info = {}
-            drone_user_checked = True
 
-        if drone_profile:
-            # This user already exists, but they have changed their email through the
-            # drone API
-            saleor_user = drone_profile.user
-        else:
-            # This user definitely doesn't exist yet, so create them now
-            saleor_user = User.objects.create_user(email=email, **user_info)
+        if not saleor_user:
+            saleor_user = User.objects.create_user(email=token_email, **user_info)
 
-    # Get or create the DroneUserProfile for the Saleor User if we haven't found it yet
-    if not drone_profile:
-        if not drone_user_info and not drone_user_checked:
-            drone_user_info = DroneUser.get_user_from_drone(email)
         if drone_user_info:
             DroneUserProfile.objects.create(
                 user=saleor_user,
@@ -202,18 +194,18 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
         # The saleor user and drone profile already exist. Refresh the user info from
         # drone if the auth token is newer than the last update timestamp. Or update the
         # profile if it's been more than 1 hour since the last update (needed for our
-        # never expiring internal tokens). Or update if we already have the
-        # drone_user_info.
+        # never expiring internal tokens). Or update if the user's email doesn't match
+        # the email contained in the token.
         token_iat = timezone.datetime.fromtimestamp(
             jwt_payload.get('iat', 0),
             tz=timezone.utc
         )
         if (
-                drone_user_info
+                saleor_user.email != token_email
                 or token_iat > drone_profile.update_date
                 or timezone.now() > drone_profile.update_date + relativedelta(hours=1)
         ):
-            drone_profile.refresh_drone_profile(drone_user_info=drone_user_info)
+            drone_profile.refresh_drone_profile(token_email)
             saleor_user.refresh_from_db()
 
     return saleor_user
