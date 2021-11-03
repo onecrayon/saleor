@@ -3,6 +3,7 @@ from datetime import datetime
 from json import JSONDecodeError
 from slugify import slugify
 from typing import TYPE_CHECKING, Any, Optional, List
+from urllib3.exceptions import InsecureRequestWarning
 
 import pytz
 import requests
@@ -25,6 +26,9 @@ if TYPE_CHECKING:
     from saleor.invoice.models import Invoice
     from saleor.order.models import Order
 
+
+# Suppress only the single warning from urllib3 needed.
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
