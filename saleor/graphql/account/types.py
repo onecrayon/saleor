@@ -233,10 +233,17 @@ class RedactedUser(CountableDjangoObjectType):
     This class needs to be defined BEFORE the full User type below. This ensures that
     graphene will use the full User type as the default type for users when a resolver
     is not explicitly specified."""
+    id = graphene.ID(description="ID of the user.")
+    user_permissions = graphene.List(
+        UserPermission, description="List of user's permissions."
+    )
+    permission_groups = graphene.List(
+        "saleor.graphql.account.types.Group",
+        description="List of user's permission groups.",
+    )
 
     class Meta:
         description = "Represents user data."
-        interfaces = [relay.Node]
         model = get_user_model()
         only_fields = [
             "email",
@@ -247,6 +254,22 @@ class RedactedUser(CountableDjangoObjectType):
             "avatar",
             "language_code",
         ]
+
+    @staticmethod
+    def resolve_id(root: models.User, _info, **kwargs):
+        # We are not using the relay.Node interface so that we can return the id of the
+        # ordinary User id instead of the global id of a "RedactedUser" type
+        return graphene.Node.to_global_id("User", root.id)
+
+    @staticmethod
+    def resolve_user_permissions(root: models.User, _info, **_kwargs):
+        from .resolvers import resolve_permissions
+
+        return resolve_permissions(root)
+
+    @staticmethod
+    def resolve_permission_groups(root: models.User, _info, **_kwargs):
+        return root.groups.all()
 
 
 @key(fields="id")

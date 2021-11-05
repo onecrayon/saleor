@@ -187,7 +187,7 @@ class BusinessPartner(CountableDjangoObjectType):
 
     @staticmethod
     def resolve_company_contacts(root: models.BusinessPartner, _info, **kwargs):
-        return UserModel.objects.filter(sapuserprofile__business_partners=root)
+        return root.company_contacts
 
     @staticmethod
     def resolve_approved_brands(root: models.BusinessPartner, _info, **kwargs):
