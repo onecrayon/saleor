@@ -77,6 +77,13 @@ class BusinessPartner(models.Model):
     sync_partner = models.BooleanField(default=True)
     warranty_preference = models.CharField(max_length=256, blank=True, null=True)
 
+    @property
+    def company_contacts(self):
+        """Returns a queryset of users linked to this business partner. This only
+        includes installer/dealer accounts, and does not include any linked sales reps
+        or sales managers."""
+        return User.objects.filter(sapuserprofile__business_partners=self)
+
 
 class ApprovedBrands(models.Model):
     business_partner = models.OneToOneField(BusinessPartner, on_delete=models.CASCADE)
