@@ -275,6 +275,11 @@ class SAPPlugin(BasePlugin):
                     "sap_bp_code": str(result["CardCode"]),
                 }
             )
+            order.store_value_in_metadata(
+                items={
+                    "due_date": result["DocDueDate"]
+                }
+            )
             order.save(update_fields=["private_metadata"])
 
         return previous_value
@@ -327,7 +332,7 @@ class SAPPlugin(BasePlugin):
                                 "ItemCode": line.order_line.variant.sku,
                                 "Quantity": line.quantity,
                                 "WarehouseCode": line.stock.warehouse.metadata[
-                                    "warehouse_code"
+                                    "warehouse_id"
                                 ],
                             }
                         )
