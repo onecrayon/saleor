@@ -178,8 +178,8 @@ class SAPPlugin(BasePlugin):
             return
 
         try:
-            due_date = order.metadata.get("due_date").strftime("%Y-%m-%d")
-        except AttributeError:
+            due_date = order.metadata["due_date"]
+        except KeyError:
             # Supposedly the due_date is the expected ship date for an order. But SAP
             # doesn't accept posting new orders without one, so default to the order
             # created date since we don't have any other date to go off of
