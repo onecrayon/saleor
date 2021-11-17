@@ -3,10 +3,17 @@ from typing import TYPE_CHECKING, List, Tuple
 
 import graphene
 from django.core.exceptions import ValidationError
+from prices import Money, TaxedMoney
 
 import saleor.product.models as product_models
+from firstech.permissions import SAPCustomerPermissions
+from firstech.SAP import CONFIRMED_ORDERS
+from firstech.SAP.models import BusinessPartner
 from saleor.account import models as user_models
 from saleor.core.permissions import OrderPermissions
+from saleor.core.prices import quantize_price
+from saleor.core.taxes import zero_money
+from saleor.core.tracing import traced_atomic_transaction
 from saleor.discount import DiscountValueType
 from saleor.discount import models as discount_models
 from saleor.graphql.core.types.common import OrderError
@@ -22,18 +29,14 @@ from saleor.graphql.order.mutations.draft_orders import (
 )
 from saleor.graphql.order.mutations.orders import (
     OrderLineDelete,
+    OrderLineInput,
     OrderLinesCreate,
     OrderLineUpdate,
-    OrderLineInput,
 )
-from saleor.order import models as order_models
 from saleor.graphql.order.types import Order, OrderLine
-from firstech.SAP.models import BusinessPartner
-from firstech.permissions import SAPCustomerPermissions
-from saleor.order.utils import get_valid_shipping_methods_for_order
-from ..resolvers import filter_business_partner_by_view_permissions
-
-from ....core.tracing import traced_atomic_transaction
+from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
+from saleor.order import models as order_models
+from saleor.order.utils import get_valid_shipping_methods_for_order, recalculate_order
 
 if TYPE_CHECKING:
     from saleor.plugins.manager import PluginsManager
@@ -203,6 +206,26 @@ class UpsertSAPOrder(DraftOrderUpdate):
         bp = sap_plugin.fetch_business_partner(sap_order["CardCode"])
         billing_address = cls.parse_address_string(sap_order["Address"])
         shipping_address = cls.parse_address_string(sap_order["Address2"])
+        shipping_method_code = sap_order.get("TransportationCode")
+        custom_shipping_price = False
+        if additional_expenses := sap_order.get("DocumentAdditionalExpenses", []):
+            # When shipping (aka freight) prices are defined in SAP they come across as
+            # an "additional expense" with the ExpenseCode == 1. There doesn't appear to
+            # be any other kinds of additional expenses we are using, but we'll check
+            # the expense code just to be safe.
+            for additional_expense in additional_expenses:
+                if additional_expense["ExpenseCode"] == 1:
+                    shipping_price = Money(
+                        Decimal(additional_expense["LineTotal"]),
+                        currency=order.currency,
+                    )
+                    order.shipping_price = quantize_price(
+                        TaxedMoney(net=shipping_price, gross=shipping_price),
+                        order.currency,
+                    )
+                    custom_shipping_price = True
+                    break
+
         contact_list: List[dict] = bp["ContactEmployees"]
 
         # Figure out which user should be attached to this Order
@@ -230,20 +253,18 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
         # The SAP order has all the line items, but we need to rename the keys that it
         # uses to match what Saleor's Order mutations expect. We also only care about
-        # sku and quantity and not any of the other dozens of fields SAP has.
+        # sku, quantity, and discount and not any of the other dozens of fields SAP has.
         lines = []
         # We will make a note of any discounts on line items for later on
         line_item_discounts = {}
-        shipping_method_code = None
         document_lines = sap_order.get("DocumentLines", [])
         if document_lines:
-            shipping_method_code = document_lines[0].get("ShippingMethod")
             for document_line in document_lines:
                 lines.append(
                     {
                         "sku": document_line["ItemCode"],
                         "quantity": int(document_line["Quantity"]),
-                        "discount_percent": document_line["DiscountPercent"],
+                        "discount_percent": document_line.get("DiscountPercent", 0),
                     }
                 )
 
@@ -376,12 +397,29 @@ class UpsertSAPOrder(DraftOrderUpdate):
         # Lookup the shipping method by code and update the order
         if shipping_method_code:
             available_shipping_methods = get_valid_shipping_methods_for_order(order)
-            shipping_method = available_shipping_methods.filter(
+            if shipping_method := available_shipping_methods.filter(
                 private_metadata__TrnspCode=str(shipping_method_code)
-            ).first()
-            order.shipping_method = shipping_method
-            order.shipping_method_name = shipping_method.name
-            order.save()
+            ).first():
+                if not custom_shipping_price:
+                    order.shipping_method = shipping_method
+                    order.shipping_method_name = shipping_method.name
+                else:
+                    # If the SAP order specified a shipping price different than normal
+                    # set the shipping name to something special so that we preserve
+                    # the custom price.
+                    order.shipping_method = None
+                    order.shipping_method_name = shipping_method.name + " - CUSTOM"
+            else:
+                # We have a custom shipping method from SAP. We will set the
+                # shipping_method to None since it doesn't exist in Saleor, but we will
+                # set the shipping name and price to whatever was specified.
+                shipping_method = sap_plugin.fetch_shipping_type(shipping_method_code)
+                order.shipping_method = None
+                order.shipping_method_name = shipping_method["Name"]
+
+        # We will need to call the `recalculate_order` function before we are done, but
+        # some of the discount mutations below will do that for us.
+        need_to_recalculate_order = True
 
         # Include line item discounts
         for line in order.lines.all():
@@ -397,6 +435,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     },
                     order_line_id=graphene.Node.to_global_id("OrderLine", line.id),
                 )
+                need_to_recalculate_order = False
 
         # Include any discounts on the entire sales order
         if sap_order["TotalDiscount"]:
@@ -427,13 +466,18 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     ),
                     input=discount_input,
                 )
+                need_to_recalculate_order = False
 
-        # Sanity check to make sure all of the discounts / tax have been copied over
-        # correctly.
-        if order.total.net.amount != Decimal(sap_order["DocTotal"]):
+        order.save()
+        if need_to_recalculate_order:
+            recalculate_order(order)
+
+        # Sanity check to make sure all of the discounts, tax, and shipping prices
+        # have been copied over correctly.
+        if order.total.net.amount != Decimal(str(sap_order["DocTotal"])):
             raise ValidationError("Saleor order total does not match SAP order total")
 
-        if data.get("confirm_order", False):
+        if data.get("confirm_order", False) and order.status not in CONFIRMED_ORDERS:
             # Try to move this draft order to confirmed
             try:
                 DraftOrderComplete.perform_mutation(
@@ -474,9 +518,8 @@ class FirstechOrderLineUpdate(OrderLineUpdate):
         card_code = instance.order.private_metadata.get("sap_bp_code")
 
         if not filter_business_partner_by_view_permissions(
-                    BusinessPartner.objects.filter(sap_bp_code=card_code),
-                    requester
-                ).exists():
+            BusinessPartner.objects.filter(sap_bp_code=card_code), requester
+        ).exists():
             raise PermissionError()
 
         instance.old_quantity = instance.quantity
@@ -533,9 +576,8 @@ class FirstechOrderLineDelete(OrderLineDelete):
         card_code = line.order.private_metadata.get("sap_bp_code")
 
         if not filter_business_partner_by_view_permissions(
-                    BusinessPartner.objects.filter(sap_bp_code=card_code),
-                    requester
-                ).exists():
+            BusinessPartner.objects.filter(sap_bp_code=card_code), requester
+        ).exists():
             raise PermissionError()
 
         if line.quantity_fulfilled > 0:

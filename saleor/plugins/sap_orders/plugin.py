@@ -1,26 +1,28 @@
 import logging
 from datetime import datetime
 from json import JSONDecodeError
-from slugify import slugify
-from typing import TYPE_CHECKING, Any, Optional, List
-from urllib3.exceptions import InsecureRequestWarning
+from typing import TYPE_CHECKING, Any, List, Optional
 
 import pytz
 import requests
 from django.core.exceptions import ValidationError
+from prices import TaxedMoney
+from slugify import slugify
+from urllib3.exceptions import InsecureRequestWarning
 
+from firstech.SAP import CONFIRMED_ORDERS
 from firstech.SAP import models as sap_models
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
-from saleor.order import FulfillmentStatus, OrderStatus
+from saleor.order import FulfillmentStatus
+from saleor.plugins.base_plugin import BasePlugin, ConfigurationTypeField
 from saleor.plugins.sap_orders import (
     SAPServiceLayerConfiguration,
     get_price_list_cache,
     get_sap_cookies,
     is_truthy,
 )
-
-from ..base_plugin import BasePlugin, ConfigurationTypeField
+from saleor.shipping.models import ShippingMethod
 
 if TYPE_CHECKING:
     from saleor.invoice.models import Invoice
@@ -76,15 +78,6 @@ class SAPPlugin(BasePlugin):
             "label": "SSL Verification",
         },
     }
-
-    CONFIRMED_ORDERS = (
-        OrderStatus.UNFULFILLED,
-        OrderStatus.PARTIALLY_FULFILLED,
-        OrderStatus.FULFILLED,
-        OrderStatus.PARTIALLY_RETURNED,
-        OrderStatus.RETURNED,
-        OrderStatus.CANCELED,
-    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -253,7 +246,7 @@ class SAPPlugin(BasePlugin):
         the dashboard, and also when users complete the checkout process.
         """
         # Only send sales orders to SAP once they have been confirmed
-        if order.status not in self.CONFIRMED_ORDERS:
+        if order.status not in CONFIRMED_ORDERS:
             return previous_value
 
         if order.private_metadata.get("doc_entry"):
@@ -275,11 +268,7 @@ class SAPPlugin(BasePlugin):
                     "sap_bp_code": str(result["CardCode"]),
                 }
             )
-            order.store_value_in_metadata(
-                items={
-                    "due_date": result["DocDueDate"]
-                }
-            )
+            order.store_value_in_metadata(items={"due_date": result["DocDueDate"]})
             order.save(update_fields=["private_metadata"])
 
         return previous_value
@@ -296,7 +285,7 @@ class SAPPlugin(BasePlugin):
         """Trigger when order is updated. Also triggered when fulfillments are created
         or edited."""
         # Only send sales orders to SAP once they have been confirmed
-        if order.status not in self.CONFIRMED_ORDERS:
+        if order.status not in CONFIRMED_ORDERS:
             return previous_value
 
         if doc_entry := order.private_metadata.get("doc_entry"):
@@ -360,7 +349,7 @@ class SAPPlugin(BasePlugin):
     def order_cancelled(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is cancelled."""
         # Only send sales orders to SAP once they have been confirmed
-        if order.status not in self.CONFIRMED_ORDERS:
+        if order.status not in CONFIRMED_ORDERS:
             return previous_value
 
         if doc_entry := order.private_metadata.get("doc_entry"):
@@ -565,3 +554,17 @@ class SAPPlugin(BasePlugin):
             item_price["PriceListName"] = self.price_list_cache[item_price["PriceList"]]
 
         return sap_product
+
+    def fetch_shipping_type(self, code: int) -> dict:
+        return self.service_layer_request("get", f"ShippingTypes({code}")
+
+    def calculate_order_shipping(
+        self, order: "Order", previous_value: TaxedMoney
+    ) -> TaxedMoney:
+        if not ShippingMethod.objects.filter(name=order.shipping_method_name).exists():
+            # Leave the shipping price alone if the name doesn't match an existing
+            # shipping method name. This should only occur if the shipping method and/or
+            # shipping price have been manually set in SAP.
+            return order.shipping_price
+
+        return previous_value
