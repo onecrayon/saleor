@@ -215,13 +215,11 @@ class UpsertSAPOrder(DraftOrderUpdate):
             # the expense code just to be safe.
             for additional_expense in additional_expenses:
                 if additional_expense["ExpenseCode"] == 1:
+                    # prepare the shipping_price. We can't set it yet because the
+                    # draftOrderUpdate mutation will reset it.
                     shipping_price = Money(
                         Decimal(additional_expense["LineTotal"]),
                         currency=order.currency,
-                    )
-                    order.shipping_price = quantize_price(
-                        TaxedMoney(net=shipping_price, gross=shipping_price),
-                        order.currency,
                     )
                     custom_shipping_price = True
                     break
@@ -394,6 +392,12 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     _root, info, id=graphene.Node.to_global_id("OrderLine", line.id)
                 )
 
+        # Set the shipping price
+        if custom_shipping_price:
+            order.shipping_price = quantize_price(
+                TaxedMoney(net=shipping_price, gross=shipping_price),
+                order.currency,
+            )
         # Lookup the shipping method by code and update the order
         if shipping_method_code:
             available_shipping_methods = get_valid_shipping_methods_for_order(order)

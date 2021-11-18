@@ -198,10 +198,19 @@ class SAPPlugin(BasePlugin):
             "DocDate": order.created.strftime("%Y-%m-%d"),
             "DocDueDate": due_date,
             "NumAtCard": po_number,
-            "TransportationCode": transportation_code,
             "Address": cls.address_to_string(order.billing_address),
             "Address2": cls.address_to_string(order.shipping_address),
         }
+        if transportation_code:
+            order_for_sap["TransportationCode"] = transportation_code
+
+        if order.shipping_price:
+            order_for_sap["DocumentAdditionalExpenses"] = [
+                {
+                    "ExpenseCode": 1,
+                    "LineTotal": float(order.shipping_price.net.amount),
+                }
+            ]
 
         document_lines = []
         for line_item in order.lines.all():
@@ -284,12 +293,16 @@ class SAPPlugin(BasePlugin):
     def order_updated(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is updated. Also triggered when fulfillments are created
         or edited."""
-        # Only send sales orders to SAP once they have been confirmed
-        if order.status not in CONFIRMED_ORDERS:
+        # Only send sales orders to SAP once they have been confirmed, or if there is a
+        # doc entry already.
+        if (
+                order.status not in CONFIRMED_ORDERS
+                and not order.private_metadata.get("doc_entry")
+        ):
             return previous_value
 
         if doc_entry := order.private_metadata.get("doc_entry"):
-            # Update and existing sales order in SAP
+            # Update any existing sales order in SAP
             self.service_layer_request(
                 "patch", f"Orders({doc_entry})", body=self.get_order_for_sap(order)
             )
@@ -556,12 +569,12 @@ class SAPPlugin(BasePlugin):
         return sap_product
 
     def fetch_shipping_type(self, code: int) -> dict:
-        return self.service_layer_request("get", f"ShippingTypes({code}")
+        return self.service_layer_request("get", f"ShippingTypes({code})")
 
     def calculate_order_shipping(
         self, order: "Order", previous_value: TaxedMoney
     ) -> TaxedMoney:
-        if not ShippingMethod.objects.filter(name=order.shipping_method_name).exists():
+        if not order.shipping_method:
             # Leave the shipping price alone if the name doesn't match an existing
             # shipping method name. This should only occur if the shipping method and/or
             # shipping price have been manually set in SAP.
