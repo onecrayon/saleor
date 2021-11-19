@@ -577,7 +577,7 @@ class SAPPlugin(BasePlugin):
     ) -> TaxedMoney:
         if order.shipping_method.name == CUSTOM_SAP_SHIPPING_TYPE_NAME:
             # Leave the shipping price alone if the shipping method matches our dummy
-            # shippint method. This should only occur if the shipping method and/or
+            # shipping method. This should only occur if the shipping method and/or
             # shipping price have been manually set in SAP.
             return order.shipping_price
 
