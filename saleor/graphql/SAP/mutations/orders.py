@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from prices import Money, TaxedMoney
 
 import saleor.product.models as product_models
+from firstech.SAP.constants import CUSTOM_SAP_SHIPPING_TYPE_NAME
 from firstech.permissions import SAPCustomerPermissions
 from firstech.SAP import CONFIRMED_ORDERS
 from firstech.SAP.models import BusinessPartner
@@ -21,6 +22,8 @@ from saleor.graphql.order.mutations.discount_order import (
     OrderDiscountAdd,
     OrderDiscountUpdate,
     OrderLineDiscountUpdate,
+    OrderDiscountDelete,
+    OrderLineDiscountRemove,
 )
 from saleor.graphql.order.mutations.draft_orders import (
     DraftOrderComplete,
@@ -37,6 +40,7 @@ from saleor.graphql.order.types import Order, OrderLine
 from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
 from saleor.order import models as order_models
 from saleor.order.utils import get_valid_shipping_methods_for_order, recalculate_order
+from saleor.shipping.models import ShippingMethod
 
 if TYPE_CHECKING:
     from saleor.plugins.manager import PluginsManager
@@ -208,6 +212,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
         shipping_address = cls.parse_address_string(sap_order["Address2"])
         shipping_method_code = sap_order.get("TransportationCode")
         custom_shipping_price = False
+        shipping_price = zero_money(order.currency)
         if additional_expenses := sap_order.get("DocumentAdditionalExpenses", []):
             # When shipping (aka freight) prices are defined in SAP they come across as
             # an "additional expense" with the ExpenseCode == 1. There doesn't appear to
@@ -392,12 +397,6 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     _root, info, id=graphene.Node.to_global_id("OrderLine", line.id)
                 )
 
-        # Set the shipping price
-        if custom_shipping_price:
-            order.shipping_price = quantize_price(
-                TaxedMoney(net=shipping_price, gross=shipping_price),
-                order.currency,
-            )
         # Lookup the shipping method by code and update the order
         if shipping_method_code:
             available_shipping_methods = get_valid_shipping_methods_for_order(order)
@@ -405,21 +404,36 @@ class UpsertSAPOrder(DraftOrderUpdate):
                 private_metadata__TrnspCode=str(shipping_method_code)
             ).first():
                 if not custom_shipping_price:
+                    # This is an ordinary shipping method and price that exists in both
+                    # SAP and Saleor
                     order.shipping_method = shipping_method
                     order.shipping_method_name = shipping_method.name
                 else:
                     # If the SAP order specified a shipping price different than normal
                     # set the shipping name to something special so that we preserve
-                    # the custom price.
-                    order.shipping_method = None
+                    # the custom price. And set the shipping method to the dummy
+                    # shipping method so that the order can be finalized
+                    order.shipping_method = ShippingMethod.objects.get(
+                        name=CUSTOM_SAP_SHIPPING_TYPE_NAME
+                    )
                     order.shipping_method_name = shipping_method.name + " - CUSTOM"
             else:
                 # We have a custom shipping method from SAP. We will set the
-                # shipping_method to None since it doesn't exist in Saleor, but we will
+                # shipping_method to the dummy method, but we will
                 # set the shipping name and price to whatever was specified.
                 shipping_method = sap_plugin.fetch_shipping_type(shipping_method_code)
-                order.shipping_method = None
+                order.shipping_method = ShippingMethod.objects.get(
+                    name=CUSTOM_SAP_SHIPPING_TYPE_NAME
+                )
                 order.shipping_method_name = shipping_method["Name"]
+
+        # Set the shipping price if it's custom. Non-custom prices will be set
+        # automatically by the `recalculate_order` function later on.
+        if custom_shipping_price:
+            order.shipping_price = quantize_price(
+                TaxedMoney(net=shipping_price, gross=shipping_price),
+                order.currency,
+            )
 
         # We will need to call the `recalculate_order` function before we are done, but
         # some of the discount mutations below will do that for us.
@@ -440,6 +454,13 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     order_line_id=graphene.Node.to_global_id("OrderLine", line.id),
                 )
                 need_to_recalculate_order = False
+            elif line.unit_discount_value:
+                # Remove discounts that don't exist in SAP
+                OrderLineDiscountRemove.perform_mutation(
+                    _root,
+                    info,
+                    order_line_id=graphene.Node.to_global_id("OrderLine", line.id),
+                )
 
         # Include any discounts on the entire sales order
         if sap_order["TotalDiscount"]:
@@ -471,6 +492,16 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     input=discount_input,
                 )
                 need_to_recalculate_order = False
+        else:
+            # Remove any discounts that don't exist in SAP
+            for discount_id in order.discounts.values_list("id", flat=True):
+                OrderDiscountDelete.perform_mutation(
+                    _root,
+                    info,
+                    discount_id=graphene.Node.to_global_id(
+                        "OrderDiscount", discount_id
+                    )
+                )
 
         order.save()
         if need_to_recalculate_order:

@@ -12,6 +12,7 @@ from urllib3.exceptions import InsecureRequestWarning
 
 from firstech.SAP import CONFIRMED_ORDERS
 from firstech.SAP import models as sap_models
+from firstech.SAP.constants import CUSTOM_SAP_SHIPPING_TYPE_NAME
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
 from saleor.order import FulfillmentStatus
@@ -201,7 +202,7 @@ class SAPPlugin(BasePlugin):
             "Address": cls.address_to_string(order.billing_address),
             "Address2": cls.address_to_string(order.shipping_address),
         }
-        if transportation_code:
+        if order.shipping_method.name != CUSTOM_SAP_SHIPPING_TYPE_NAME:
             order_for_sap["TransportationCode"] = transportation_code
 
         if order.shipping_price:
@@ -574,7 +575,7 @@ class SAPPlugin(BasePlugin):
     def calculate_order_shipping(
         self, order: "Order", previous_value: TaxedMoney
     ) -> TaxedMoney:
-        if not order.shipping_method:
+        if order.shipping_method.name == CUSTOM_SAP_SHIPPING_TYPE_NAME:
             # Leave the shipping price alone if the name doesn't match an existing
             # shipping method name. This should only occur if the shipping method and/or
             # shipping price have been manually set in SAP.
