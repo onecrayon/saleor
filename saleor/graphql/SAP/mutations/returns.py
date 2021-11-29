@@ -200,13 +200,11 @@ class RequestReturnInput(graphene.types.InputObjectType):
     )
     shipping_address = AddressInput(
         description="Optional shipping address of the customer to use for an exchange "
-        "type return. Defaults to the business partners saved shipping "
-        "address."
+        "type return."
     )
     shipping_method = graphene.ID(
         description="Optional ID of a selected shipping method to use for an exchange "
-        "type return. Defaults to the business partner's saved shipping "
-        "preference.",
+        "type return.",
         name="shippingMethod",
     )
     customer_note = graphene.String(
@@ -214,8 +212,7 @@ class RequestReturnInput(graphene.types.InputObjectType):
         "in the order summary."
     )
     billing_address = AddressInput(
-        description="Optional billing address of the customer. Defaults to the "
-        "business partner's saved billing address."
+        description="Optional billing address of the customer."
     )
     po_number = graphene.String(
         description="Optional PO number to associate the return with."

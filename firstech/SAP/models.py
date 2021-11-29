@@ -247,7 +247,7 @@ class OutsideSalesRep(models.Model):
 
 class SAPReturn(models.Model):
     """This is a really basic table for holding return info that we receive from SAP.
-    These returns aren't created through myFirstech or the dashboard."""
+    """
 
     doc_entry = models.IntegerField(unique=True, null=True, blank=True)
     # This is the creation date of the SAP return document, not the timestamp for being
