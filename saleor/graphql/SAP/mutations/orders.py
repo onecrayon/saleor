@@ -40,7 +40,6 @@ from saleor.graphql.order.types import Order, OrderLine
 from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
 from saleor.order import models as order_models
 from saleor.order.utils import get_valid_shipping_methods_for_order, recalculate_order
-from saleor.shipping.models import ShippingMethod
 
 if TYPE_CHECKING:
     from saleor.plugins.manager import PluginsManager
@@ -413,7 +412,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     # set the shipping name to something special so that we preserve
                     # the custom price. And set the shipping method to the dummy
                     # shipping method so that the order can be finalized
-                    order.shipping_method = ShippingMethod.objects.get(
+                    order.shipping_method = available_shipping_methods.get(
                         name=CUSTOM_SAP_SHIPPING_TYPE_NAME
                     )
                     order.shipping_method_name = shipping_method.name + " - CUSTOM"
@@ -422,7 +421,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
                 # shipping_method to the dummy method, but we will
                 # set the shipping name and price to whatever was specified.
                 shipping_method = sap_plugin.fetch_shipping_type(shipping_method_code)
-                order.shipping_method = ShippingMethod.objects.get(
+                order.shipping_method = available_shipping_methods.get(
                     name=CUSTOM_SAP_SHIPPING_TYPE_NAME
                 )
                 order.shipping_method_name = shipping_method["Name"]
