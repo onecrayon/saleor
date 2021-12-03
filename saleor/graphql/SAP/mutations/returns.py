@@ -293,7 +293,7 @@ class RequestReturn(ModelMutation, I18nMixin):
             if existing_order_po_number != po_number:
                 raise ValidationError(
                     "The order specified by the order input does not have the "
-                    "po number given in the po number input."
+                    "PO number given in the po number input."
                 )
 
         cleaned_input["currency"] = order.currency if order else "USD"
