@@ -205,7 +205,7 @@ class SAPPlugin(BasePlugin):
         if order.shipping_method.name != CUSTOM_SAP_SHIPPING_TYPE_NAME:
             order_for_sap["TransportationCode"] = transportation_code
 
-        if order.shipping_price:
+        if order.shipping_price is not None:
             order_for_sap["DocumentAdditionalExpenses"] = [
                 {
                     "ExpenseCode": 1,

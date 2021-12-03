@@ -4,6 +4,7 @@ from django.db import models
 from django_prices.models import MoneyField, TaxedMoneyField
 
 from firstech.permissions import SAPStaffPermissions, SAPCustomerPermissions
+from firstech.SAP import DroneDistribution, ReturnType, ReturnStatus
 from saleor.account.models import Address, User
 from saleor.channel.models import Channel
 from saleor.checkout import AddressType
@@ -11,7 +12,6 @@ from saleor.order.models import Order
 from saleor.product.models import ProductVariant
 from saleor.shipping.models import ShippingMethod
 
-from . import DroneDistribution
 
 DEFAULT_CHANNEL_ID = 1
 
@@ -247,16 +247,16 @@ class OutsideSalesRep(models.Model):
 
 class SAPReturn(models.Model):
     """This is a really basic table for holding return info that we receive from SAP.
-    These returns aren't created through myFirstech or the dashboard."""
+    """
 
-    doc_entry = models.IntegerField(unique=True)
+    doc_entry = models.IntegerField(unique=True, null=True, blank=True)
     # This is the creation date of the SAP return document, not the timestamp for being
     # added to this table
-    create_date = models.DateField(blank=True, null=True)
+    sap_create_date = models.DateField(blank=True, null=True)
     business_partner = models.ForeignKey(BusinessPartner, on_delete=models.CASCADE)
     order = models.ForeignKey(Order, blank=True, null=True, on_delete=models.SET_NULL)
     remarks = models.TextField(blank=True, null=True)
-    purchase_order = models.CharField(max_length=255, blank=True, null=True)
+    po_number = models.CharField(max_length=255, blank=True, null=True)
 
     currency = models.CharField(
         max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH,
@@ -285,6 +285,44 @@ class SAPReturn(models.Model):
         gross_amount_field="total_gross_amount",
         currency_field="currency",
     )
+
+    return_type = models.CharField(
+        max_length=32, default=ReturnType.EXCHANGE, choices=ReturnType.CHOICES
+    )
+
+    status = models.CharField(
+        max_length=32, default=ReturnStatus.PENDING, choices=ReturnStatus.CHOICES
+    )
+
+    rma_base = models.CharField(max_length=32, null=True, blank=True, db_index=True)
+
+    rma_number = models.CharField(max_length=32, unique=True, null=True, blank=True)
+
+    billing_address = models.ForeignKey(
+        "account.Address",
+        related_name="+",
+        editable=False,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+
+    shipping_address = models.ForeignKey(
+        "account.Address",
+        related_name="+",
+        editable=False,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
+    # There's no need to link to the actual shipping method object which is dependent
+    # on the value of the order, the shipping address, channel, etc. We will record the
+    # name of the shipping method that should be used in the event of an exchange. The
+    # exchange will be sent using a new order created from information in this return.
+    # At that time the exact shipping method can be determined.
+    shipping_method_name = models.CharField(
+        max_length=255, null=True, default=None, blank=True, editable=False
+    )
+
+    customer_note = models.TextField(blank=True, default="")
 
 
 class SAPReturnLine(models.Model):

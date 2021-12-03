@@ -4,22 +4,22 @@ from graphene_federation import key
 
 from firstech.permissions import SAPCustomerPermissions
 from firstech.SAP import models
-from saleor.account.models import User as UserModel
 from saleor.core.permissions import (
     AccountPermissions,
     OrderPermissions,
     has_one_of_permissions,
 )
+from saleor.core.tracing import traced_resolver
+from saleor.graphql.channel import ChannelContext
+from saleor.graphql.core.connection import CountableDjangoObjectType
+from saleor.graphql.core.fields import PrefetchingConnectionField
+from saleor.graphql.core.types import Error
+from saleor.graphql.core.types.money import Money
+from saleor.graphql.decorators import one_of_permissions_required, permission_required
 from saleor.graphql.SAP.dataloaders import OrdersByBusinessPartnerLoader
-
-from ...core.tracing import traced_resolver
-from ..core.connection import CountableDjangoObjectType
-from ..core.fields import PrefetchingConnectionField
-from ..core.types import Error
-from ..core.types.money import Money
-from ..decorators import one_of_permissions_required, permission_required
-from ..utils import get_user_or_app_from_context
-from .resolvers import filter_business_partner_by_view_permissions
+from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
+from saleor.graphql.utils import get_user_or_app_from_context
+from saleor.product.models import ALL_PRODUCTS_PERMISSIONS, ProductChannelListing
 
 
 class BusinessPartnerError(Error):
@@ -338,11 +338,31 @@ class SAPReturnLine(CountableDjangoObjectType):
 
     @staticmethod
     @traced_resolver
-    def resolve_variant(root, info):
-        # Need to import here to avoid circular import
-        from saleor.graphql.order.types import OrderLine
+    def resolve_variant(root: models.SAPReturnLine, info):
+        """This resolver is largely taken from the `resolve_variant` method from the
+        Order type. However, that resolver goes absolutely crazy with asynchronous
+        dataloaders to retrieve one variant. So this is just a simplified version."""
+        context = info.context
+        if not root.variant_id:
+            return None
 
-        return OrderLine.resolve_variant(root, info)
+        variant = root.variant
+        channel = root.sap_return.business_partner.channel
+
+        # Check Permissions
+        requester = get_user_or_app_from_context(context)
+        has_required_permission = has_one_of_permissions(
+            requester, ALL_PRODUCTS_PERMISSIONS
+        )
+        if has_required_permission:
+            return ChannelContext(node=variant, channel_slug=channel.slug)
+
+        product_channel_listing = ProductChannelListing.objects.filter(
+            product_id=variant.product_id,
+            channel_id=channel.id,
+        ).first()
+        if product_channel_listing and product_channel_listing.is_visible:
+            return ChannelContext(node=variant, channel_slug=channel.slug)
 
 
 class SAPReturn(CountableDjangoObjectType):
@@ -356,15 +376,22 @@ class SAPReturn(CountableDjangoObjectType):
         interfaces = [relay.Node]
         only_fields = [
             "doc_entry",
-            "create_date",
+            "sap_create_date",
             "business_partner",
             "order",
             "remarks",
-            "purchase_order",
+            "po_number",
             "lines",
             "total",
             "total_net",
             "total_gross",
+            "return_type",
+            "status",
+            "rma_number",
+            "billing_address",
+            "shipping_address",
+            "shipping_method_name",
+            "customer_note",
         ]
 
     @staticmethod
@@ -397,11 +424,31 @@ class SAPCreditMemoLine(CountableDjangoObjectType):
 
     @staticmethod
     @traced_resolver
-    def resolve_variant(root, info):
-        # Need to import here to avoid circular import
-        from saleor.graphql.order.types import OrderLine
+    def resolve_variant(root: models.SAPCreditMemoLine, info):
+        """This resolver is largely taken from the `resolve_variant` method from the
+        Order type. However, that resolver goes absolutely crazy with asynchronous
+        dataloaders to retrieve one variant. So this is just a simplified version."""
+        context = info.context
+        if not root.variant_id:
+            return None
 
-        return OrderLine.resolve_variant(root, info)
+        variant = root.variant
+        channel = root.sap_credit_memo.business_partner.channel
+
+        # Check Permissions
+        requester = get_user_or_app_from_context(context)
+        has_required_permission = has_one_of_permissions(
+            requester, ALL_PRODUCTS_PERMISSIONS
+        )
+        if has_required_permission:
+            return ChannelContext(node=variant, channel_slug=channel.slug)
+
+        product_channel_listing = ProductChannelListing.objects.filter(
+            product_id=variant.product_id,
+            channel_id=channel.id,
+        ).first()
+        if product_channel_listing and product_channel_listing.is_visible:
+            return ChannelContext(node=variant, channel_slug=channel.slug)
 
 
 class SAPCreditMemo(CountableDjangoObjectType):

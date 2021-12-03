@@ -18,7 +18,7 @@ from saleor.graphql.SAP.mutations.orders import (
     FirstechOrderLineDelete,
 )
 from saleor.graphql.SAP.mutations.products import UpsertSAPProduct
-from saleor.graphql.SAP.mutations.returns import UpsertSAPReturnDocument
+from saleor.graphql.SAP.mutations.returns import UpsertSAPReturnDocument, RequestReturn
 from saleor.graphql.SAP.mutations.permission_group import (
     CustomerPermissionGroupCreate,
     CustomerPermissionGroupUpdate,
@@ -84,3 +84,4 @@ class SAPMutations(graphene.ObjectType):
     update_customer_permission_group = CustomerPermissionGroupUpdate.Field()
     firstech_order_line_update = FirstechOrderLineUpdate.Field()
     firstech_order_line_delete = FirstechOrderLineDelete.Field()
+    request_return = RequestReturn.Field()
