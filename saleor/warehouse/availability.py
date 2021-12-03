@@ -9,7 +9,7 @@ from ..plugins.manager import get_plugins_manager
 from .models import Stock, StockQuerySet
 
 if TYPE_CHECKING:
-    from ..product.models import Product, ProductVariant
+    from ..product.models import ProductVariant
 
 
 def _get_available_quantity(stocks: StockQuerySet) -> int:
@@ -55,6 +55,8 @@ def check_stock_quantity_bulk(
     country_code: str,
     quantities: Iterable[int],
     channel_slug: str,
+    existing_lines: Iterable = None,
+    replace=False,
 ):
     """Validate if there is stock available for given variants in given country.
 
@@ -71,20 +73,26 @@ def check_stock_quantity_bulk(
         variant_stocks[stock.product_variant_id].append(stock)
 
     insufficient_stocks: List[InsufficientStockData] = []
+    variants_quantities = {
+        line.variant.pk: line.line.quantity for line in existing_lines or []
+    }
     for variant, quantity in zip(variants, quantities):
+        if not replace:
+            quantity += variants_quantities.get(variant.pk, 0)
+
         stocks = variant_stocks.get(variant.pk, [])
         available_quantity = sum(
             [stock.available_quantity for stock in stocks]  # type: ignore
         )
 
-        if not stocks:
-            insufficient_stocks.append(
-                InsufficientStockData(
-                    variant=variant, available_quantity=available_quantity
+        if quantity > 0:
+            if not stocks:
+                insufficient_stocks.append(
+                    InsufficientStockData(
+                        variant=variant, available_quantity=available_quantity
+                    )
                 )
-            )
-        elif variant.track_inventory:
-            if quantity > available_quantity:
+            elif variant.track_inventory and quantity > available_quantity:
                 insufficient_stocks.append(
                     InsufficientStockData(
                         variant=variant, available_quantity=available_quantity
@@ -93,13 +101,3 @@ def check_stock_quantity_bulk(
 
     if insufficient_stocks:
         raise InsufficientStock(insufficient_stocks)
-
-
-def is_product_in_stock(
-    product: "Product", country_code: str, channel_slug: str
-) -> bool:
-    """Check if there is any variant of given product available in given country."""
-    stocks = Stock.objects.get_product_stocks_for_country_and_channel(
-        country_code, channel_slug, product
-    ).annotate_available_quantity()
-    return any(stocks.values_list("available_quantity", flat=True))

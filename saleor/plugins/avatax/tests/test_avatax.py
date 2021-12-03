@@ -174,8 +174,8 @@ def test_calculate_order_line_total_order_not_valid(
     net = variant.get_price(product, [], channel, channel_listing)
     unit_price = TaxedMoney(net=net, gross=net)
     order_line.unit_price = unit_price
-    total_price = unit_price * order_line.quantity
-    order_line.total_price = total_price
+    expected_total_price = unit_price * order_line.quantity
+    order_line.total_price = expected_total_price
     order_line.save()
 
     total = manager.calculate_order_line_total(
@@ -185,7 +185,54 @@ def test_calculate_order_line_total_order_not_valid(
         product,
     )
     total = quantize_price(total, total.currency)
-    assert total == TaxedMoney(net=Money("0.00", "USD"), gross=Money("0.00", "USD"))
+    assert total == expected_total_price
+
+
+@override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
+def test_calculate_order_shipping_order_not_valid(
+    order_line,
+    address,
+    site_settings,
+    monkeypatch,
+    plugin_configuration,
+    shipping_method,
+):
+    # given
+    plugin_configuration()
+    manager = get_plugins_manager()
+
+    site_settings.company_address = address
+    site_settings.save(update_fields=["company_address"])
+
+    variant = order_line.variant
+    product = variant.product
+    product.metadata = {}
+    product.charge_taxes = True
+    product.save()
+    product.product_type.save()
+
+    order = order_line.order
+
+    expected_shipping_price = TaxedMoney(
+        net=Money("10.00", "USD"), gross=Money("10.00", "USD")
+    )
+    order.shipping_address = None
+    order.shipping_method = shipping_method
+    order.save()
+
+    order.shipping_method.channel_listings.filter(channel_id=order.channel_id).update(
+        price_amount=Decimal("10.00")
+    )
+
+    # when
+    shipping_price = manager.calculate_order_shipping(
+        order,
+    )
+
+    # then
+    shipping_price = quantize_price(shipping_price, shipping_price.currency)
+
+    assert shipping_price == expected_shipping_price
 
 
 @pytest.mark.vcr
@@ -1202,6 +1249,32 @@ def test_get_checkout_shipping_tax_rate(
 
 
 @override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
+def test__get_shipping_tax_rate_handles_multiple_tax_districts(
+    avalara_response_for_checkout_with_items_and_shipping, channel_USD
+):
+    manager = get_plugins_manager()
+    plugin = manager.get_plugin(AvataxPlugin.PLUGIN_ID, channel_USD.slug)
+
+    # 0.46 == sum of two tax districts
+    assert Decimal("0.46") == plugin._get_shipping_tax_rate(
+        avalara_response_for_checkout_with_items_and_shipping, Decimal(0.0)
+    ).quantize(Decimal(".01"))
+
+
+@override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
+def test__get_unit_tax_rate_handles_multiple_tax_districts(
+    avalara_response_for_checkout_with_items_and_shipping, channel_USD
+):
+    manager = get_plugins_manager()
+    plugin = manager.get_plugin(AvataxPlugin.PLUGIN_ID, channel_USD.slug)
+
+    # 0.36 == sum of two tax districts
+    assert Decimal("0.36") == plugin._get_unit_tax_rate(
+        avalara_response_for_checkout_with_items_and_shipping, "123", Decimal(0.0)
+    ).quantize(Decimal(".01"))
+
+
+@override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
 def test_get_checkout_shipping_tax_rate_checkout_not_valid_default_value_returned(
     monkeypatch, checkout_with_item, address, plugin_configuration
 ):
@@ -1501,6 +1574,7 @@ def test_order_created(api_post_request_task_mock, order, plugin_configuration):
         from_city="WROCŁAW",
         from_postal_code="53-601",
         from_country="PL",
+        shipping_tax_code="FR00001",
     )
     conf = {data["name"]: data["value"] for data in plugin_conf.configuration}
 
@@ -1554,6 +1628,7 @@ def test_order_created(api_post_request_task_mock, order, plugin_configuration):
         "from_postal_code": conf["from_postal_code"],
         "from_country": conf["from_country"],
         "from_country_area": conf["from_country_area"],
+        "shipping_tax_code": conf["shipping_tax_code"],
     }
 
     api_post_request_task_mock.assert_called_once_with(

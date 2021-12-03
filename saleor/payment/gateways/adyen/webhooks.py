@@ -5,7 +5,7 @@ import hmac
 import json
 import logging
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from urllib.parse import urlencode, urlparse
 
 import Adyen
@@ -39,16 +39,18 @@ from ....order.actions import (
 from ....order.events import external_notification_event
 from ....payment.models import Payment, Transaction
 from ....plugins.manager import get_plugins_manager
-from ... import ChargeStatus, PaymentError, TransactionKind
+from ... import ChargeStatus, PaymentError, TransactionKind, gateway
 from ...gateway import payment_refund_or_void
 from ...interface import GatewayConfig, GatewayResponse
-from ...utils import create_payment_information, create_transaction, gateway_postprocess
-from .utils.common import FAILED_STATUSES, api_call, from_adyen_price
+from ...utils import (
+    create_payment_information,
+    create_transaction,
+    gateway_postprocess,
+    price_from_minor_unit,
+)
+from .utils.common import FAILED_STATUSES, api_call
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    from ....plugins.manager import PluginsManager
 
 
 def get_payment(
@@ -115,7 +117,9 @@ def get_transaction(
 def create_new_transaction(notification, payment, kind):
     transaction_id = notification.get("pspReference")
     currency = notification.get("amount", {}).get("currency")
-    amount = from_adyen_price(notification.get("amount", {}).get("value"), currency)
+    amount = price_from_minor_unit(
+        notification.get("amount", {}).get("value"), currency
+    )
     is_success = True if notification.get("success") == "true" else False
 
     gateway_response = GatewayResponse(
@@ -149,6 +153,7 @@ def create_payment_notification_for_order(
     external_notification_event(
         order=payment.order,
         user=None,
+        app=None,
         message=msg,
         parameters={"service": payment.gateway, "id": payment.token},
     )
@@ -167,6 +172,7 @@ def create_order(payment, checkout, manager):
             store_source=False,
             discounts=discounts,
             user=checkout.user or AnonymousUser(),
+            app=None,
         )
     except ValidationError:
         payment_refund_or_void(payment, manager, checkout_info.channel.slug)
@@ -199,6 +205,8 @@ def handle_not_created_order(notification, payment, checkout, kind, manager):
 
     # Only when we confirm that notification is success we will create the order
     if transaction.is_success and checkout:  # type: ignore
+        confirm_payment_and_set_back_to_confirm(payment, manager, checkout.channel.slug)
+        payment.refresh_from_db()  # refresh charge_status
         order = create_order(payment, checkout, manager)
         return order
     return None
@@ -236,11 +244,21 @@ def handle_authorization(notification: Dict[str, Any], gateway_config: GatewayCo
                 gateway_postprocess(new_transaction, payment)
                 if adyen_auto_capture:
                     order_captured(
-                        payment.order, None, new_transaction.amount, payment, manager
+                        payment.order,
+                        None,
+                        None,
+                        new_transaction.amount,
+                        payment,
+                        manager,
                     )
                 else:
                     order_authorized(
-                        payment.order, None, new_transaction.amount, payment, manager
+                        payment.order,
+                        None,
+                        None,
+                        new_transaction.amount,
+                        payment,
+                        manager,
                     )
     reason = notification.get("reason", "-")
     is_success = True if notification.get("success") == "true" else False
@@ -254,7 +272,6 @@ def handle_authorization(notification: Dict[str, Any], gateway_config: GatewayCo
 def handle_cancellation(
     notification: Dict[str, Any],
     _gateway_config: GatewayConfig,
-    manager: "PluginsManager",
 ):
     # https://docs.adyen.com/checkout/cancel#cancellation-notifciation
     transaction_id = notification.get("pspReference")
@@ -282,7 +299,8 @@ def handle_cancellation(
         payment, success_msg, failed_msg, new_transaction.is_success
     )
     if payment.order and new_transaction.is_success:
-        cancel_order(payment.order, None, manager)
+        manager = get_plugins_manager()
+        cancel_order(payment.order, None, None, manager)
 
 
 def handle_cancel_or_refund(
@@ -290,14 +308,13 @@ def handle_cancel_or_refund(
 ):
     # https://docs.adyen.com/checkout/cancel-or-refund#cancel-or-refund-notification
     additional_data = notification.get("additionalData")
-    manager = get_plugins_manager()
     if not additional_data:
         return
     action = additional_data.get("modification.action")
     if action == "refund":
         handle_refund(notification, gateway_config)
     elif action == "cancel":
-        handle_cancellation(notification, gateway_config, manager)
+        handle_cancellation(notification, gateway_config)
 
 
 def handle_capture(notification: Dict[str, Any], _gateway_config: GatewayConfig):
@@ -325,7 +342,7 @@ def handle_capture(notification: Dict[str, Any], _gateway_config: GatewayConfig)
         if new_transaction.is_success and not capture_transaction:
             gateway_postprocess(new_transaction, payment)
             order_captured(
-                payment.order, None, new_transaction.amount, payment, manager
+                payment.order, None, None, new_transaction.amount, payment, manager
             )
 
     reason = notification.get("reason", "-")
@@ -407,7 +424,12 @@ def handle_refund(notification: Dict[str, Any], _gateway_config: GatewayConfig):
     )
     if payment.order and new_transaction.is_success:
         order_refunded(
-            payment.order, None, new_transaction.amount, payment, get_plugins_manager()
+            payment.order,
+            None,
+            None,
+            new_transaction.amount,
+            payment,
+            get_plugins_manager(),
         )
 
 
@@ -663,24 +685,38 @@ def handle_webhook(request: WSGIRequest, gateway_config: "GatewayConfig"):
 
 @transaction_with_commit_on_errors()
 def handle_additional_actions(
-    request: WSGIRequest,
-    payment_details: Callable,
+    request: WSGIRequest, payment_details: Callable, channel_slug: str
 ):
     payment_id = request.GET.get("payment")
     checkout_pk = request.GET.get("checkout")
 
     if not payment_id or not checkout_pk:
+        logger.warning(
+            "Missing payment_id or checkout id in Adyen's request.",
+            extra={"payment_id": payment_id, "checkout_id": checkout_pk},
+        )
         return HttpResponseNotFound()
 
     payment = get_payment(payment_id, transaction_id=None)
     if not payment:
-        return HttpResponseNotFound(
-            "Cannot perform payment.There is no active adyen payment."
+        logger.warning(
+            "Payment doesn't exist or is not active.", extra={"payment_id": payment_id}
         )
-    if not payment.checkout or str(payment.checkout.token) != checkout_pk:
         return HttpResponseNotFound(
-            "Cannot perform payment.There is no checkout with this payment."
+            "Cannot perform payment. There is no active Adyen payment."
         )
+
+    # Adyen for some payment methods can call success notification before we will
+    # call an additional_action.
+    if not payment.order_id:
+        if not payment.checkout or str(payment.checkout.token) != checkout_pk:
+            logger.warning(
+                "There is no checkout with this payment.",
+                extra={"checkout_pk": checkout_pk, "payment_id": payment_id},
+            )
+            return HttpResponseNotFound(
+                "Cannot perform payment. There is no checkout with this payment."
+            )
 
     extra_data = json.loads(payment.extra_data)
     data = extra_data[-1] if isinstance(extra_data, list) else extra_data
@@ -688,6 +724,10 @@ def handle_additional_actions(
     return_url = payment.return_url
 
     if not return_url:
+        logger.warning(
+            "Missing return_url for payment.",
+            extra={"payment_id": payment_id, "checkout_pk": checkout_pk},
+        )
         return HttpResponseNotFound(
             "Cannot perform payment. Lack of data about returnUrl."
         )
@@ -700,7 +740,7 @@ def handle_additional_actions(
         result = api_call(request_data, payment_details)
     except PaymentError as e:
         return HttpResponseBadRequest(str(e))
-    handle_api_response(payment, result)
+    handle_api_response(payment, result, channel_slug)
     redirect_url = prepare_redirect_url(payment_id, checkout_pk, result, return_url)
     parsed = urlparse(return_url)
     redirect_class = HttpResponseRedirect
@@ -752,10 +792,7 @@ def prepare_redirect_url(
     return prepare_url(urlencode(params), return_url)
 
 
-def handle_api_response(
-    payment: Payment,
-    response: Adyen.Adyen,
-):
+def handle_api_response(payment: Payment, response: Adyen.Adyen, channel_slug: str):
     checkout = get_checkout(payment)
     payment_data = create_payment_information(
         payment=payment,
@@ -796,4 +833,29 @@ def handle_api_response(
         gateway_response=gateway_response,
     )
     if is_success and not action_required and not payment.order:
-        create_order(payment, checkout, get_plugins_manager())
+        manager = get_plugins_manager()
+
+        confirm_payment_and_set_back_to_confirm(payment, manager, channel_slug)
+        payment.refresh_from_db()  # refresh charge_status
+
+        create_order(payment, checkout, manager)
+
+
+def confirm_payment_and_set_back_to_confirm(payment, manager, channel_slug):
+    # The workaround for refund payments when something will crash in
+    # `create_order` function before processing a payment.
+    # At this moment we have a payment processed on Adyen side but we have to do
+    # something more on Saleor side (ACTION_TO_CONFIRM), it's create an order in
+    # this case, so before try to create the order we have to confirm the payment
+    # and force change the flag to_confirm to True again.
+    #
+    # This is because we have to handle 2 flows:
+    # 1. Having confirmed payment to refund easily when we can't create an order.
+    # 2. Do not process payment again when `complete_checkout` logic will execute
+    #    in `create_order` without errors. We just receive a processed transaction
+    #    then.
+    #
+    # This fix is related to SALEOR-4777. PR #8471
+    gateway.confirm(payment, manager, channel_slug)
+    payment.to_confirm = True
+    payment.save(update_fields=["to_confirm"])

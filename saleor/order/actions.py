@@ -62,6 +62,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from ..app.models import App
     from ..plugins.manager import PluginsManager
     from ..warehouse.models import Warehouse
 
@@ -73,9 +74,13 @@ QuantityType = int
 
 
 def order_created(
-    order: "Order", user: "User", manager: "PluginsManager", from_draft: bool = False
+    order: "Order",
+    user: "User",
+    app: Optional["App"],
+    manager: "PluginsManager",
+    from_draft: bool = False,
 ):
-    events.order_created_event(order=order, user=user, from_draft=from_draft)
+    events.order_created_event(order=order, user=user, app=app, from_draft=from_draft)
     manager.order_created(order)
     payment = order.get_last_payment()
     if payment:
@@ -83,6 +88,7 @@ def order_created(
             order_captured(
                 order=order,
                 user=user,
+                app=app,
                 amount=payment.total,
                 payment=payment,
                 manager=manager,
@@ -91,18 +97,20 @@ def order_created(
             order_authorized(
                 order=order,
                 user=user,
+                app=app,
                 amount=payment.total,
                 payment=payment,
                 manager=manager,
             )
     site_settings = Site.objects.get_current().settings
     if site_settings.automatically_confirm_all_new_orders:
-        order_confirmed(order, user, manager)
+        order_confirmed(order, user, app, manager)
 
 
 def order_confirmed(
     order: "Order",
     user: "User",
+    app: Optional["App"],
     manager: "PluginsManager",
     send_confirmation_email: bool = False,
 ):
@@ -110,16 +118,19 @@ def order_confirmed(
 
     Trigger event, plugin hooks and optionally confirmation email.
     """
-    events.order_confirmed_event(order=order, user=user)
+    events.order_confirmed_event(order=order, user=user, app=app)
     manager.order_confirmed(order)
     if send_confirmation_email:
-        send_order_confirmed(order, user, manager)
+        send_order_confirmed(order, user, app, manager)
 
 
 def handle_fully_paid_order(
-    manager: "PluginsManager", order: "Order", user: Optional["User"] = None
+    manager: "PluginsManager",
+    order: "Order",
+    user: Optional["User"] = None,
+    app: Optional["App"] = None,
 ):
-    events.order_fully_paid_event(order=order, user=user)
+    events.order_fully_paid_event(order=order, user=user, app=app)
     if order.get_customer_email():
         send_payment_confirmation(order, manager)
 
@@ -135,13 +146,18 @@ def handle_fully_paid_order(
 
 
 @traced_atomic_transaction()
-def cancel_order(order: "Order", user: Optional["User"], manager: "PluginsManager"):
+def cancel_order(
+    order: "Order",
+    user: Optional["User"],
+    app: Optional["App"],
+    manager: "PluginsManager",
+):
     """Cancel order.
 
     Release allocation of unfulfilled order items.
     """
 
-    events.order_canceled_event(order=order, user=user)
+    events.order_canceled_event(order=order, user=user, app=app)
 
     deallocate_stock_for_order(order)
     order.status = OrderStatus.CANCELED
@@ -150,37 +166,45 @@ def cancel_order(order: "Order", user: Optional["User"], manager: "PluginsManage
     manager.order_cancelled(order)
     manager.order_updated(order)
 
-    send_order_canceled_confirmation(order, user, manager)
+    send_order_canceled_confirmation(order, user, app, manager)
 
 
 def order_refunded(
     order: "Order",
     user: Optional["User"],
+    app: Optional["App"],
     amount: "Decimal",
     payment: "Payment",
     manager: "PluginsManager",
 ):
     events.payment_refunded_event(
-        order=order, user=user, amount=amount, payment=payment
+        order=order, user=user, app=app, amount=amount, payment=payment
     )
     manager.order_updated(order)
 
-    send_order_refunded_confirmation(order, user, amount, payment.currency, manager)
+    send_order_refunded_confirmation(
+        order, user, app, amount, payment.currency, manager
+    )
 
 
 def order_voided(
-    order: "Order", user: "User", payment: "Payment", manager: "PluginsManager"
+    order: "Order",
+    user: Optional["User"],
+    app: Optional["App"],
+    payment: "Payment",
+    manager: "PluginsManager",
 ):
-    events.payment_voided_event(order=order, user=user, payment=payment)
+    events.payment_voided_event(order=order, user=user, app=app, payment=payment)
     manager.order_updated(order)
 
 
 def order_returned(
     order: "Order",
     user: Optional["User"],
+    app: Optional["App"],
     returned_lines: List[Tuple[QuantityType, OrderLine]],
 ):
-    order_returned_event(order=order, user=user, returned_lines=returned_lines)
+    order_returned_event(order=order, user=user, app=app, returned_lines=returned_lines)
     update_order_status(order)
 
 
@@ -188,6 +212,7 @@ def order_returned(
 def order_fulfilled(
     fulfillments: List["Fulfillment"],
     user: "User",
+    app: Optional["App"],
     fulfillment_lines: List["FulfillmentLine"],
     manager: "PluginsManager",
     notify_customer=True,
@@ -195,7 +220,7 @@ def order_fulfilled(
     order = fulfillments[0].order
     update_order_status(order)
     events.fulfillment_fulfilled_items_event(
-        order=order, user=user, fulfillment_lines=fulfillment_lines
+        order=order, user=user, app=app, fulfillment_lines=fulfillment_lines
     )
     manager.order_updated(order)
 
@@ -207,7 +232,9 @@ def order_fulfilled(
 
     if notify_customer:
         for fulfillment in fulfillments:
-            send_fulfillment_confirmation_to_customer(order, fulfillment, user, manager)
+            send_fulfillment_confirmation_to_customer(
+                order, fulfillment, user, app, manager
+            )
 
 
 def order_shipping_updated(order: "Order", manager: "PluginsManager"):
@@ -218,12 +245,13 @@ def order_shipping_updated(order: "Order", manager: "PluginsManager"):
 def order_authorized(
     order: "Order",
     user: Optional["User"],
+    app: Optional["App"],
     amount: "Decimal",
     payment: "Payment",
     manager: "PluginsManager",
 ):
     events.payment_authorized_event(
-        order=order, user=user, amount=amount, payment=payment
+        order=order, user=user, app=app, amount=amount, payment=payment
     )
     manager.order_updated(order)
 
@@ -231,27 +259,30 @@ def order_authorized(
 def order_captured(
     order: "Order",
     user: Optional["User"],
+    app: Optional["App"],
     amount: "Decimal",
     payment: "Payment",
     manager: "PluginsManager",
 ):
     events.payment_captured_event(
-        order=order, user=user, amount=amount, payment=payment
+        order=order, user=user, app=app, amount=amount, payment=payment
     )
     manager.order_updated(order)
     if order.is_fully_paid():
-        handle_fully_paid_order(manager, order, user)
+        handle_fully_paid_order(manager, order, user, app)
 
 
 def fulfillment_tracking_updated(
     fulfillment: "Fulfillment",
     user: "User",
+    app: Optional["App"],
     tracking_number: str,
     manager: "PluginsManager",
 ):
     events.fulfillment_tracking_updated_event(
         order=fulfillment.order,
         user=user,
+        app=app,
         tracking_number=tracking_number,
         fulfillment=fulfillment,
     )
@@ -262,6 +293,7 @@ def fulfillment_tracking_updated(
 def cancel_fulfillment(
     fulfillment: "Fulfillment",
     user: "User",
+    app: Optional["App"],
     warehouse: "Warehouse",
     manager: "PluginsManager",
 ):
@@ -272,11 +304,12 @@ def cancel_fulfillment(
     fulfillment = Fulfillment.objects.select_for_update().get(pk=fulfillment.pk)
     restock_fulfillment_lines(fulfillment, warehouse)
     events.fulfillment_canceled_event(
-        order=fulfillment.order, user=user, fulfillment=fulfillment
+        order=fulfillment.order, user=user, app=app, fulfillment=fulfillment
     )
     events.fulfillment_restocked_items_event(
         order=fulfillment.order,
         user=user,
+        app=app,
         fulfillment=fulfillment,
         warehouse_pk=warehouse.pk,
     )
@@ -290,6 +323,7 @@ def cancel_fulfillment(
 def mark_order_as_paid(
     order: "Order",
     request_user: "User",
+    app: Optional["App"],
     manager: "PluginsManager",
     external_reference: Optional[str] = None,
 ):
@@ -323,7 +357,10 @@ def mark_order_as_paid(
         gateway_response={},
     )
     events.order_manually_marked_as_paid_event(
-        order=order, user=request_user, transaction_reference=external_reference
+        order=order,
+        user=request_user,
+        app=app,
+        transaction_reference=external_reference,
     )
     manager.order_fully_paid(order)
     manager.order_updated(order)
@@ -339,11 +376,17 @@ def clean_mark_order_as_paid(order: "Order"):
 
 
 @traced_atomic_transaction()
-def fulfill_order_lines(order_lines_info: Iterable["OrderLineData"]):
+def fulfill_order_lines(
+    order_lines_info: Iterable["OrderLineData"],
+    allow_stock_to_be_exceeded: bool = False,
+):
     """Fulfill order line with given quantity."""
     lines_to_decrease_stock = get_order_lines_with_track_inventory(order_lines_info)
     if lines_to_decrease_stock:
-        decrease_stock(lines_to_decrease_stock)
+        decrease_stock(
+            lines_to_decrease_stock,
+            allow_stock_to_be_exceeded=allow_stock_to_be_exceeded,
+        )
     order_lines = []
     for line_info in order_lines_info:
         line = line_info.line
@@ -395,7 +438,7 @@ def automatically_fulfill_digital_lines(order: "Order", manager: "PluginsManager
     fulfill_order_lines(lines_info)
 
     send_fulfillment_confirmation_to_customer(
-        order, fulfillment, user=order.user, manager=manager
+        order, fulfillment, user=order.user, app=None, manager=manager
     )
     update_order_status(order)
 
@@ -405,6 +448,7 @@ def _create_fulfillment_lines(
     warehouse_pk: str,
     lines_data: List[Dict],
     channel_slug: str,
+    allow_stock_to_be_exceeded: bool = False,
 ) -> List[FulfillmentLine]:
     """Modify stocks and allocations. Return list of unsaved FulfillmentLines.
 
@@ -421,6 +465,8 @@ def _create_fulfillment_lines(
                     ...
                 ]
         channel_slug (str): Channel for which fulfillment lines should be created.
+        allow_stock_to_be_exceeded (bool): If `True` then stock quantity could exceed.
+            Default value is set to `False`.
 
     Return:
         List[FulfillmentLine]: Unsaved fulfillmet lines created for this fulfillment
@@ -450,7 +496,11 @@ def _create_fulfillment_lines(
         order_line = line["order_line"]
         if quantity > 0:
             line_stocks = variant_to_stock.get(order_line.variant_id)
-            if line_stocks is None:
+            stock = line_stocks[0] if line_stocks else None
+
+            # If there is no stock but allow_stock_to_be_exceeded == True
+            # we proceed with fulfilling the order, treat as error otherwise
+            if stock is None and not allow_stock_to_be_exceeded:
                 error_data = InsufficientStockData(
                     variant=order_line.variant,
                     order_line=order_line,
@@ -458,7 +508,7 @@ def _create_fulfillment_lines(
                 )
                 insufficient_stocks.append(error_data)
                 continue
-            stock = line_stocks[0]
+
             lines_info.append(
                 OrderLineData(
                     line=order_line,
@@ -482,18 +532,20 @@ def _create_fulfillment_lines(
         raise InsufficientStock(insufficient_stocks)
 
     if lines_info:
-        fulfill_order_lines(lines_info)
+        fulfill_order_lines(lines_info, allow_stock_to_be_exceeded)
 
     return fulfillment_lines
 
 
 @traced_atomic_transaction()
 def create_fulfillments(
-    requester: "User",
+    user: "User",
+    app: Optional["App"],
     order: "Order",
     fulfillment_lines_for_warehouses: Dict,
     manager: "PluginsManager",
     notify_customer: bool = True,
+    allow_stock_to_be_exceeded: bool = False,
 ) -> List[Fulfillment]:
     """Fulfill order.
 
@@ -501,7 +553,8 @@ def create_fulfillments(
     Next updates Order based on created fulfillments.
 
     Args:
-        requester (User): Requester who trigger this action.
+        user (User): User who trigger this action.
+        app (App): App that trigger the action.
         order (Order): Order to fulfill
         fulfillment_lines_for_warehouses (Dict): Dict with information from which
             system create fulfillments. Example:
@@ -517,6 +570,8 @@ def create_fulfillments(
         manager (PluginsManager): Base manager for handling plugins logic.
         notify_customer (bool): If `True` system send email about
             fulfillments to customer.
+        allow_stock_to_be_exceeded (bool): If `True` then stock quantity could exceed.
+            Default value is set to `False`.
 
     Return:
         List[Fulfillment]: Fulfillmet with lines created for this order
@@ -538,6 +593,7 @@ def create_fulfillments(
                 warehouse_pk,
                 fulfillment_lines_for_warehouses[warehouse_pk],
                 order.channel.slug,
+                allow_stock_to_be_exceeded,
             )
         )
 
@@ -545,7 +601,8 @@ def create_fulfillments(
     transaction.on_commit(
         lambda: order_fulfilled(
             fulfillments,
-            requester,
+            user,
+            app,
             fulfillment_lines,
             manager,
             notify_customer,
@@ -727,7 +784,8 @@ def __get_shipping_refund_amount(
 
 
 def create_refund_fulfillment(
-    requester: Optional["User"],
+    user: Optional["User"],
+    app: Optional["App"],
     order,
     payment,
     order_lines_to_refund: List[OrderLineData],
@@ -750,7 +808,8 @@ def create_refund_fulfillment(
 
     with transaction_with_commit_on_errors():
         total_refund_amount = _process_refund(
-            requester=requester,
+            user=user,
+            app=app,
             order=order,
             payment=payment,
             order_lines_to_refund=order_lines_to_refund,
@@ -815,7 +874,8 @@ def _populate_replace_order_fields(original_order: "Order"):
 
 @traced_atomic_transaction()
 def create_replace_order(
-    requester: Optional["User"],
+    user: Optional[User],
+    app: Optional["App"],
     original_order: "Order",
     order_lines_to_replace: List[OrderLineData],
     fulfillment_lines_to_replace: List[FulfillmentLineData],
@@ -870,7 +930,8 @@ def create_replace_order(
     draft_order_created_from_replace_event(
         draft_order=replace_order,
         original_order=original_order,
-        user=requester,
+        user=user,
+        app=app,
         lines=[(line.quantity, line) for line in lines_to_create],
     )
     return replace_order
@@ -955,7 +1016,8 @@ def _move_lines_to_replace_fulfillment(
 
 @traced_atomic_transaction()
 def create_return_fulfillment(
-    requester: Optional["User"],
+    user: Optional["User"],
+    app: Optional["App"],
     order: "Order",
     order_lines: List[OrderLineData],
     fulfillment_lines: List[FulfillmentLineData],
@@ -996,7 +1058,8 @@ def create_return_fulfillment(
         transaction.on_commit(
             lambda: order_returned(
                 order,
-                user=requester,
+                user=user,
+                app=app,
                 returned_lines=returned_lines_list,
             )
         )
@@ -1006,7 +1069,8 @@ def create_return_fulfillment(
 
 @traced_atomic_transaction()
 def process_replace(
-    requester: Optional["User"],
+    user: Optional["User"],
+    app: Optional["App"],
     order: "Order",
     order_lines: List[OrderLineData],
     fulfillment_lines: List[FulfillmentLineData],
@@ -1023,7 +1087,8 @@ def process_replace(
         order=order,
     )
     new_order = create_replace_order(
-        requester=requester,
+        user=user,
+        app=app,
         original_order=order,
         order_lines_to_replace=order_lines,
         fulfillment_lines_to_replace=fulfillment_lines,
@@ -1031,20 +1096,23 @@ def process_replace(
     replaced_lines = [(line.quantity, line) for line in new_order.lines.all()]
     fulfillment_replaced_event(
         order=order,
-        user=requester,
+        user=user,
+        app=app,
         replaced_lines=replaced_lines,
     )
     order_replacement_created(
         original_order=order,
         replace_order=new_order,
-        user=requester,
+        user=user,
+        app=app,
     )
 
     return replace_fulfillment, new_order
 
 
 def create_fulfillments_for_returned_products(
-    requester: Optional["User"],
+    user: Optional["User"],
+    app: Optional["App"],
     order: "Order",
     payment: Optional[Payment],
     order_lines: List[OrderLineData],
@@ -1085,7 +1153,8 @@ def create_fulfillments_for_returned_products(
     with traced_atomic_transaction():
         if refund and payment:
             total_refund_amount = _process_refund(
-                requester=requester,
+                user=user,
+                app=app,
                 order=order,
                 payment=payment,
                 order_lines_to_refund=return_order_lines,
@@ -1101,13 +1170,15 @@ def create_fulfillments_for_returned_products(
         replace_fulfillment, new_order = None, None
         if replace_order_lines or replace_fulfillment_lines:
             replace_fulfillment, new_order = process_replace(
-                requester=requester,
+                user=user,
+                app=app,
                 order=order,
                 order_lines=replace_order_lines,
                 fulfillment_lines=replace_fulfillment_lines,
             )
         return_fulfillment = create_return_fulfillment(
-            requester=requester,
+            user=user,
+            app=app,
             order=order,
             order_lines=return_order_lines,
             fulfillment_lines=return_fulfillment_lines,
@@ -1157,7 +1228,8 @@ def _calculate_refund_amount(
 
 @transaction_with_commit_on_errors()
 def _process_refund(
-    requester: Optional["User"],
+    user: Optional["User"],
+    app: Optional["App"],
     order: "Order",
     payment: Payment,
     order_lines_to_refund: List[OrderLineData],
@@ -1190,21 +1262,23 @@ def _process_refund(
         transaction.on_commit(
             lambda: events.payment_refunded_event(
                 order=order,
-                user=requester,
+                user=user,
+                app=app,
                 amount=amount,  # type: ignore
                 payment=payment,
             )
         )
         transaction.on_commit(
             lambda: send_order_refunded_confirmation(
-                order, requester, amount, payment.currency, manager  # type: ignore
+                order, user, app, amount, payment.currency, manager  # type: ignore
             )
         )
 
     transaction.on_commit(
         lambda: fulfillment_refunded_event(
             order=order,
-            user=requester,
+            user=user,
+            app=app,
             refunded_lines=list(lines_to_refund.values()),
             amount=amount,  # type: ignore
             shipping_costs_included=refund_shipping_costs,

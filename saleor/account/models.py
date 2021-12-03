@@ -21,6 +21,7 @@ from django_countries.fields import Country, CountryField
 from phonenumber_field.modelfields import PhoneNumber, PhoneNumberField
 from versatileimagefield.fields import VersatileImageField
 
+from ..app.models import App
 from ..core.models import ModelWithMetadata
 from ..core.permissions import AccountPermissions, BasePermissionEnum, get_permissions
 from ..core.utils.json_serializer import CustomJsonEncoder
@@ -66,12 +67,20 @@ class Address(models.Model):
     postal_code = models.CharField(max_length=20, blank=True)
     country = CountryField()
     country_area = models.CharField(max_length=128, blank=True)
-    phone = PossiblePhoneNumberField(blank=True, default="")
+    phone = PossiblePhoneNumberField(blank=True, default="", db_index=True)
 
     objects = models.Manager.from_queryset(AddressQueryset)()
 
     class Meta:
         ordering = ("pk",)
+        indexes = [
+            GinIndex(
+                name="address_search_gin",
+                # `opclasses` and `fields` should be the same length
+                fields=["first_name", "last_name", "city", "country"],
+                opclasses=["gin_trgm_ops"] * 4,
+            ),
+        ]
 
     @property
     def full_name(self):
@@ -138,6 +147,20 @@ class UserManager(BaseUserManager):
     def staff(self):
         return self.get_queryset().filter(is_staff=True)
 
+    @classmethod
+    def normalize_email(cls, email):
+        """This method is being overridden by the fine folks at Firstech! This is almost
+        the same except we are lowercasing the entire email address and not just the
+        domain part."""
+        email = email or ''
+        try:
+            email_name, domain_part = email.strip().rsplit('@', 1)
+        except ValueError:
+            pass
+        else:
+            email = email_name.lower() + '@' + domain_part.lower()
+        return email
+
 
 class User(PermissionsMixin, ModelWithMetadata, AbstractBaseUser):
     email = models.EmailField(unique=True)
@@ -171,11 +194,17 @@ class User(PermissionsMixin, ModelWithMetadata, AbstractBaseUser):
         permissions = (
             (AccountPermissions.MANAGE_USERS.codename, "Manage customers."),
             (AccountPermissions.MANAGE_STAFF.codename, "Manage staff."),
+            (AccountPermissions.IMPERSONATE_USER.codename, "Impersonate user."),
         )
         indexes = [
             *ModelWithMetadata.Meta.indexes,
             # Orders searching index
-            GinIndex(fields=["email", "first_name", "last_name"]),
+            GinIndex(
+                name="user_search_gin",
+                # `opclasses` and `fields` should be the same length
+                fields=["email", "first_name", "last_name"],
+                opclasses=["gin_trgm_ops"] * 3,
+            ),
         ]
 
     def __init__(self, *args, **kwargs):
@@ -279,6 +308,7 @@ class CustomerEvent(models.Model):
     user = models.ForeignKey(
         User, related_name="events", on_delete=models.CASCADE, null=True
     )
+    app = models.ForeignKey(App, related_name="+", on_delete=models.SET_NULL, null=True)
 
     class Meta:
         ordering = ("date",)

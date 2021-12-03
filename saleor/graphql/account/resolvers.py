@@ -2,6 +2,7 @@ from itertools import chain
 from typing import Optional
 
 from django.contrib.auth import models as auth_models
+from django.db.models import Q
 from i18naddress import get_validation_rules
 
 from ...account import models
@@ -31,7 +32,6 @@ USER_SEARCH_FIELDS = (
 )
 
 
-@traced_resolver
 def resolve_customers(info, **_kwargs):
     return models.User.objects.customers()
 
@@ -40,12 +40,10 @@ def resolve_permission_group(id):
     return auth_models.Group.objects.filter(id=id).first()
 
 
-@traced_resolver
 def resolve_permission_groups(info, **_kwargs):
     return auth_models.Group.objects.all()
 
 
-@traced_resolver
 def resolve_staff_users(info, **_kwargs):
     return models.User.objects.staff()
 
@@ -68,6 +66,37 @@ def resolve_user(info, id=None, email=None):
         if requester.has_perm(AccountPermissions.MANAGE_USERS):
             return models.User.objects.customers().filter(**filter_kwargs).first()
     return PermissionDenied()
+
+
+@traced_resolver
+def resolve_users(info, ids=None, emails=None):
+    requester = get_user_or_app_from_context(info.context)
+    if not requester:
+        return models.User.objects.none()
+
+    if requester.has_perms(
+        [AccountPermissions.MANAGE_STAFF, AccountPermissions.MANAGE_USERS]
+    ):
+        qs = models.User.objects
+    elif requester.has_perm(AccountPermissions.MANAGE_STAFF):
+        qs = models.User.objects.staff()
+    elif requester.has_perm(AccountPermissions.MANAGE_USERS):
+        qs = models.User.objects.customers()
+    elif requester.id:
+        # If user has no access to all users, we can only return themselves, but
+        # only if they are authenticated and one of requested users
+        qs = models.User.objects.filter(id=requester.id)
+    else:
+        qs = models.User.objects.none()
+
+    if ids:
+        ids = {from_global_id_or_error(id, User, raise_error=True)[1] for id in ids}
+
+    if ids and emails:
+        return qs.filter(Q(id__in=ids) | Q(email__in=emails))
+    elif ids:
+        return qs.filter(id__in=ids)
+    return qs.filter(email__in=emails)
 
 
 @traced_resolver
@@ -141,12 +170,13 @@ def prepare_graphql_payment_sources_type(payment_sources):
         sources.append(
             {
                 "gateway": src.gateway,
+                "payment_method_id": src.id,
                 "credit_card_info": {
                     "last_digits": src.credit_card_info.last_4,
                     "exp_year": src.credit_card_info.exp_year,
                     "exp_month": src.credit_card_info.exp_month,
-                    "brand": "",
-                    "first_digits": "",
+                    "brand": src.credit_card_info.brand,
+                    "first_digits": src.credit_card_info.first_4,
                 },
             }
         )
@@ -162,7 +192,21 @@ def resolve_address(info, id):
         return models.Address.objects.filter(pk=address_pk).first()
     if user and not user.is_anonymous:
         return user.addresses.filter(id=address_pk).first()
-    return PermissionDenied()
+    raise PermissionDenied()
+
+
+def resolve_addresses(info, ids):
+    user = info.context.user
+    app = info.context.app
+    ids = [
+        from_global_id_or_error(address_id, Address, raise_error=True)[1]
+        for address_id in ids
+    ]
+    if app and app.has_perm(AccountPermissions.MANAGE_USERS):
+        return models.Address.objects.filter(id__in=ids)
+    if user and not user.is_anonymous:
+        return user.addresses.filter(id__in=ids)
+    return models.Address.objects.none()
 
 
 def resolve_permissions(root: models.User):

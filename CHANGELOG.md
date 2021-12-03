@@ -4,6 +4,12 @@ All notable, unreleased changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Mark `X-` headers as deprecated and add headers without prefix. All deprecated headers will be removed in Saleor 4.0 - #8179 by @L3str4nge
+    * X-Saleor-Event -> Saleor-Event
+    * X-Saleor-Domain -> Saleor-Domain
+    * X-Saleor-Signature -> Saleor-Signature
+    * X-Saleor-HMAC-SHA256 -> Saleor-HMAC-SHA256
+- Improve draft orders and orders webhooks - #SALEOR-4008 by @jakubkuc
 - Extend editorjs validator to accept blocks different than text - #SALEOR-3354 by @mociepka
 - Add query contains only schema validation - #6827 by @fowczarek
 - Add introspection caching - #6871 by @fowczarek
@@ -128,6 +134,27 @@ All notable, unreleased changes to this project will be documented in this file.
 - Fix performance for User type on resolvers: orders, gift cards, events - #7574 by @tomaszszymanski129
 - Fix failing account mutations for app - #7569 by @IKarbowiak
 - Modify order of auth middleware calls - #7572 by @tomaszszymanski129
+- Add app support for events - #7622 by @IKarbowiak
+- Add date & date time attributes - #7500 by @piotrgrundas
+- Add `withChoices` flag for Attribute type - #7733 by @dexon44
+- Drop assigning cheapest shipping method in checkout - #7767 by @maarcingebala
+- Add `product_id`, `product_variant_id`, `attribute_id` and `page_id` when it's possible for `AttributeValue` translations webhook. - #7783 by @fowczarek
+- Deprecate `query` argument in `sales` and `vouchers` queries - #7806 by @maarcingebala
+- Allow translating objects by translatable content ID - #7803 by @maarcingebala
+- Add `page_type_id` when it's possible for `AttributeValue` translations webhook. - #7825 by @fowczarek
+- Optimize available quantity loader. - #7802 by @fowczarek
+- Configure a periodic task for removing empty allocations - #7885 by @fowczarek
+- Allow impersonating user by an app/staff - #7754 by @korycins:
+  - Add `customerId` to `checkoutCustomerAttach` mutation
+  - Add new permision `IMPERSONATE_USER`
+- Fix missing transaction id in Braintree - #8110 by @fowczarek
+- Fix GraphQL federation support. - #7771 #8107 by @rafalp
+- Remove unnecessary database lock on discount during checkout complete mutation - #8174 by @fowczarek
+- Fix cursor-based pagination in products search - #8011 #8211 by @rafalp
+- Batch loads in queries for Apollo Federation - #8362 by @rafalp
+- Change metadata mutations to use token for order and checkout as identifier - #8542 by @IKarbowiak
+  - After changes, using the order `id` for changing order metadata is deprecated
+- Add option to set tax code for shipping in Avatax configuration view - #8596 by @korycins
 
 ### Breaking
 - Multichannel MVP: Multicurrency - #6242 by @fowczarek @d-wysocki
@@ -219,6 +246,10 @@ All notable, unreleased changes to this project will be documented in this file.
   - drop `productType` from `ProductFilter`
   - deprecate mutations' `<name>Errors`, typed `errors` fields and remove deprecation
 - Add channel data to Order webhook - #7299 by @krzysztofwolski
+- Deprecated Stripe plugin - will be removed in Saleor 4.0
+  - rename `StripeGatewayPlugin` to `DeprecatedStripeGatewayPlugin`.
+  - introduce new `StripeGatewayPlugin` plugin.
+
 - Always create new checkout in `checkoutCreate` mutation - #7318 by @IKarbowiak
   - deprecate `created` return field on `checkoutCreate` mutation
 - Return empty values list for attribute without choices - #7394 by @fowczarek
@@ -228,6 +259,7 @@ All notable, unreleased changes to this project will be documented in this file.
 - Unify checkout identifier in checkout mutations and queries - #7511 by @IKarbowiak
 - Use root level channel argument for filtering and sorting - #7374 by @IKarbowiak
   - drop `channel` field from filters and sorters
+- Drop top-level `checkoutLine` query from the schema with related resolver, use `checkout` query instead - #7623 by @dexon44
 
 ### Other
 
@@ -282,6 +314,7 @@ All notable, unreleased changes to this project will be documented in this file.
     - remove `companyName` on `WarehouseInput` type
     - remove `WarehouseAddressInput` on `WarehouseUpdateInput` and `WarehouseCreateInput`, and change it to `AddressInput`
 - Fix passing incorrect customer email to payment gateways - #7486 by @korycins
+- Add HTTP meta tag for Content-Security-Policy in GraphQL Playground - #7662 by @NyanKiyoshi
 
 # 2.11.1
 
@@ -358,7 +391,7 @@ All notable, unreleased changes to this project will be documented in this file.
 - Fix filtering products by multiple attributes - #6215 by @GrzegorzDerdak
 - Add attributes validation while creating/updating a product's variant - #6269 by @GrzegorzDerdak
 - Add metadata to page model - #6292 by @dominik-zeglen
-- Fix for unnecesary attributes validation while updating simple product - #6300 by @GrzegorzDerdak
+- Fix for unnecessary attributes validation while updating simple product - #6300 by @GrzegorzDerdak
 - Include order line total price to webhook payload - #6354 by @korycins
 - Fix for fulfilling an order when product quantity equals allocated quantity - #6333 by @GrzegorzDerdak
 - Fix for the ability to filter products on collection - #6363 by @GrzegorzDerdak

@@ -16,4 +16,5 @@ class DroneUserProfile(CountableDjangoObjectType):
             "id",
             "drone_user_id",
             "cognito_sub",
+            "is_company_owner",
         ]

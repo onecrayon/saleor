@@ -1,17 +1,20 @@
 import logging
 from decimal import Decimal
 from unittest import mock
+from unittest.mock import patch
 
 import graphene
 import pytest
+from django.core.exceptions import ValidationError
 
 from ......checkout import calculations
 from ......checkout.fetch import fetch_checkout_info, fetch_checkout_lines
 from ......order import OrderEvents, OrderStatus
 from ......plugins.manager import get_plugins_manager
 from ..... import ChargeStatus, TransactionKind
-from ...utils.common import to_adyen_price
+from .....utils import price_to_minor_unit
 from ...webhooks import (
+    confirm_payment_and_set_back_to_confirm,
     create_new_transaction,
     handle_authorization,
     handle_cancel_or_refund,
@@ -19,6 +22,7 @@ from ...webhooks import (
     handle_capture,
     handle_failed_capture,
     handle_failed_refund,
+    handle_not_created_order,
     handle_pending,
     handle_refund,
     handle_reversed_refund,
@@ -35,7 +39,7 @@ def test_handle_authorization_for_order(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     handle_authorization(notification, config)
@@ -57,7 +61,7 @@ def test_handle_authorization_for_order_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
@@ -82,7 +86,7 @@ def test_handle_multiple_authorization_notification(
         merchant_reference=payment_id,
         success="false",
         psp_reference="wrong",
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin(adyen_auto_capture=True).config
     handle_authorization(first_notification, config)
@@ -98,7 +102,7 @@ def test_handle_multiple_authorization_notification(
 
     second_notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     handle_authorization(second_notification, config)
     payment.refresh_from_db()
@@ -123,7 +127,7 @@ def test_handle_authorization_for_pending_order(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin(adyen_auto_capture=True).config
     handle_authorization(notification, config)
@@ -171,7 +175,7 @@ def test_handle_authorization_for_checkout(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     handle_authorization(notification, config)
@@ -219,7 +223,7 @@ def test_handle_authorization_with_adyen_auto_capture(
 
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
 
     plugin = adyen_plugin(adyen_auto_capture=True)
@@ -247,7 +251,7 @@ def test_handle_authorization_with_auto_capture(
     notification = notification(
         psp_reference="853596537720508F",
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin(adyen_auto_capture=False, auto_capture=True).config
 
@@ -273,7 +277,7 @@ def test_handle_authorization_with_adyen_auto_capture_and_payment_charged(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     config.connection_params["adyen_auto_capture"] = True
@@ -299,12 +303,11 @@ def test_handle_cancel(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
-    manager = get_plugins_manager()
 
-    handle_cancellation(notification, config, manager)
+    handle_cancellation(notification, config)
 
     payment.order.refresh_from_db()
     assert payment.transactions.count() == 2
@@ -326,15 +329,14 @@ def test_handle_cancel_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
 
     caplog.set_level(logging.WARNING)
-    manager = get_plugins_manager()
 
-    handle_cancellation(notification, config, manager)
+    handle_cancellation(notification, config)
 
     payment.order.refresh_from_db()
     assert payment.transactions.count() == transaction_count
@@ -352,13 +354,12 @@ def test_handle_cancel_already_canceled(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     create_new_transaction(notification, payment, TransactionKind.CANCEL)
-    manager = get_plugins_manager()
 
-    handle_cancellation(notification, config, manager)
+    handle_cancellation(notification, config)
 
     assert payment.transactions.count() == 2
 
@@ -368,7 +369,7 @@ def test_handle_capture_for_order(notification, adyen_plugin, payment_adyen_for_
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     handle_capture(notification, config)
@@ -415,7 +416,7 @@ def test_handle_capture_for_checkout(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     handle_capture(notification, config)
@@ -443,7 +444,7 @@ def test_handle_capture_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
@@ -467,7 +468,7 @@ def test_handle_capture_with_payment_already_charged(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
 
@@ -495,7 +496,7 @@ def test_handle_failed_capture(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
 
@@ -522,7 +523,7 @@ def test_handle_failed_capture_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
@@ -546,7 +547,7 @@ def test_handle_failed_capture_partial_charge(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
 
@@ -568,7 +569,7 @@ def test_handle_pending(notification, adyen_plugin, payment_adyen_for_order):
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
 
@@ -592,7 +593,7 @@ def test_handle_pending_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
@@ -613,7 +614,7 @@ def test_handle_pending_with_adyen_auto_capture(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     config.connection_params["adyen_auto_capture"] = True
@@ -640,7 +641,7 @@ def test_handle_pending_already_pending(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     create_new_transaction(notification, payment, TransactionKind.PENDING)
@@ -661,7 +662,7 @@ def test_handle_refund(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
 
@@ -675,7 +676,7 @@ def test_handle_refund(
     assert payment.captured_amount == Decimal("0.00")
 
     mock_order_refunded.assert_called_once_with(
-        payment.order, None, transaction.amount, payment, mock.ANY
+        payment.order, None, None, transaction.amount, payment, mock.ANY
     )
     external_events = payment.order.events.filter(
         type=OrderEvents.EXTERNAL_SERVICE_NOTIFICATION
@@ -693,7 +694,7 @@ def test_handle_refund_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
@@ -718,7 +719,7 @@ def test_handle_refund_already_refunded(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     create_new_transaction(notification, payment, TransactionKind.REFUND)
     config = adyen_plugin().config
@@ -739,7 +740,7 @@ def test_handle_failed_refund_missing_transaction(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
 
@@ -762,7 +763,7 @@ def test_handle_failed_refund_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
@@ -786,7 +787,7 @@ def test_handle_failed_refund_with_transaction_refund_ongoing(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     create_new_transaction(notification, payment, TransactionKind.REFUND_ONGOING)
@@ -812,7 +813,7 @@ def test_handle_failed_refund_with_transaction_refund(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     create_new_transaction(notification, payment, TransactionKind.REFUND)
@@ -836,7 +837,7 @@ def test_handle_reversed_refund(notification, adyen_plugin, payment_adyen_for_or
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     handle_reversed_refund(notification, config)
@@ -861,7 +862,7 @@ def test_handle_reversed_refund_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
@@ -885,7 +886,7 @@ def test_handle_reversed_refund_already_processed(
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     create_new_transaction(notification, payment, TransactionKind.REFUND_REVERSED)
@@ -902,7 +903,7 @@ def test_webhook_not_implemented(notification, adyen_plugin, payment_adyen_for_o
     payment_id = graphene.Node.to_global_id("Payment", payment.pk)
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
 
@@ -924,7 +925,7 @@ def test_webhook_not_implemented_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     config = adyen_plugin().config
     transaction_count = payment.transactions.count()
@@ -948,7 +949,7 @@ def test_handle_cancel_or_refund_action_refund(
     config = adyen_plugin().config
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     notification["additionalData"]["modification.action"] = "refund"
 
@@ -966,13 +967,13 @@ def test_handle_cancel_or_refund_action_cancel(
     config = adyen_plugin().config
     notification = notification(
         merchant_reference=payment_id,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     notification["additionalData"]["modification.action"] = "cancel"
 
     handle_cancel_or_refund(notification, config)
 
-    mock_handle_cancellation.assert_called_once_with(notification, config, mock.ANY)
+    mock_handle_cancellation.assert_called_once_with(notification, config)
 
 
 def test_handle_cancel_or_refund_action_cancel_invalid_payment_id(
@@ -983,7 +984,7 @@ def test_handle_cancel_or_refund_action_cancel_invalid_payment_id(
     invalid_reference = "test invalid reference"
     notification = notification(
         merchant_reference=invalid_reference,
-        value=to_adyen_price(payment.total, payment.currency),
+        value=price_to_minor_unit(payment.total, payment.currency),
     )
     notification["additionalData"]["modification.action"] = "cancel"
 
@@ -992,3 +993,201 @@ def test_handle_cancel_or_refund_action_cancel_invalid_payment_id(
     handle_cancel_or_refund(notification, config)
 
     assert f"Unable to decode the payment ID {invalid_reference}." in caplog.text
+
+
+def test_handle_not_created_order_order_created(
+    checkout_ready_to_complete, payment_adyen_for_checkout, adyen_plugin, notification
+):
+    payment_adyen_for_checkout.charge_status = ChargeStatus.FULLY_CHARGED
+    payment_adyen_for_checkout.save(update_fields=["charge_status"])
+
+    adyen_plugin()
+    handle_not_created_order(
+        notification(),
+        payment_adyen_for_checkout,
+        payment_adyen_for_checkout.checkout,
+        TransactionKind.CAPTURE,
+        get_plugins_manager(),
+    )
+
+    payment_adyen_for_checkout.refresh_from_db()
+
+    assert payment_adyen_for_checkout.order
+
+
+@patch("saleor.payment.gateway.refund")
+@patch("saleor.checkout.complete_checkout._get_order_data")
+def test_handle_not_created_order_refund_when_create_order_raises(
+    order_data_mock, refund_mock, payment_adyen_for_checkout, adyen_plugin, notification
+):
+    order_data_mock.side_effect = ValidationError("Test error")
+
+    payment_adyen_for_checkout.charge_status = ChargeStatus.FULLY_CHARGED
+    payment_adyen_for_checkout.save(update_fields=["charge_status"])
+
+    adyen_plugin()
+    handle_not_created_order(
+        notification(),
+        payment_adyen_for_checkout,
+        payment_adyen_for_checkout.checkout,
+        TransactionKind.CAPTURE,
+        get_plugins_manager(),
+    )
+
+    assert payment_adyen_for_checkout.can_refund()
+    assert refund_mock.call_count == 2
+
+
+@patch("saleor.payment.gateway.void")
+@patch("saleor.checkout.complete_checkout._get_order_data")
+def test_handle_not_created_order_void_when_create_order_raises(
+    order_data_mock, void_mock, payment_adyen_for_checkout, adyen_plugin, notification
+):
+    order_data_mock.side_effect = ValidationError("Test error")
+
+    payment_adyen_for_checkout.charge_status = ChargeStatus.NOT_CHARGED
+    payment_adyen_for_checkout.save(update_fields=["charge_status"])
+
+    adyen_plugin()
+    handle_not_created_order(
+        notification(),
+        payment_adyen_for_checkout,
+        payment_adyen_for_checkout.checkout,
+        TransactionKind.CAPTURE,
+        get_plugins_manager(),
+    )
+
+    assert payment_adyen_for_checkout.can_void()
+    assert void_mock.call_count == 2
+
+
+@pytest.mark.parametrize(
+    "charge_status",
+    [
+        ChargeStatus.PARTIALLY_REFUNDED,
+        ChargeStatus.REFUSED,
+        ChargeStatus.FULLY_REFUNDED,
+        ChargeStatus.CANCELLED,
+    ],
+)
+def test_handle_not_created_order_return_none(
+    charge_status, payment_adyen_for_checkout, adyen_plugin, notification
+):
+    payment_adyen_for_checkout.charge_status = charge_status
+    payment_adyen_for_checkout.save(update_fields=["charge_status"])
+
+    assert not handle_not_created_order(
+        notification(),
+        payment_adyen_for_checkout,
+        payment_adyen_for_checkout.checkout,
+        TransactionKind.CAPTURE,
+        get_plugins_manager(),
+    )
+
+
+def test_handle_not_created_order_create_new_success_transaction(
+    payment_adyen_for_checkout, adyen_plugin, notification
+):
+    payment_adyen_for_checkout.charge_status = ChargeStatus.NOT_CHARGED
+    payment_adyen_for_checkout.save(update_fields=["charge_status"])
+    payment_adyen_for_checkout.transactions.all().delete()
+
+    adyen_plugin()
+    handle_not_created_order(
+        notification(),
+        payment_adyen_for_checkout,
+        payment_adyen_for_checkout.checkout,
+        TransactionKind.CAPTURE,
+        get_plugins_manager(),
+    )
+
+    payment_adyen_for_checkout.refresh_from_db()
+    assert payment_adyen_for_checkout.order
+
+    all_payment_transactions = payment_adyen_for_checkout.transactions.all()
+    assert len(all_payment_transactions) == 2
+    assert all_payment_transactions[0].kind == TransactionKind.ACTION_TO_CONFIRM
+    assert all_payment_transactions[1].kind == TransactionKind.AUTH
+
+
+@patch("saleor.payment.gateway.refund")
+@patch("saleor.checkout.complete_checkout._get_order_data")
+def test_handle_not_created_order_success_transaction_create_order_raises_and_refund(
+    order_data_mock, refund_mock, payment_adyen_for_checkout, adyen_plugin, notification
+):
+    order_data_mock.side_effect = ValidationError("Test error")
+
+    payment_adyen_for_checkout.charge_status = ChargeStatus.FULLY_CHARGED
+    payment_adyen_for_checkout.save(update_fields=["charge_status"])
+    payment_adyen_for_checkout.transactions.all().delete()
+
+    adyen_plugin()
+    handle_not_created_order(
+        notification(),
+        payment_adyen_for_checkout,
+        payment_adyen_for_checkout.checkout,
+        TransactionKind.CAPTURE,
+        get_plugins_manager(),
+    )
+
+    payment_adyen_for_checkout.refresh_from_db()
+    assert not payment_adyen_for_checkout.order
+
+    all_payment_transactions = payment_adyen_for_checkout.transactions.all()
+    assert len(all_payment_transactions) == 2
+    assert all_payment_transactions[0].kind == TransactionKind.ACTION_TO_CONFIRM
+    assert all_payment_transactions[1].kind == TransactionKind.AUTH
+
+    assert payment_adyen_for_checkout.can_refund()
+    assert refund_mock.call_count == 2
+
+
+@patch("saleor.payment.gateway.void")
+@patch("saleor.checkout.complete_checkout._get_order_data")
+def test_handle_not_created_order_success_transaction_create_order_raises_and_void(
+    order_data_mock, void_mock, payment_adyen_for_checkout, adyen_plugin, notification
+):
+    order_data_mock.side_effect = ValidationError("Test error")
+
+    payment_adyen_for_checkout.charge_status = ChargeStatus.NOT_CHARGED
+    payment_adyen_for_checkout.save(update_fields=["charge_status"])
+    payment_adyen_for_checkout.transactions.all().delete()
+
+    adyen_plugin()
+    handle_not_created_order(
+        notification(),
+        payment_adyen_for_checkout,
+        payment_adyen_for_checkout.checkout,
+        TransactionKind.CAPTURE,
+        get_plugins_manager(),
+    )
+
+    payment_adyen_for_checkout.refresh_from_db()
+    assert not payment_adyen_for_checkout.order
+
+    all_payment_transactions = payment_adyen_for_checkout.transactions.all()
+    assert len(all_payment_transactions) == 2
+    assert all_payment_transactions[0].kind == TransactionKind.ACTION_TO_CONFIRM
+    assert all_payment_transactions[1].kind == TransactionKind.AUTH
+
+    assert payment_adyen_for_checkout.can_void()
+    assert void_mock.call_count == 2
+
+
+def test_confirm_payment_and_set_back_to_confirm(
+    payment_adyen_for_checkout, adyen_plugin, notification
+):
+    plugin = adyen_plugin()
+    payment_adyen_for_checkout.to_confirm = True
+    payment_adyen_for_checkout.save(update_fields=["to_confirm"])
+    create_new_transaction(
+        notification(), payment_adyen_for_checkout, TransactionKind.ACTION_TO_CONFIRM
+    )
+
+    confirm_payment_and_set_back_to_confirm(
+        payment_adyen_for_checkout, get_plugins_manager(), plugin.channel.slug
+    )
+
+    payment_adyen_for_checkout.refresh_from_db()
+
+    assert payment_adyen_for_checkout.to_confirm

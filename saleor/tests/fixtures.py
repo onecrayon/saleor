@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from collections import namedtuple
 from contextlib import contextmanager
 from decimal import Decimal
 from functools import partial
@@ -12,7 +13,6 @@ import pytest
 import pytz
 from django.conf import settings
 from django.contrib.auth.models import Group, Permission
-from django.contrib.postgres.search import SearchVector
 from django.contrib.sites.models import Site
 from django.core.files import File
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -68,7 +68,7 @@ from ..order.models import FulfillmentStatus, Order, OrderEvent, OrderLine
 from ..order.utils import recalculate_order
 from ..page.models import Page, PageTranslation, PageType
 from ..payment import ChargeStatus, TransactionKind
-from ..payment.interface import GatewayConfig, PaymentData
+from ..payment.interface import AddressData, GatewayConfig, PaymentData
 from ..payment.models import Payment
 from ..plugins.manager import get_plugins_manager
 from ..plugins.models import PluginConfiguration
@@ -474,6 +474,22 @@ def address(db):  # pylint: disable=W0613
 
 
 @pytest.fixture
+def address_with_areas(db):
+    return Address.objects.create(
+        first_name="John",
+        last_name="Doe",
+        company_name="Mirumee Software",
+        street_address_1="Tęczowa 7",
+        city="WROCŁAW",
+        postal_code="53-601",
+        country="PL",
+        phone="+48713988102",
+        country_area="test_country_area",
+        city_area="test_city_area",
+    )
+
+
+@pytest.fixture
 def address_other_country():
     return Address.objects.create(
         first_name="John",
@@ -705,6 +721,61 @@ def shipping_zones(db, channel_USD, channel_PLN):
 
 
 @pytest.fixture
+def shipping_zones_with_different_channels(db, channel_USD, channel_PLN):
+    shipping_zone_poland, shipping_zone_usa = ShippingZone.objects.bulk_create(
+        [
+            ShippingZone(name="Poland", countries=["PL"]),
+            ShippingZone(name="USA", countries=["US"]),
+        ]
+    )
+
+    shipping_zone_poland.channels.add(channel_PLN, channel_USD)
+    shipping_zone_usa.channels.add(channel_USD)
+
+    method = shipping_zone_poland.shipping_methods.create(
+        name="DHL",
+        type=ShippingMethodType.PRICE_BASED,
+        shipping_zone=shipping_zone,
+    )
+    second_method = shipping_zone_usa.shipping_methods.create(
+        name="DHL",
+        type=ShippingMethodType.PRICE_BASED,
+        shipping_zone=shipping_zone,
+    )
+    ShippingMethodChannelListing.objects.bulk_create(
+        [
+            ShippingMethodChannelListing(
+                channel=channel_USD,
+                shipping_method=method,
+                minimum_order_price=Money(0, "USD"),
+                price=Money(10, "USD"),
+                currency=channel_USD.currency_code,
+            ),
+            ShippingMethodChannelListing(
+                channel=channel_USD,
+                shipping_method=second_method,
+                minimum_order_price=Money(0, "USD"),
+                currency=channel_USD.currency_code,
+            ),
+            ShippingMethodChannelListing(
+                channel=channel_PLN,
+                shipping_method=method,
+                minimum_order_price=Money(0, "PLN"),
+                price=Money(40, "PLN"),
+                currency=channel_PLN.currency_code,
+            ),
+            ShippingMethodChannelListing(
+                channel=channel_PLN,
+                shipping_method=second_method,
+                minimum_order_price=Money(0, "PLN"),
+                currency=channel_PLN.currency_code,
+            ),
+        ]
+    )
+    return [shipping_zone_poland, shipping_zone_usa]
+
+
+@pytest.fixture
 def shipping_zone_without_countries(db, channel_USD):  # pylint: disable=W0613
     shipping_zone = ShippingZone.objects.create(name="Europe", countries=[])
     method = shipping_zone.shipping_methods.create(
@@ -796,6 +867,65 @@ def color_attribute(db):
 
 
 @pytest.fixture
+def date_attribute(db):
+    attribute = Attribute.objects.create(
+        slug="release-date",
+        name="Release date",
+        type=AttributeType.PRODUCT_TYPE,
+        input_type=AttributeInputType.DATE,
+        filterable_in_storefront=True,
+        filterable_in_dashboard=True,
+        available_in_grid=True,
+    )
+    AttributeValue.objects.bulk_create(
+        [
+            AttributeValue(
+                attribute=attribute,
+                name=f"{attribute.name}: {value.date()}",
+                slug=f"{value.date()}_{attribute.id}",
+                date_time=value,
+            )
+            for value in [
+                datetime.datetime(2020, 10, 5, tzinfo=pytz.utc),
+                datetime.datetime(2020, 11, 5, tzinfo=pytz.utc),
+            ]
+        ]
+    )
+
+    return attribute
+
+
+@pytest.fixture
+def date_time_attribute(db):
+    attribute = Attribute.objects.create(
+        slug="release-date-time",
+        name="Release date time",
+        type=AttributeType.PRODUCT_TYPE,
+        input_type=AttributeInputType.DATE_TIME,
+        filterable_in_storefront=True,
+        filterable_in_dashboard=True,
+        available_in_grid=True,
+    )
+
+    AttributeValue.objects.bulk_create(
+        [
+            AttributeValue(
+                attribute=attribute,
+                name=f"{attribute.name}: {value.date()}",
+                slug=f"{value.date()}_{attribute.id}",
+                date_time=value,
+            )
+            for value in [
+                datetime.datetime(2020, 10, 5, tzinfo=pytz.utc),
+                datetime.datetime(2020, 11, 5, tzinfo=pytz.utc),
+            ]
+        ]
+    )
+
+    return attribute
+
+
+@pytest.fixture
 def attribute_choices_for_sorting(db):
     attribute = Attribute.objects.create(
         slug="sorting",
@@ -843,6 +973,27 @@ def rich_text_attribute(db):
         slug="text",
         name="Text",
         type=AttributeType.PRODUCT_TYPE,
+        input_type=AttributeInputType.RICH_TEXT,
+        filterable_in_storefront=False,
+        filterable_in_dashboard=False,
+        available_in_grid=False,
+    )
+    text = "Rich text attribute content."
+    AttributeValue.objects.create(
+        attribute=attribute,
+        name=truncatechars(clean_editor_js(dummy_editorjs(text), to_string=True), 50),
+        slug=f"instance_{attribute.id}",
+        rich_text=dummy_editorjs(text),
+    )
+    return attribute
+
+
+@pytest.fixture
+def rich_text_attribute_page_type(db):
+    attribute = Attribute.objects.create(
+        slug="text",
+        name="Text",
+        type=AttributeType.PAGE_TYPE,
         input_type=AttributeInputType.RICH_TEXT,
         filterable_in_storefront=False,
         filterable_in_dashboard=False,
@@ -1274,6 +1425,21 @@ def product_type(color_attribute, size_attribute):
 
 
 @pytest.fixture
+def product_type_with_rich_text_attribute(
+    rich_text_attribute, color_attribute, size_attribute
+):
+    product_type = ProductType.objects.create(
+        name="Default Type",
+        slug="default-type",
+        has_variants=True,
+        is_shipping_required=True,
+    )
+    product_type.product_attributes.add(rich_text_attribute)
+    product_type.variant_attributes.add(rich_text_attribute)
+    return product_type
+
+
+@pytest.fixture
 def product_type_without_variant():
     product_type = ProductType.objects.create(
         name="Type", slug="type", has_variants=False, is_shipping_required=True
@@ -1319,6 +1485,48 @@ def product(product_type, category, warehouse, channel_USD):
 
     associate_attribute_values_to_instance(variant, variant_attr, variant_attr_value)
     return product
+
+
+@pytest.fixture
+def product_with_rich_text_attribute(
+    product_type_with_rich_text_attribute, category, warehouse, channel_USD
+):
+    product_attr = product_type_with_rich_text_attribute.product_attributes.first()
+    product_attr_value = product_attr.values.first()
+
+    product = Product.objects.create(
+        name="Test product",
+        slug="test-product-11",
+        product_type=product_type_with_rich_text_attribute,
+        category=category,
+    )
+    ProductChannelListing.objects.create(
+        product=product,
+        channel=channel_USD,
+        is_published=True,
+        discounted_price_amount="10.00",
+        currency=channel_USD.currency_code,
+        visible_in_listings=True,
+        available_for_purchase=datetime.date(1999, 1, 1),
+    )
+
+    associate_attribute_values_to_instance(product, product_attr, product_attr_value)
+
+    variant_attr = product_type_with_rich_text_attribute.variant_attributes.first()
+    variant_attr_value = variant_attr.values.first()
+
+    variant = ProductVariant.objects.create(product=product, sku="123")
+    ProductVariantChannelListing.objects.create(
+        variant=variant,
+        channel=channel_USD,
+        price_amount=Decimal(10),
+        cost_price_amount=Decimal(1),
+        currency=channel_USD.currency_code,
+    )
+    Stock.objects.create(warehouse=warehouse, product_variant=variant, quantity=10)
+
+    associate_attribute_values_to_instance(variant, variant_attr, variant_attr_value)
+    return [product, variant]
 
 
 @pytest.fixture
@@ -2502,6 +2710,37 @@ def order_with_lines(
 
 
 @pytest.fixture
+def order_fulfill_data(order_with_lines, warehouse):
+    FulfillmentData = namedtuple("FulfillmentData", "order variables warehouse")
+    order = order_with_lines
+    order_id = graphene.Node.to_global_id("Order", order.id)
+    order_line, order_line2 = order.lines.all()
+    order_line_id = graphene.Node.to_global_id("OrderLine", order_line.id)
+    order_line2_id = graphene.Node.to_global_id("OrderLine", order_line2.id)
+    warehouse_id = graphene.Node.to_global_id("Warehouse", warehouse.pk)
+
+    variables = {
+        "order": order_id,
+        "input": {
+            "notifyCustomer": False,
+            "allowStockToBeExceeded": True,
+            "lines": [
+                {
+                    "orderLineId": order_line_id,
+                    "stocks": [{"quantity": 3, "warehouse": warehouse_id}],
+                },
+                {
+                    "orderLineId": order_line2_id,
+                    "stocks": [{"quantity": 2, "warehouse": warehouse_id}],
+                },
+            ],
+        },
+    }
+
+    return FulfillmentData(order, variables, warehouse)
+
+
+@pytest.fixture
 def lines_info(order_with_lines):
     return [
         OrderLineData(
@@ -2529,6 +2768,7 @@ def order_with_lines_and_events(order_with_lines, staff_user):
     fulfillment_refunded_event(
         order=order_with_lines,
         user=staff_user,
+        app=None,
         refunded_lines=[(1, order_with_lines.lines.first())],
         amount=Decimal("10.0"),
         shipping_costs_included=False,
@@ -2536,6 +2776,7 @@ def order_with_lines_and_events(order_with_lines, staff_user):
     order_added_products_event(
         order=order_with_lines,
         user=staff_user,
+        app=None,
         order_lines=[(1, order_with_lines.lines.first())],
     )
     return order_with_lines
@@ -2779,7 +3020,7 @@ def fulfilled_order_with_all_cancelled_fulfillments(
     fulfilled_order, staff_user, warehouse
 ):
     fulfillment = fulfilled_order.fulfillments.get()
-    cancel_fulfillment(fulfillment, staff_user, warehouse, get_plugins_manager())
+    cancel_fulfillment(fulfillment, staff_user, None, warehouse, get_plugins_manager())
     return fulfilled_order
 
 
@@ -2953,6 +3194,23 @@ def dummy_payment_data(payment_dummy):
 
 
 @pytest.fixture
+def dummy_address_data(address):
+    return AddressData(
+        first_name=address.first_name,
+        last_name=address.last_name,
+        company_name=address.company_name,
+        street_address_1=address.street_address_1,
+        street_address_2=address.street_address_2,
+        city=address.city,
+        city_area=address.city_area,
+        postal_code=address.postal_code,
+        country=address.country,
+        country_area=address.country_area,
+        phone=address.phone,
+    )
+
+
+@pytest.fixture
 def dummy_webhook_app_payment_data(dummy_payment_data, payment_app):
     dummy_payment_data.gateway = to_payment_app_id(payment_app, "credit-card")
     return dummy_payment_data
@@ -3016,6 +3274,7 @@ def discount_info(category, collection, sale, channel_USD):
         product_ids=set(),
         category_ids={category.id},  # assumes this category does not have children
         collection_ids={collection.id},
+        variants_ids=set(),
     )
 
 
@@ -3042,6 +3301,11 @@ def permission_manage_shipping():
 @pytest.fixture
 def permission_manage_users():
     return Permission.objects.get(codename="manage_users")
+
+
+@pytest.fixture
+def permission_impersonate_user():
+    return Permission.objects.get(codename="impersonate_user")
 
 
 @pytest.fixture
@@ -3222,6 +3486,26 @@ def page(db, page_type):
 
 
 @pytest.fixture
+def page_with_rich_text_attribute(db, page_type_with_rich_text_attribute):
+    data = {
+        "slug": "test-url",
+        "title": "Test page",
+        "content": dummy_editorjs("Test content."),
+        "is_published": True,
+        "page_type": page_type_with_rich_text_attribute,
+    }
+    page = Page.objects.create(**data)
+
+    # associate attribute value
+    page_attr = page_type_with_rich_text_attribute.page_attributes.first()
+    page_attr_value = page_attr.values.first()
+
+    associate_attribute_values_to_instance(page, page_attr, page_attr_value)
+
+    return page
+
+
+@pytest.fixture
 def page_list(db, page_type):
     data_1 = {
         "slug": "test-url",
@@ -3265,6 +3549,13 @@ def page_type(db, size_page_attribute, tag_page_attribute):
     page_type.page_attributes.add(size_page_attribute)
     page_type.page_attributes.add(tag_page_attribute)
 
+    return page_type
+
+
+@pytest.fixture
+def page_type_with_rich_text_attribute(db, rich_text_attribute_page_type):
+    page_type = PageType.objects.create(name="Test page type", slug="test-page-type")
+    page_type.page_attributes.add(rich_text_attribute_page_type)
     return page_type
 
 
@@ -3354,6 +3645,51 @@ def translated_attribute_value(pink_attribute_value):
         language_code="fr",
         attribute_value=pink_attribute_value,
         name="French attribute value name",
+    )
+
+
+@pytest.fixture
+def translated_page_unique_attribute_value(page, rich_text_attribute_page_type):
+    page_type = page.page_type
+    page_type.page_attributes.add(rich_text_attribute_page_type)
+    attribute_value = rich_text_attribute_page_type.values.first()
+    associate_attribute_values_to_instance(
+        page, rich_text_attribute_page_type, attribute_value
+    )
+    return AttributeValueTranslation.objects.create(
+        language_code="fr",
+        attribute_value=attribute_value,
+        rich_text=dummy_editorjs("French description."),
+    )
+
+
+@pytest.fixture
+def translated_product_unique_attribute_value(product, rich_text_attribute):
+    product_type = product.product_type
+    product_type.product_attributes.add(rich_text_attribute)
+    attribute_value = rich_text_attribute.values.first()
+    associate_attribute_values_to_instance(
+        product, rich_text_attribute, attribute_value
+    )
+    return AttributeValueTranslation.objects.create(
+        language_code="fr",
+        attribute_value=attribute_value,
+        rich_text=dummy_editorjs("French description."),
+    )
+
+
+@pytest.fixture
+def translated_variant_unique_attribute_value(variant, rich_text_attribute):
+    product_type = variant.product.product_type
+    product_type.variant_attributes.add(rich_text_attribute)
+    attribute_value = rich_text_attribute.values.first()
+    associate_attribute_values_to_instance(
+        variant, rich_text_attribute, attribute_value
+    )
+    return AttributeValueTranslation.objects.create(
+        language_code="fr",
+        attribute_value=attribute_value,
+        rich_text=dummy_editorjs("French description."),
     )
 
 
@@ -3458,6 +3794,13 @@ def payment_dummy(db, order_with_lines):
         billing_country_area=order_with_lines.billing_address.country_area,
         billing_email=order_with_lines.user_email,
     )
+
+
+@pytest.fixture
+def payment_cancelled(payment_dummy):
+    payment_dummy.charge_status = ChargeStatus.CANCELLED
+    payment_dummy.save()
+    return payment_dummy
 
 
 @pytest.fixture
@@ -3792,18 +4135,18 @@ def warehouse(address, shipping_zone):
 
 
 @pytest.fixture
-def warehouses(address):
+def warehouses(address, address_usa):
     return Warehouse.objects.bulk_create(
         [
             Warehouse(
                 address=address.get_copy(),
-                name="Warehouse1",
+                name="Warehouse PL",
                 slug="warehouse1",
                 email="warehouse1@example.com",
             ),
             Warehouse(
-                address=address.get_copy(),
-                name="Warehouse2",
+                address=address_usa.get_copy(),
+                name="Warehouse USA",
                 slug="warehouse2",
                 email="warehouse2@example.com",
             ),
@@ -4003,3 +4346,17 @@ def app_export_event(app_export_file):
         app=app_export_file.app,
         parameters={"message": "Example error message"},
     )
+
+
+@pytest.fixture
+def check_payment_balance_input():
+    return {
+        "gatewayId": "mirumee.payments.gateway",
+        "channel": "channel_default",
+        "method": "givex",
+        "card": {
+            "cvc": "9891",
+            "code": "12345678910",
+            "money": {"currency": "GBP", "amount": 100.0},
+        },
+    }

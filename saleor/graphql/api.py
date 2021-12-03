@@ -1,14 +1,17 @@
-from graphene_federation import build_schema
-
 from .account.schema import AccountMutations, AccountQueries
 from .app.schema import AppMutations, AppQueries
 from .attribute.schema import AttributeMutations, AttributeQueries
 from .channel.schema import ChannelMutations, ChannelQueries
 from .checkout.schema import CheckoutMutations, CheckoutQueries
 from .core.enums import unit_enums
+from .core.federation import build_federated_schema
 from .core.schema import CoreMutations, CoreQueries
 from .csv.schema import CsvMutations, CsvQueries
 from .discount.schema import DiscountMutations, DiscountQueries
+
+# Firstech Custom
+from .drone.schema import DroneQueries
+from .firstech.schema import FirstechOrderMutations
 from .giftcard.schema import GiftCardMutations, GiftCardQueries
 from .invoice.schema import InvoiceMutations
 from .menu.schema import MenuMutations, MenuQueries
@@ -18,15 +21,12 @@ from .page.schema import PageMutations, PageQueries
 from .payment.schema import PaymentMutations, PaymentQueries
 from .plugins.schema import PluginsMutations, PluginsQueries
 from .product.schema import ProductMutations, ProductQueries
+from .SAP.schema import SAPMutations, SAPQueries
 from .shipping.schema import ShippingMutations, ShippingQueries
 from .shop.schema import ShopMutations, ShopQueries
 from .translations.schema import TranslationQueries
 from .warehouse.schema import StockQueries, WarehouseMutations, WarehouseQueries
 from .webhook.schema import WebhookMutations, WebhookQueries
-
-# Firstech Custom
-from .drone.schema import DroneQueries
-from .SAP.schema import SAPQueries, SAPMutations
 
 
 class Query(
@@ -51,8 +51,7 @@ class Query(
     TranslationQueries,
     WarehouseQueries,
     WebhookQueries,
-
-    #Firstech Custom
+    # Firstech Custom
     DroneQueries,
     SAPQueries,
 ):
@@ -81,11 +80,11 @@ class Mutation(
     ShopMutations,
     WarehouseMutations,
     WebhookMutations,
-
-    #Firstech Custom
+    # Firstech Custom
+    FirstechOrderMutations,
     SAPMutations,
 ):
     pass
 
 
-schema = build_schema(Query, mutation=Mutation, types=unit_enums)
+schema = build_federated_schema(Query, mutation=Mutation, types=unit_enums)

@@ -1,9 +1,11 @@
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import graphene
 
 from ..attribute import AttributeInputType
 from ..checkout.fetch import fetch_checkout_lines
+from ..core.prices import quantize_price
 from ..product.models import Product
 
 if TYPE_CHECKING:
@@ -15,6 +17,7 @@ if TYPE_CHECKING:
 def serialize_checkout_lines(checkout: "Checkout") -> List[dict]:
     data = []
     channel = checkout.channel
+    currency = channel.currency_code
     for line_info in fetch_checkout_lines(checkout):
         variant = line_info.variant
         channel_listing = line_info.channel_listing
@@ -25,8 +28,8 @@ def serialize_checkout_lines(checkout: "Checkout") -> List[dict]:
             {
                 "sku": variant.sku,
                 "quantity": line_info.line.quantity,
-                "base_price": str(base_price.amount),
-                "currency": channel.currency_code,
+                "base_price": str(quantize_price(base_price.amount, currency)),
+                "currency": currency,
                 "full_name": variant.display_product(),
                 "product_name": product.name,
                 "variant_name": variant.name,
@@ -56,17 +59,23 @@ def serialize_product_or_variant_attributes(
             "input_type": attribute.input_type,
             "slug": attribute.slug,
             "entity_type": attribute.entity_type,
+            "unit": attribute.unit,
             "id": attr_id,
             "values": [],
         }
 
         for attr_value in attr.values.all():
             attr_slug = attr_value.slug
-            value: Dict[str, Optional[Union[str, Dict[str, Any]]]] = {
+            value: Dict[
+                str, Optional[Union[str, datetime, date, bool, Dict[str, Any]]]
+            ] = {
                 "name": attr_value.name,
                 "slug": attr_slug,
                 "value": attr_value.value,
                 "rich_text": attr_value.rich_text,
+                "boolean": attr_value.boolean,
+                "date_time": attr_value.date_time,
+                "date": attr_value.date_time,
                 "reference": _prepare_reference(attribute, attr_slug),
                 "file": None,
             }

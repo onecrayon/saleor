@@ -36,17 +36,23 @@ class DroneUserProfile(models.Model):
     )
     update_date = models.DateTimeField(auto_now=True)
     installer_id = models.IntegerField(unique=True, null=True)
-    dealer_id = models.IntegerField(unique=True, null=True)
+    dealer_id = models.IntegerField(unique=False, null=True)
     dealer_retired_date = models.DateTimeField(blank=True, null=True)
+    is_company_owner = models.BooleanField(null=True, default=None)
 
-    def refresh_drone_profile(self):
+    def refresh_drone_profile(self, email: str = None):
         """Gets the latest and greatest user information from the Drone API. Updates the
         saleor user and/or drone_user_profile if any changes are detected. Only saves if
-        there are changes to keep database writes to a minimum."""
+        there are changes to keep database writes to a minimum.
 
-        drone_user_info = DroneUser.get_user_from_drone(self.user.email)
+        :param email: Optional email string. If provided, this function
+            will look up the drone profile with the provided email rather than the
+            existing email attached to the drone user profile.
+        """
+        drone_user_info = DroneUser.get_user_from_drone(email or self.user.email)
 
         field_mappings = [
+            (self.user, 'email', drone_user_info.email),
             (self.user, 'first_name', drone_user_info.first_name),
             (self.user, 'last_name', drone_user_info.last_name),
             (self.user, 'is_staff',
@@ -58,6 +64,7 @@ class DroneUserProfile(models.Model):
             (self, 'installer_id', drone_user_info.installer_id),
             (self, 'dealer_id', drone_user_info.dealer_id),
             (self, 'dealer_retired_date', drone_user_info.dealer_retired_date),
+            (self, 'is_company_owner', drone_user_info.is_company_owner),
         ]
 
         update_profile_fields = {'update_date'}
@@ -91,6 +98,7 @@ class DroneUser:
     installer_id: int = None
     dealer_id: int = None
     dealer_retired_date: timezone.datetime = None
+    is_company_owner: bool = None
 
     @staticmethod
     def get_user_from_drone(email: str) -> 'DroneUser':  # pragma: no cover
@@ -104,7 +112,8 @@ class DroneUser:
                 SELECT us.id as drone_user_id, us.email, us.cognito_sub,
                     us.phone_number as id_phone_number, us.first_name, us.last_name,
                     us.access_type, us.latest_global_logout, inst.id as installer_id,
-                    deal.id as dealer_id, deal.retired_date as dealer_retired_date
+                    deal.id as dealer_id, deal.retired_date as dealer_retired_date,
+                    inst.is_owner as is_company_owner
                 FROM bmapi_user AS us
                 LEFT JOIN bmapi_installer as inst ON inst.user_id = us.id
                 LEFT JOIN bmapi_dealer as deal ON deal.id = inst.dealer_id
@@ -132,18 +141,32 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
     :return: The Saleor User object"""
 
     if jwt_payload['iss'] == 'internal':
-        email = jwt_payload['sub']
+        token_email = jwt_payload['sub']
+        cognito_sub = None
     else:
-        email = jwt_payload['email']
+        token_email = jwt_payload['email']
+        cognito_sub = jwt_payload['sub']
 
-    drone_user_info = None
-    drone_user_checked = False
+    saleor_user = None
 
-    # Get or create the Saleor User object
+    # Try to find a saleor user with the cognito subscriber id given from the token
+    if cognito_sub:
+        saleor_user = User.objects.filter(
+            droneuserprofile__cognito_sub=cognito_sub
+        ).first()
+
     try:
-        saleor_user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        if drone_user_info := DroneUser.get_user_from_drone(email):
+        if not saleor_user:
+            # try to find a user from the token's email since we didn't find a matching
+            # cognito subscriber id
+            saleor_user = User.objects.get(email=token_email)
+
+        drone_profile = saleor_user.droneuserprofile
+
+    except (User.DoesNotExist, DroneUserProfile.DoesNotExist):
+        # Either we don't have a drone profile, or we don't have a user at all. In
+        # either case we will need to try to create a drone profile for the user.
+        if drone_user_info := DroneUser.get_user_from_drone(token_email):
             user_info = {
                 'is_staff': drone_user_info.access_type == constants.FIRSTECH_ADMIN,
                 'first_name': drone_user_info.first_name,
@@ -151,16 +174,10 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
             }
         else:
             user_info = {}
-            drone_user_checked = True
 
-        saleor_user = User.objects.create_user(email=email, **user_info)
+        if not saleor_user:
+            saleor_user = User.objects.create_user(email=token_email, **user_info)
 
-    # Get or create the DroneUserProfile for the Saleor User
-    try:
-        drone_profile = DroneUserProfile.objects.get(user=saleor_user)
-    except DroneUserProfile.DoesNotExist:
-        if not drone_user_info and not drone_user_checked:
-            drone_user_info = DroneUser.get_user_from_drone(email)
         if drone_user_info:
             DroneUserProfile.objects.create(
                 user=saleor_user,
@@ -171,19 +188,24 @@ def get_or_create_user_with_drone_profile(jwt_payload: dict) -> User:
                 dealer_id=drone_user_info.dealer_id,
                 dealer_retired_date=drone_user_info.dealer_retired_date,
                 id_phone_number=drone_user_info.id_phone_number,
+                is_company_owner=drone_user_info.is_company_owner,
             )
     else:
         # The saleor user and drone profile already exist. Refresh the user info from
         # drone if the auth token is newer than the last update timestamp. Or update the
         # profile if it's been more than 1 hour since the last update (needed for our
-        # never expiring internal tokens)
+        # never expiring internal tokens). Or update if the user's email doesn't match
+        # the email contained in the token.
         token_iat = timezone.datetime.fromtimestamp(
             jwt_payload.get('iat', 0),
             tz=timezone.utc
         )
-        if token_iat > drone_profile.update_date or \
-                timezone.now() > drone_profile.update_date + relativedelta(hours=1):
-            drone_profile.refresh_drone_profile()
+        if (
+                saleor_user.email != token_email
+                or token_iat > drone_profile.update_date
+                or timezone.now() > drone_profile.update_date + relativedelta(hours=1)
+        ):
+            drone_profile.refresh_drone_profile(token_email)
             saleor_user.refresh_from_db()
 
     return saleor_user
