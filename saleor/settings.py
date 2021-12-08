@@ -587,6 +587,7 @@ BUILTIN_PLUGINS = [
     "saleor.payment.gateways.razorpay.plugin.RazorpayGatewayPlugin",
     "saleor.payment.gateways.adyen.plugin.AdyenGatewayPlugin",
     "saleor.payment.gateways.authorize_net.plugin.AuthorizeNetGatewayPlugin",
+    "saleor.payment.gateways.np_atobarai.plugin.NPAtobaraiGatewayPlugin",
     "saleor.plugins.invoicing.plugin.InvoicingPlugin",
     "saleor.plugins.user_email.plugin.UserEmailPlugin",
     "saleor.plugins.admin_email.plugin.AdminEmailPlugin",
@@ -620,6 +621,11 @@ if (
 # for getting response from the server.
 WEBHOOK_TIMEOUT = 10
 WEBHOOK_SYNC_TIMEOUT = 20
+
+# This is deprecated env which will be removed in Saleor 3.1
+WEBHOOK_EXCLUDED_SHIPPING_REQUEST_TIMEOUT = int(
+    os.environ.get("WEBHOOK_EXCLUDED_SHIPPING_REQUEST_TIMEOUT", 2)
+)
 
 # Initialize a simple and basic Jaeger Tracing integration
 # for open-tracing if enabled.
