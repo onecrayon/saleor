@@ -242,7 +242,9 @@ class ProductVariantChannelListing(CountableDjangoObjectType):
         description = "Represents product varaint channel listing."
         model = models.ProductVariantChannelListing
         interfaces = [graphene.relay.Node]
-        only_fields = ["id", "channel", "price", "cost_price"]
+        only_fields = [
+            "id", "channel", "price", "cost_price", "backorder_quantity_threshold"
+        ]
 
     @staticmethod
     def resolve_channel(root: models.ProductVariantChannelListing, info, **_kwargs):

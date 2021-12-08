@@ -34,9 +34,6 @@ class BackordersPlugin(BasePlugin):
         :returns: The maximum remaining number of units that can be backordered for the
             given product and channel combination. Or None if no limit is defined.
         """
-        if not self.active:
-            return 0
-
         variant = variant_channel.variant
         # Get all the backorders for this variant grouped by channel and annotated by
         # quantity so that we can see how many units of this variant have been
@@ -59,11 +56,14 @@ class BackordersPlugin(BasePlugin):
             limit = variant.backorder_quantity_global_threshold - total_backordered
 
         if variant_channel.backorder_quantity_threshold:
-            channel_backordered = channel_backorders.filter(
-                product_variant_channel_listing__channel_id=self.channel.id
-            ).first()
-            channel_limit = variant_channel.backorder_quantity_threshold \
-                - channel_backordered["channel_backordered"]
+            try:
+                channel_backordered = channel_backorders.get(
+                    product_variant_channel_listing__channel_id=self.channel.id
+                )
+                channel_limit = variant_channel.backorder_quantity_threshold \
+                    - channel_backordered["channel_backordered"]
+            except Backorder.DoesNotExist:
+                channel_limit = variant_channel.backorder_quantity_threshold
 
             # Get the smallest non-null of the two limits
             limit = min(filter(None, [limit, channel_limit]))

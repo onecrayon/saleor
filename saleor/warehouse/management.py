@@ -91,7 +91,7 @@ def allocate_stocks(
             limit = plugin_manager.get_backorder_quantity_limit(
                 variant_channel, channel_slug=channel_slug)
 
-            if limit and limit < insufficient_stock_data.backorder_quantity:
+            if limit is not None and limit < insufficient_stock_data.backorder_quantity:
                 raise InsufficientStock(insufficient_stock)
 
             # Save this info for later

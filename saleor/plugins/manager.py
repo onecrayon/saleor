@@ -1025,9 +1025,12 @@ class PluginsManager(PaymentInterface):
         )
 
     def get_backorder_quantity_limit(self, variant_channel, channel_slug: str):
-        default_value = None
+        default_value = 0
         return self.__run_method_on_plugins(
-            "get_backorder_quantity_limit", default_value, variant_channel, channel_slug=channel_slug
+            "get_backorder_quantity_limit",
+            default_value,
+            variant_channel,
+            channel_slug=channel_slug
         )
 
 

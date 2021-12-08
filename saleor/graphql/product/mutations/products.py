@@ -762,6 +762,9 @@ class ProductVariantInput(graphene.InputObjectType):
         )
     )
     weight = WeightScalar(description="Weight of the Product Variant.", required=False)
+    backorder_quantity_global_threshold = graphene.Int(
+        description="Optional maximum limit for backorders."
+    )
 
 
 class ProductVariantCreateInput(ProductVariantInput):

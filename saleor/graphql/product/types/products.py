@@ -265,7 +265,15 @@ class ProductVariant(ChannelContextTypeWithMetadata, CountableDjangoObjectType):
         description = (
             "Represents a version of a product such as different size or color."
         )
-        only_fields = ["id", "name", "product", "sku", "track_inventory", "weight"]
+        only_fields = [
+            "id",
+            "name",
+            "product",
+            "sku",
+            "track_inventory",
+            "weight",
+            "backorder_quantity_global_threshold"
+        ]
         interfaces = [relay.Node, ObjectWithMetadata]
         model = models.ProductVariant
 
