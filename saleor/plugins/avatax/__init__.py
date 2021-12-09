@@ -169,20 +169,12 @@ def _validate_checkout(
     )
 
 
-def _retrieve_from_cache(token):
-    taxes_cache_key = CACHE_KEY + token
-    cached_data = cache.get(taxes_cache_key)
-    return cached_data
-
-
-def taxes_need_new_fetch(data: Dict[str, Any], taxes_token: str) -> bool:
+def taxes_need_new_fetch(data: Dict[str, Any], cached_data) -> bool:
     """Check if Avatax's taxes data need to be refetched.
 
     The response from Avatax is stored in a cache. If an object doesn't exist in cache
     or something has changed, taxes need to be refetched.
     """
-    cached_data = _retrieve_from_cache(taxes_token)
-
     if not cached_data:
         return True
 
@@ -217,14 +209,14 @@ def append_line_to_data(
 
 def append_shipping_to_data(
     data: List[Dict],
-    shipping_method_channel_listings: Optional["ShippingMethodChannelListing"],
+    shipping_method_channel_listing: Optional["ShippingMethodChannelListing"],
     shipping_tax_code: str,
 ):
     charge_taxes_on_shipping = (
         Site.objects.get_current().settings.charge_taxes_on_shipping
     )
-    if charge_taxes_on_shipping and shipping_method_channel_listings:
-        shipping_price = shipping_method_channel_listings.price
+    if charge_taxes_on_shipping and shipping_method_channel_listing:
+        shipping_price = shipping_method_channel_listing.price
         append_line_to_data(
             data,
             quantity=1,
@@ -250,15 +242,21 @@ def get_checkout_lines_data(
         product_type = line_info.product_type
         tax_code = retrieve_tax_code_from_meta(product, default=None)
         tax_code = tax_code or retrieve_tax_code_from_meta(product_type)
+        amount = base_calculations.base_checkout_line_total(
+            line_info,
+            channel,
+            discounts,
+        ).gross.amount
         append_line_to_data(
             data=data,
             quantity=line_info.line.quantity,
-            amount=base_calculations.base_checkout_line_total(
-                line_info,
-                channel,
-                discounts,
-            ).gross.amount,
-            tax_code=tax_code,
+            amount=amount,
+            # This is a workaround for Avatax and sending a lines with amount 0. Like
+            # order lines which are fully discounted for some reason. If we use a
+            # standard tax_code, Avatax will raise an exception: "When shipping
+            # cross-border into CIF countries, Tax Included is not supported with mixed
+            # positive and negative line amounts."
+            tax_code=tax_code if amount else DEFAULT_TAX_CODE,
             item_code=line_info.variant.sku,
             name=name,
         )
@@ -295,11 +293,17 @@ def get_order_lines_data(
         )
         tax_included = line_has_included_taxes or system_tax_included
 
+        amount = line.unit_price_gross_amount * line.quantity
         append_line_to_data(
             data=data,
             quantity=line.quantity,
-            amount=line.unit_price_gross_amount * line.quantity,
-            tax_code=tax_code,
+            amount=amount,
+            # This is a workaround for Avatax and sending a lines with amount 0. Like
+            # order lines which are fully discounted for some reason. If we use a
+            # standard tax_code, Avatax will raise an exception: "When shipping
+            # cross-border into CIF countries, Tax Included is not supported with mixed
+            # positive and negative line amounts."
+            tax_code=tax_code if amount else DEFAULT_TAX_CODE,
             item_code=line.variant.sku,
             name=line.variant.product.name,
             tax_included=tax_included,
@@ -425,11 +429,11 @@ def get_cached_response_or_fetch(
     Return cached response if requests data are the same. Fetch new data in other cases.
     """
     data_cache_key = CACHE_KEY + token_in_cache
-    if taxes_need_new_fetch(data, token_in_cache) or force_refresh:
+    cached_data = cache.get(data_cache_key)
+    if taxes_need_new_fetch(data, cached_data) or force_refresh:
         response = _fetch_new_taxes_data(data, data_cache_key, config)
     else:
-        _, response = cache.get(data_cache_key)
-
+        _, response = cached_data
     return response
 
 

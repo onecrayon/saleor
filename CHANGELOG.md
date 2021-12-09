@@ -154,7 +154,11 @@ All notable, unreleased changes to this project will be documented in this file.
 - Batch loads in queries for Apollo Federation - #8362 by @rafalp
 - Change metadata mutations to use token for order and checkout as identifier - #8542 by @IKarbowiak
   - After changes, using the order `id` for changing order metadata is deprecated
+- Add workaround for failing Avatax when line has price 0 - #8610 by @korycins
 - Add option to set tax code for shipping in Avatax configuration view - #8596 by @korycins
+- Fix Avalara tax fetching from cache - #8647 by @fowczarek
+- Implement database read replicas - #8516, #8751 by @fowczarek
+
 
 ### Breaking
 - Multichannel MVP: Multicurrency - #6242 by @fowczarek @d-wysocki
