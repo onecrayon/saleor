@@ -593,6 +593,7 @@ BUILTIN_PLUGINS = [
     "saleor.plugins.admin_email.plugin.AdminEmailPlugin",
     "saleor.plugins.sendgrid.plugin.SendgridEmailPlugin",
     "saleor.plugins.sap_orders.plugin.SAPPlugin",
+    "saleor.plugins.backorders.plugin.BackordersPlugin",
 ]
 
 # Plugin discovery

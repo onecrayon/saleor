@@ -515,6 +515,9 @@ class BasePlugin:
         )
         return [gateway]
 
+    def get_backorder_quantity_limit(self, variant_channel, previous_value):
+        return NotImplemented
+
     @classmethod
     def _update_config_items(
         cls, configuration_to_update: List[dict], current_config: List[dict]

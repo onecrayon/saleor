@@ -5,12 +5,13 @@ from typing import Set
 from django.db import models
 from django.db.models import Exists, F, OuterRef, Q, Sum
 from django.db.models.functions import Coalesce
+from django.utils.timezone import now
 
 from ..account.models import Address
 from ..channel.models import Channel
 from ..core.models import ModelWithMetadata
 from ..order.models import OrderLine
-from ..product.models import Product, ProductVariant
+from ..product.models import Product, ProductVariantChannelListing, ProductVariant
 from ..shipping.models import ShippingZone
 
 
@@ -163,3 +164,24 @@ class Allocation(models.Model):
     class Meta:
         unique_together = [["order_line", "stock"]]
         ordering = ("pk",)
+
+
+class Backorder(models.Model):
+    order_line = models.OneToOneField(
+        OrderLine,
+        null=False,
+        blank=False,
+        on_delete=models.CASCADE,
+        related_name="backorder",
+    )
+    product_variant_channel_listing = models.ForeignKey(
+        ProductVariantChannelListing,
+        null=False,
+        on_delete=models.CASCADE,
+        related_name="backorders",
+    )
+    quantity = models.PositiveIntegerField(default=0)
+    created = models.DateTimeField(default=now, editable=False)
+
+    class Meta:
+        ordering = ("created",)

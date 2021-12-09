@@ -305,6 +305,9 @@ class ProductVariantChannelListingAddInput(graphene.InputObjectType):
         required=True, description="Price of the particular variant in channel."
     )
     cost_price = PositiveDecimal(description="Cost price of the variant in channel.")
+    backorder_quantity_threshold = graphene.Int(
+        description=f"The threshold for backorder variant in channel."
+    )
 
 
 class ProductVariantChannelListingUpdate(BaseMutation):
@@ -424,6 +427,10 @@ class ProductVariantChannelListingUpdate(BaseMutation):
             if "cost_price" in channel_listing_data.keys():
                 defaults["cost_price_amount"] = channel_listing_data.get(
                     "cost_price", None
+                )
+            if "backorder_quantity_threshold" in channel_listing_data.keys():
+                defaults["backorder_quantity_threshold"] = channel_listing_data.get(
+                    "backorder_quantity_threshold", None
                 )
             ProductVariantChannelListing.objects.update_or_create(
                 variant=variant,
