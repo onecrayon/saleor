@@ -1,6 +1,7 @@
 import graphene
 
 from firstech.drone import models
+from .mutations.drone import RefreshDroneProfile
 
 from ...core.exceptions import PermissionDenied
 from ...core.permissions import AccountPermissions
@@ -24,3 +25,7 @@ class DroneQueries(graphene.ObjectType):
             return models.DroneUserProfile.objects.filter(**filter_kwargs).first()
 
         return PermissionDenied()
+
+
+class DroneMutations(graphene.ObjectType):
+    refresh_drone_profile = RefreshDroneProfile.Field()

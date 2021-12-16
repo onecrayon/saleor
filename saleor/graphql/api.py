@@ -10,7 +10,7 @@ from .csv.schema import CsvMutations, CsvQueries
 from .discount.schema import DiscountMutations, DiscountQueries
 
 # Firstech Custom
-from .drone.schema import DroneQueries
+from .drone.schema import DroneQueries, DroneMutations
 from .firstech.schema import FirstechOrderMutations
 from .giftcard.schema import GiftCardMutations, GiftCardQueries
 from .invoice.schema import InvoiceMutations
@@ -83,6 +83,7 @@ class Mutation(
     # Firstech Custom
     FirstechOrderMutations,
     SAPMutations,
+    DroneMutations,
 ):
     pass
 

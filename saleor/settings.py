@@ -91,7 +91,7 @@ if not os.getenv("IS_TEST", False):
     DATABASES.update(
         {
             "drone_db": {
-                "NAME": "bmappdev",
+                "NAME": os.environ.get("DRONE_DATABASE_DBNAME"),
                 "ENGINE": "django.db.backends.postgresql",
                 "USER": os.environ.get("DRONE_DATABASE_USERNAME"),
                 "PASSWORD": os.environ.get("DRONE_DATABASE_PASSWORD"),
