@@ -22,7 +22,6 @@ class RefreshDroneProfile(BaseMutation):
 
     @classmethod
     def perform_mutation(cls, root, info, **data):
-        print(data["email"])
         user = get_or_create_user_with_drone_profile(token_email=data["email"])
         if user:
             try:
