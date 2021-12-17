@@ -1,6 +1,4 @@
 import graphene
-from typing import TYPE_CHECKING
-
 from django.core.exceptions import ValidationError
 
 from saleor.core import JobStatus
@@ -10,10 +8,7 @@ from saleor.graphql.core.types.common import OrderError
 from saleor.graphql.invoice.types import Invoice
 from saleor.invoice.models import Invoice as InvoiceModel
 from saleor.order.models import Fulfillment as FulfillmentModel
-
-if TYPE_CHECKING:
-    from saleor.plugins.manager import PluginsManager
-    from saleor.plugins.sap_orders.plugin import SAPPlugin
+from saleor.plugins.sap_orders import get_sap_plugin_or_error
 
 
 class UpsertSAPInvoiceDocument(BaseMutation):
@@ -33,12 +28,7 @@ class UpsertSAPInvoiceDocument(BaseMutation):
 
     @classmethod
     def perform_mutation(cls, _root, info, **data):
-        manager: PluginsManager = info.context.plugins
-        sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
-        if not sap_plugin:
-            # the SAP plugin is inactive or doesn't exist
-            return
-
+        sap_plugin = get_sap_plugin_or_error(info.context.plugins)
         sap_invoice = sap_plugin.fetch_invoice(data["doc_entry"])
 
         # Need to figure out which order this goes to which can be done by finding a

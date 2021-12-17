@@ -1,8 +1,13 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import requests
 from django.core.cache import caches
+from django.core.exceptions import ImproperlyConfigured
 
+if TYPE_CHECKING:
+    from saleor.plugins.manager import PluginsManager
+    from saleor.plugins.sap_orders.plugin import SAPPlugin
 
 @dataclass
 class SAPServiceLayerConfiguration:
@@ -72,3 +77,22 @@ def get_price_list_cache(config: SAPServiceLayerConfiguration) -> dict:
 
     cache.set("price_list_cache", price_list_cache, timeout=60 * 60 * 24)
     return price_list_cache
+
+
+def get_sap_plugin_or_error(manager: "PluginsManager"):
+    """Returns the SAP plugin if it is configured correctly, or returns Error.
+    :param manager: An instance of a plugins manager. Usually can be obtained through
+        a mutation's info.context.plugins attribute.
+    :returns: An instance of the SAPPlugin class.
+    """
+    sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
+    if not sap_plugin or not sap_plugin.active:
+        # the SAP plugin is inactive or doesn't exist
+        raise ImproperlyConfigured("SAP Plugin is not active")
+
+    for config in sap_plugin.configuration:
+        if not config["value"] and config["value"] is not False:
+            # Raise error for any fields that are null or blank (explicitly False is ok)
+            raise ImproperlyConfigured("SAP Plugin is not properly configured.")
+
+    return sap_plugin

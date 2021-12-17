@@ -1,6 +1,4 @@
 import graphene
-from typing import TYPE_CHECKING
-
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
@@ -22,11 +20,9 @@ from saleor.graphql.SAP.types import (
     SAPApprovedBrands,
     SAPUserProfile,
 )
+from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.shipping.models import ShippingMethod
 
-if TYPE_CHECKING:
-    from saleor.plugins.manager import PluginsManager
-    from saleor.plugins.sap_orders.plugin import SAPPlugin
 
 
 def upsert_business_partner(bp: dict) -> models.BusinessPartner:
@@ -337,11 +333,7 @@ class UpsertBusinessPartner(ModelMutation, GetBusinessPartnerMixin):
     @classmethod
     @traced_atomic_transaction()
     def perform_mutation(cls, _root, info, **data):
-        manager: PluginsManager = info.context.plugins
-        sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
-        if not sap_plugin:
-            # the SAP plugin is inactive or doesn't exist
-            return
+        sap_plugin = get_sap_plugin_or_error(info.context.plugins)
 
         bp = sap_plugin.fetch_business_partner(data["sap_bp_code"])
 
