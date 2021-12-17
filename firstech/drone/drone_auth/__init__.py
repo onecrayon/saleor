@@ -83,7 +83,16 @@ def authenticate_by_token(jwt_token: str) -> User:
     except jwt_validators.TokenError:
         raise AuthenticationError()
 
-    user = get_or_create_user_with_drone_profile(jwt_payload)
+    if jwt_payload['iss'] == 'internal':
+        token_email = jwt_payload['sub']
+        cognito_sub = None
+    else:
+        token_email = jwt_payload['email']
+        cognito_sub = jwt_payload['sub']
+
+    user = get_or_create_user_with_drone_profile(
+        token_email, cognito_sub, jwt_payload.get("iat", 0)
+    )
 
     if hasattr(user, 'droneuserprofile'):
         # Disallow installers associated with retired dealers
