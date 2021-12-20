@@ -1,14 +1,14 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, List, Tuple
+from typing import List, Tuple
 
 import graphene
 from django.core.exceptions import ValidationError
 from prices import Money, TaxedMoney
 
 import saleor.product.models as product_models
-from firstech.SAP.constants import CUSTOM_SAP_SHIPPING_TYPE_NAME
 from firstech.permissions import SAPCustomerPermissions
 from firstech.SAP import CONFIRMED_ORDERS
+from firstech.SAP.constants import CUSTOM_SAP_SHIPPING_TYPE_NAME
 from firstech.SAP.models import BusinessPartner
 from saleor.account import models as user_models
 from saleor.core.permissions import OrderPermissions
@@ -20,10 +20,10 @@ from saleor.discount import models as discount_models
 from saleor.graphql.core.types.common import OrderError
 from saleor.graphql.order.mutations.discount_order import (
     OrderDiscountAdd,
-    OrderDiscountUpdate,
-    OrderLineDiscountUpdate,
     OrderDiscountDelete,
+    OrderDiscountUpdate,
     OrderLineDiscountRemove,
+    OrderLineDiscountUpdate
 )
 from saleor.graphql.order.mutations.draft_orders import (
     DraftOrderComplete,
@@ -39,11 +39,11 @@ from saleor.graphql.order.mutations.orders import (
 from saleor.graphql.order.types import Order, OrderLine
 from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
 from saleor.order import models as order_models
-from saleor.order.utils import get_valid_shipping_methods_for_order, recalculate_order
-
-if TYPE_CHECKING:
-    from saleor.plugins.manager import PluginsManager
-    from saleor.plugins.sap_orders.plugin import SAPPlugin
+from saleor.order.utils import (
+    get_valid_shipping_methods_for_order,
+    recalculate_order,
+)
+from saleor.plugins.sap_orders import get_sap_plugin_or_error
 
 
 class SAPLineItemInput(graphene.InputObjectType):
@@ -196,12 +196,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
     @classmethod
     @traced_atomic_transaction()
     def perform_mutation(cls, _root, info, **data):
-        manager: PluginsManager = info.context.plugins
-        sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
-        if not sap_plugin:
-            # the SAP plugin is inactive or doesn't exist
-            return
-
+        sap_plugin = get_sap_plugin_or_error(info.context.plugins)
         # Get the order instance
         order: order_models.Order = cls.get_instance(info, **data)
         new_order = False if order.pk else True

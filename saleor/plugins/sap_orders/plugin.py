@@ -23,7 +23,6 @@ from saleor.plugins.sap_orders import (
     get_sap_cookies,
     is_truthy,
 )
-from saleor.shipping.models import ShippingMethod
 
 if TYPE_CHECKING:
     from saleor.invoice.models import Invoice
@@ -516,7 +515,7 @@ class SAPPlugin(BasePlugin):
         )
 
         # Look up the name of the payment terms and add it to the dict
-        if business_partner["PayTermsGrpCode"]:
+        if business_partner.get("PayTermsGrpCode"):
             payment_terms: str = self.service_layer_request(
                 "get", f"PaymentTermsTypes({business_partner['PayTermsGrpCode']})"
             ).get("PaymentTermsGroupName")
@@ -526,7 +525,7 @@ class SAPPlugin(BasePlugin):
             business_partner["payment_terms"] = None
 
         # Look up the channel and add it
-        if business_partner["PriceListNum"]:
+        if business_partner.get("PriceListNum"):
             channel_name = self.price_list_cache[business_partner["PriceListNum"]]
             channel_slug = slugify(channel_name)
             business_partner["channel_slug"] = channel_slug
@@ -535,7 +534,7 @@ class SAPPlugin(BasePlugin):
 
         # Get outside sales rep emails and add them
         outside_sales_rep_emails = []
-        if business_partner["SalesPersonCode"]:
+        if business_partner.get("SalesPersonCode"):
             outside_sales_rep: dict = self.service_layer_request(
                 "get", f"SalesPersons({business_partner['SalesPersonCode']})"
             )

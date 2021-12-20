@@ -1,23 +1,18 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 import graphene
 from django.core.exceptions import ValidationError
 
 from firstech.SAP import models
+from firstech.SAP.models import SAPReturn
 from saleor.core.permissions import OrderPermissions
+from saleor.core.tracing import traced_atomic_transaction
 from saleor.graphql.core.mutations import ModelMutation
 from saleor.graphql.core.types.common import OrderError
 from saleor.graphql.SAP.types import SAPCreditMemo
-from firstech.SAP.models import SAPReturn
+from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.product.models import ProductVariant
-
-from ....core.tracing import traced_atomic_transaction
-
-if TYPE_CHECKING:
-    from saleor.plugins.manager import PluginsManager
-    from saleor.plugins.sap_orders.plugin import SAPPlugin
 
 
 class UpsertSAPCreditMemoDocument(ModelMutation):
@@ -45,12 +40,7 @@ class UpsertSAPCreditMemoDocument(ModelMutation):
     @classmethod
     @traced_atomic_transaction()
     def perform_mutation(cls, _root, info, **data):
-        manager: PluginsManager = info.context.plugins
-        sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
-        if not sap_plugin:
-            # the SAP plugin is inactive or doesn't exist
-            return
-
+        sap_plugin = get_sap_plugin_or_error(info.context.plugins)
         sap_credit_memo = sap_plugin.fetch_credit_memo(data["doc_entry"])
 
         # Try and figure out which return this goes to which is kept in the

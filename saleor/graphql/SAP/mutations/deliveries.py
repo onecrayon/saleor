@@ -1,24 +1,19 @@
 import graphene
-from typing import TYPE_CHECKING
-
 from django.core.exceptions import ValidationError
 
 from saleor.core.permissions import OrderPermissions
 from saleor.graphql.core.mutations import BaseMutation
 from saleor.graphql.core.types.common import OrderError
 from saleor.graphql.order.mutations.fulfillments import (
-    OrderFulfill,
     FulfillmentUpdateTracking,
+    OrderFulfill
 )
 from saleor.graphql.order.types import Fulfillment
 from saleor.graphql.order.types import Order as OrderType
-from saleor.order.models import Order
 from saleor.order.models import Fulfillment as FulfillmentModel
+from saleor.order.models import Order
+from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.warehouse.models import Warehouse
-
-if TYPE_CHECKING:
-    from saleor.plugins.manager import PluginsManager
-    from saleor.plugins.sap_orders.plugin import SAPPlugin
 
 
 class UpsertSAPDeliveryDocument(BaseMutation):
@@ -64,12 +59,7 @@ class UpsertSAPDeliveryDocument(BaseMutation):
 
     @classmethod
     def perform_mutation(cls, _root, info, **data):
-        manager: PluginsManager = info.context.plugins
-        sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
-        if not sap_plugin:
-            # the SAP plugin is inactive or doesn't exist
-            return
-
+        sap_plugin = get_sap_plugin_or_error(info.context.plugins)
         delivery_document = sap_plugin.fetch_delivery_document(data["doc_entry"])
 
         # See if we already have this delivery doc

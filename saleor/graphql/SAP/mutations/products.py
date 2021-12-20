@@ -1,14 +1,11 @@
 import decimal
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import graphene
 from django.utils.text import slugify
 
 import saleor.product.models as product_models
-from saleor.core.permissions import (
-    ChannelPermissions,
-    ProductPermissions,
-)
+from saleor.core.permissions import ChannelPermissions, ProductPermissions
 from saleor.graphql.attribute.utils import AttributeAssignmentMixin
 from saleor.graphql.channel import ChannelContext
 from saleor.graphql.core.mutations import BaseMutation
@@ -19,15 +16,9 @@ from saleor.graphql.product.mutations.channels import (
 )
 from saleor.graphql.product.mutations.products import ProductVariantCreate
 from saleor.graphql.product.types import ProductVariant
-from saleor.graphql.SAP.types import (
-    SAPProductError,
-)
-
-from saleor.warehouse.models import Warehouse, Stock
-
-if TYPE_CHECKING:
-    from saleor.plugins.manager import PluginsManager
-    from saleor.plugins.sap_orders.plugin import SAPPlugin
+from saleor.graphql.SAP.types import SAPProductError
+from saleor.plugins.sap_orders import get_sap_plugin_or_error
+from saleor.warehouse.models import Stock, Warehouse
 
 
 def round_money(value: Optional[decimal.Decimal]) -> Optional[decimal.Decimal]:
@@ -68,12 +59,7 @@ class UpsertSAPProduct(BaseMutation):
 
     @classmethod
     def perform_mutation(cls, root, info, **data):
-        manager: PluginsManager = info.context.plugins
-        sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
-        if not sap_plugin:
-            # the SAP plugin is inactive or doesn't exist
-            return
-
+        sap_plugin = get_sap_plugin_or_error(info.context.plugins)
         sap_product = sap_plugin.fetch_product(data["sku"])
 
         sku = data["sku"]
