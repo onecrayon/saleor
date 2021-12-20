@@ -23,7 +23,6 @@ from saleor.plugins.sap_orders import (
     get_sap_cookies,
     is_truthy,
 )
-from saleor.shipping.models import ShippingMethod
 
 if TYPE_CHECKING:
     from saleor.invoice.models import Invoice
@@ -201,6 +200,8 @@ class SAPPlugin(BasePlugin):
             "NumAtCard": po_number,
             "Address": cls.address_to_string(order.billing_address),
             "Address2": cls.address_to_string(order.shipping_address),
+            "PayToCode": order.billing_address.company_name,
+            "ShipToCode": order.shipping_address.company_name,
         }
         if order.shipping_method.name != CUSTOM_SAP_SHIPPING_TYPE_NAME:
             order_for_sap["TransportationCode"] = transportation_code
