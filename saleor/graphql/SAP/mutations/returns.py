@@ -1,7 +1,6 @@
 import re
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 import graphene
 from django.core.exceptions import ValidationError
@@ -28,12 +27,9 @@ from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permiss
 from saleor.order.error_codes import OrderErrorCode
 from saleor.order.models import Fulfillment as FulfillmentModel
 from saleor.order.models import Order
+from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.product import models as product_models
 from saleor.shipping.models import ShippingMethod
-
-if TYPE_CHECKING:
-    from saleor.plugins.manager import PluginsManager
-    from saleor.plugins.sap_orders.plugin import SAPPlugin
 
 
 class UpsertSAPReturnDocument(ModelMutation, I18nMixin):
@@ -53,12 +49,7 @@ class UpsertSAPReturnDocument(ModelMutation, I18nMixin):
     @classmethod
     @traced_atomic_transaction()
     def perform_mutation(cls, _root, info, **data):
-        manager: PluginsManager = info.context.plugins
-        sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
-        if not sap_plugin:
-            # the SAP plugin is inactive or doesn't exist
-            return
-
+        sap_plugin = get_sap_plugin_or_error(info.context.plugins)
         sap_return = sap_plugin.fetch_return(data["doc_entry"])
         rma_number = sap_return.get("NumAtCard")
         if not rma_number:
