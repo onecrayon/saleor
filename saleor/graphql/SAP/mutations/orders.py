@@ -39,11 +39,11 @@ from saleor.graphql.order.mutations.orders import (
 from saleor.graphql.order.types import Order, OrderLine
 from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
 from saleor.order import models as order_models
-from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.order.utils import (
     get_valid_shipping_methods_for_order,
     recalculate_order,
 )
+from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.shipping.models import ShippingMethodChannelListing
 
 
