@@ -180,6 +180,9 @@ def request_data_for_payment(
     # klarna in method - because there is a lot of variable klarna methods - like pay
     # later with klarna or pay with klarna etc
     if "klarna" in method or method in methods_that_require_checkout_details:
+        # Some payment methods like afterpay or klarna, requires more context for
+        # processing a payment. If user pick up such payment method we add more
+        # checkout details to request
         request_data = append_checkout_details(payment_information, request_data)
     return request_data
 
@@ -204,8 +207,10 @@ def get_shipping_data(manager, checkout_info, lines, discounts):
         "quantity": 1,
         "amountExcludingTax": price_to_minor_unit(total_net, currency),
         "taxPercentage": tax_percentage_in_adyen_format,
-        "description": f"Shipping - {checkout_info.shipping_method.name}",
-        "id": f"Shipping:{checkout_info.shipping_method.id}",
+        "description": (
+            f"Shipping - {checkout_info.delivery_method_info.delivery_method.name}"
+        ),
+        "id": f"Shipping:{checkout_info.delivery_method_info.delivery_method.id}",
         "taxAmount": price_to_minor_unit(tax_amount, currency),
         "amountIncludingTax": price_to_minor_unit(total_gross, currency),
     }
@@ -263,7 +268,9 @@ def append_checkout_details(payment_information: "PaymentData", payment_data: di
         }
         line_items.append(line_data)
 
-    if checkout_info.shipping_method and is_shipping_required(lines):
+    if checkout_info.delivery_method_info.delivery_method and is_shipping_required(
+        lines
+    ):
         line_items.append(get_shipping_data(manager, checkout_info, lines, discounts))
 
     payment_data["lineItems"] = line_items

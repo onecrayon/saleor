@@ -165,7 +165,11 @@ def _validate_checkout(
     shipping_required = is_shipping_required(lines)
     address = shipping_address or checkout_info.billing_address
     return _validate_adddress_details(
-        shipping_address, shipping_required, address, checkout_info.shipping_method
+        shipping_address,
+        shipping_required,
+        address,
+        checkout_info.delivery_method_info
+        and checkout_info.delivery_method_info.delivery_method,
     )
 
 
@@ -215,18 +219,17 @@ def append_line_to_data(
 
 def append_shipping_to_data(
     data: List[Dict],
-    shipping_method_channel_listing: Optional["ShippingMethodChannelListing"],
+    shipping_price_amount: Optional[Decimal],
     shipping_tax_code: str,
 ):
     charge_taxes_on_shipping = (
         Site.objects.get_current().settings.charge_taxes_on_shipping
     )
-    if charge_taxes_on_shipping and shipping_method_channel_listing:
-        shipping_price = shipping_method_channel_listing.price
+    if charge_taxes_on_shipping and shipping_price_amount:
         append_line_to_data(
             data,
             quantity=1,
-            amount=shipping_price.amount,
+            amount=shipping_price_amount,
             tax_code=shipping_tax_code,
             item_code="Shipping",
         )
@@ -294,9 +297,13 @@ def get_checkout_lines_data(
                 ref2=line_info.variant.sku,
             )
 
-    append_shipping_to_data(
-        data, checkout_info.shipping_method_channel_listings, config.shipping_tax_code
-    )
+    if checkout_info.delivery_method_info.delivery_method:
+        append_shipping_to_data(
+            data,
+            getattr(checkout_info.delivery_method_info.delivery_method, "price", None),
+            config.shipping_tax_code,
+        )
+
     return data
 
 
@@ -317,6 +324,7 @@ def get_order_lines_data(
         product_type = line.variant.product.product_type
         tax_code = retrieve_tax_code_from_meta(product, default=None)
         tax_code = tax_code or retrieve_tax_code_from_meta(product_type)
+        prices_data = base_calculations.base_order_line_total(line)
 
         # Confirm if line doesn't have included taxes in the price. If not then, we
         # check if the current Saleor config doesn't assume that taxes are included in
@@ -326,21 +334,37 @@ def get_order_lines_data(
         )
         tax_included = line_has_included_taxes or system_tax_included
 
-        amount = line.unit_price_gross_amount * line.quantity
-        append_line_to_data(
-            data=data,
-            quantity=line.quantity,
-            amount=amount,
+        if tax_included:
+            undiscounted_amount = prices_data.undiscounted_price.gross.amount
+            price_with_discounts_amount = prices_data.price_with_discounts.gross.amount
+        else:
+            undiscounted_amount = prices_data.undiscounted_price.net.amount
+            price_with_discounts_amount = prices_data.price_with_discounts.net.amount
+
+        append_line_to_data_kwargs = {
+            "data": data,
+            "quantity": line.quantity,
             # This is a workaround for Avatax and sending a lines with amount 0. Like
             # order lines which are fully discounted for some reason. If we use a
             # standard tax_code, Avatax will raise an exception: "When shipping
             # cross-border into CIF countries, Tax Included is not supported with mixed
             # positive and negative line amounts."
-            tax_code=tax_code if amount else DEFAULT_TAX_CODE,
-            item_code=line.variant.sku,
-            name=line.variant.product.name,
-            tax_included=tax_included,
+            "tax_code": tax_code if undiscounted_amount else DEFAULT_TAX_CODE,
+            "item_code": line.variant.sku,
+            "name": line.variant.product.name,
+            "tax_included": tax_included,
+        }
+        append_line_to_data(
+            **append_line_to_data_kwargs,
+            amount=undiscounted_amount,
         )
+
+        if undiscounted_amount != price_with_discounts_amount:
+            append_line_to_data(
+                **append_line_to_data_kwargs,
+                amount=price_with_discounts_amount,
+                ref1=line.variant.sku,
+            )
 
     discount_amount = get_total_order_discount(order)
     if discount_amount:
@@ -353,12 +377,16 @@ def get_order_lines_data(
             name="Order discount",
             tax_included=True,  # Voucher should be always applied as a gross amount
         )
+
     shipping_method_channel_listing = ShippingMethodChannelListing.objects.filter(
         shipping_method=order.shipping_method_id, channel=order.channel_id
     ).first()
-    append_shipping_to_data(
-        data, shipping_method_channel_listing, config.shipping_tax_code
-    )
+    if shipping_method_channel_listing:
+        append_shipping_to_data(
+            data,
+            shipping_method_channel_listing.price.amount,
+            config.shipping_tax_code,
+        )
     return data
 
 
