@@ -117,6 +117,11 @@ class SAPPlugin(BasePlugin):
                 # only try again if skip_cache was initially false so that we don't get
                 # stuck in a loop
                 return self.service_layer_request(method, entity, body, skip_cache=True)
+            elif response_json.get("error"):
+                raise Exception(
+                    f"Received an error from the SAP Service Layer: "
+                    f"{response_json['error']}"
+                )
             return response_json
         except JSONDecodeError:
             return {}
@@ -185,21 +190,15 @@ class SAPPlugin(BasePlugin):
         except AttributeError:
             transportation_code = None
 
-        if not (po_number := order.metadata.get("po_number")):
-            try:
-                checkout = Checkout.objects.get(token=order.checkout_token)
-                po_number = checkout.metadata.get("po_number")
-            except (ValidationError, Checkout.DoesNotExist):
-                # A validation error can be raised if the checkout_token is blank
-                po_number = None
-
         order_for_sap = {
             "CardCode": business_partner.sap_bp_code,
             "DocDate": order.created.strftime("%Y-%m-%d"),
             "DocDueDate": due_date,
-            "NumAtCard": po_number,
+            "NumAtCard": order.metadata.get("po_number"),
             "Address": cls.address_to_string(order.billing_address),
             "Address2": cls.address_to_string(order.shipping_address),
+            "PayToCode": order.billing_address.company_name,
+            "ShipToCode": order.shipping_address.company_name,
         }
         if order.shipping_method.name != CUSTOM_SAP_SHIPPING_TYPE_NAME:
             order_for_sap["TransportationCode"] = transportation_code

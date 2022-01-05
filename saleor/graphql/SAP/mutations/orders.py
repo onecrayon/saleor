@@ -44,6 +44,7 @@ from saleor.order.utils import (
     recalculate_order,
 )
 from saleor.plugins.sap_orders import get_sap_plugin_or_error
+from saleor.shipping.models import ShippingMethodChannelListing
 
 
 class SAPLineItemInput(graphene.InputObjectType):
@@ -205,8 +206,10 @@ class UpsertSAPOrder(DraftOrderUpdate):
         billing_address = cls.parse_address_string(sap_order["Address"])
         shipping_address = cls.parse_address_string(sap_order["Address2"])
         shipping_method_code = sap_order.get("TransportationCode")
-        custom_shipping_price = False
-        shipping_price = zero_money(order.currency)
+        # Assumed true for now, will be set to false later on if the shipping price
+        # in the SAP order matches the shipping price in Saleor.
+        custom_shipping_price = True
+        sap_shipping_price = zero_money(order.currency)
         if additional_expenses := sap_order.get("DocumentAdditionalExpenses", []):
             # When shipping (aka freight) prices are defined in SAP they come across as
             # an "additional expense" with the ExpenseCode == 1. There doesn't appear to
@@ -216,11 +219,10 @@ class UpsertSAPOrder(DraftOrderUpdate):
                 if additional_expense["ExpenseCode"] == 1:
                     # prepare the shipping_price. We can't set it yet because the
                     # draftOrderUpdate mutation will reset it.
-                    shipping_price = Money(
+                    sap_shipping_price = Money(
                         Decimal(additional_expense["LineTotal"]),
                         currency=order.currency,
                     )
-                    custom_shipping_price = True
                     break
 
         contact_list: List[dict] = bp["ContactEmployees"]
@@ -397,11 +399,16 @@ class UpsertSAPOrder(DraftOrderUpdate):
             if shipping_method := available_shipping_methods.filter(
                 private_metadata__TrnspCode=str(shipping_method_code)
             ).first():
-                if not custom_shipping_price:
+                default_shipping_price = ShippingMethodChannelListing.objects.get(
+                    shipping_method=shipping_method,
+                    channel_id=channel_id
+                ).price.amount
+                if default_shipping_price == sap_shipping_price:
                     # This is an ordinary shipping method and price that exists in both
                     # SAP and Saleor
                     order.shipping_method = shipping_method
                     order.shipping_method_name = shipping_method.name
+                    custom_shipping_price = False
                 else:
                     # If the SAP order specified a shipping price different than normal
                     # set the shipping name to something special so that we preserve
@@ -425,7 +432,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
         # automatically by the `recalculate_order` function later on.
         if custom_shipping_price:
             order.shipping_price = quantize_price(
-                TaxedMoney(net=shipping_price, gross=shipping_price),
+                TaxedMoney(net=sap_shipping_price, gross=sap_shipping_price),
                 order.currency,
             )
 
