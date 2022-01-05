@@ -13,13 +13,15 @@ from ....checkout.fetch import (
     CheckoutInfo,
     fetch_checkout_info,
     fetch_checkout_lines,
-    get_valid_shipping_method_list_for_checkout_info,
+    get_delivery_method_info,
+    get_shipping_method_list_for_checkout_info,
 )
 from ....checkout.utils import add_variant_to_checkout
 from ....core.prices import quantize_price
 from ....core.taxes import TaxError, TaxType
 from ....discount import VoucherType
 from ....product.models import Product, ProductType
+from ....shipping.utils import convert_to_shipping_method_data
 from ...manager import get_plugins_manager
 from ...models import PluginConfiguration
 from .. import (
@@ -477,9 +479,74 @@ def test_calculate_order_line_total(
         order_line,
         variant,
         product,
-    )
+    ).price_with_discounts
     total = quantize_price(total, total.currency)
     assert total == TaxedMoney(net=Money("30.00", "USD"), gross=Money("36.90", "USD"))
+
+
+@pytest.mark.vcr()
+@override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
+def test_calculate_order_line_total_with_discount(
+    order_line,
+    address,
+    ship_to_pl_address,
+    shipping_zone,
+    site_settings,
+    monkeypatch,
+    plugin_configuration,
+):
+    # given
+    plugin_configuration()
+    manager = get_plugins_manager()
+
+    site_settings.company_address = address
+    site_settings.save(update_fields=["company_address"])
+
+    order = order_line.order
+    order.shipping_address = ship_to_pl_address
+    order.shipping_method = shipping_zone.shipping_methods.get()
+    order.save(update_fields=["shipping_address", "shipping_method"])
+
+    variant = order_line.variant
+    product = variant.product
+    product.metadata = {}
+    product.charge_taxes = True
+    product.save()
+    product.product_type.save()
+
+    channel = order_line.order.channel
+    channel_listing = variant.channel_listings.get(channel=channel)
+
+    discount_amount = Decimal("2.0")
+    currency = order_line.currency
+    order_line.unit_discount = Money(discount_amount, currency)
+    order_line.unit_discount_value = discount_amount
+
+    net = variant.get_price(product, [], channel, channel_listing)
+    unit_price = TaxedMoney(net=net, gross=net)
+    order_line.unit_price = unit_price
+    undiscounted_unit_price = order_line.unit_price + order_line.unit_discount
+    order_line.undiscounted_unit_price = undiscounted_unit_price
+    total_price = unit_price * order_line.quantity
+    order_line.total_price = total_price
+    order_line.undiscounted_total_price = undiscounted_unit_price * order_line.quantity
+    order_line.save()
+
+    # when
+    total_price_data = manager.calculate_order_line_total(
+        order_line.order,
+        order_line,
+        variant,
+        product,
+    )
+
+    # then
+    assert total_price_data.undiscounted_price == TaxedMoney(
+        net=Money(Decimal("29.27"), currency), gross=Money(Decimal("36.00"), currency)
+    )
+    assert total_price_data.price_with_discounts == TaxedMoney(
+        net=Money(Decimal("24.39"), currency), gross=Money(Decimal("30.00"), currency)
+    )
 
 
 @override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
@@ -519,7 +586,7 @@ def test_calculate_order_line_total_order_not_valid(
         order_line,
         variant,
         product,
-    )
+    ).price_with_discounts
     total = quantize_price(total, total.currency)
     assert total == expected_total_price
 
@@ -893,10 +960,15 @@ def test_calculate_checkout_subtotal_for_product_without_tax(
 
     lines = fetch_checkout_lines(checkout)
     assert len(lines) == 1
-    valid_methods = get_valid_shipping_method_list_for_checkout_info(
-        checkout_info, ship_to_pl_address, lines, [], manager
+    valid_methods = get_shipping_method_list_for_checkout_info(
+        checkout_info,
+        ship_to_pl_address,
+        lines,
+        [],
+        manager,
+        checkout_info.channel.shipping_method_listings.all(),
     )
-    checkout_info.valid_shipping_methods = valid_methods
+    checkout_info.all_shipping_methods = valid_methods
 
     total = manager.calculate_checkout_subtotal(checkout_info, lines, address, [])
     total = quantize_price(total, total.currency)
@@ -942,6 +1014,9 @@ def test_calculate_order_line_unit(
     order_line.unit_price = TaxedMoney(
         net=Money("10.00", "USD"), gross=Money("10.00", "USD")
     )
+    order_line.undiscounted_unit_price = TaxedMoney(
+        net=Money("10.00", "USD"), gross=Money("10.00", "USD")
+    )
     order_line.save()
 
     order = order_line.order
@@ -954,12 +1029,100 @@ def test_calculate_order_line_unit(
     site_settings.company_address = address_usa
     site_settings.save()
 
-    line_price = manager.calculate_order_line_unit(
+    line_price_data = manager.calculate_order_line_unit(
         order, order_line, order_line.variant, order_line.variant.product
     )
-    line_price = quantize_price(line_price, line_price.currency)
 
-    assert line_price == TaxedMoney(
+    expected_line_price = TaxedMoney(
+        net=Money("8.13", "USD"), gross=Money("10.00", "USD")
+    )
+    assert line_price_data.undiscounted_price == expected_line_price
+    assert line_price_data.price_with_discounts == expected_line_price
+
+
+@pytest.mark.vcr
+@override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
+def test_calculate_order_line_unit_in_JPY(
+    order_line_JPY,
+    shipping_zone_JPY,
+    site_settings,
+    address,
+    channel_JPY,
+    plugin_configuration,
+):
+    plugin_configuration(channel=channel_JPY)
+    manager = get_plugins_manager()
+
+    # Net price from `test_calculate_checkout_line_unit_price_in_JPY`
+    order_line_JPY.unit_price = TaxedMoney(
+        net=Money("976", "JPY"), gross=Money("1200", "JPY")
+    )
+    order_line_JPY.undiscounted_unit_price = TaxedMoney(
+        net=Money("976", "JPY"), gross=Money("1200", "JPY")
+    )
+    order_line_JPY.save()
+
+    order = order_line_JPY.order
+    method = shipping_zone_JPY.shipping_methods.get()
+    order.shipping_address = order.billing_address.get_copy()
+    order.shipping_method_name = method.name
+    order.shipping_method = method
+    order.save()
+
+    site_settings.company_address = address
+    site_settings.save()
+
+    line_price_data = manager.calculate_order_line_unit(
+        order, order_line_JPY, order_line_JPY.variant, order_line_JPY.variant.product
+    )
+
+    expected_line_price = TaxedMoney(
+        net=Money("976", "JPY"), gross=Money("1200", "JPY")
+    )
+    assert line_price_data.undiscounted_price == expected_line_price
+    assert line_price_data.price_with_discounts == expected_line_price
+
+
+@pytest.mark.vcr
+@override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
+def test_calculate_order_line_unit_with_discount(
+    order_line,
+    shipping_zone,
+    site_settings,
+    address_usa,
+    plugin_configuration,
+):
+    # given
+    plugin_configuration()
+    manager = get_plugins_manager()
+    unit_price = TaxedMoney(net=Money("10.00", "USD"), gross=Money("10.00", "USD"))
+    order_line.unit_price = unit_price
+    currency = order_line.currency
+    discount_amount = Decimal("2.5")
+    order_line.unit_discount = Money(discount_amount, currency)
+    order_line.unit_discount_value = discount_amount
+    order_line.save()
+
+    order = order_line.order
+    method = shipping_zone.shipping_methods.get()
+    order.shipping_address = order.billing_address.get_copy()
+    order.shipping_method_name = method.name
+    order.shipping_method = method
+    order.save()
+
+    site_settings.company_address = address_usa
+    site_settings.save()
+
+    # when
+    line_price_data = manager.calculate_order_line_unit(
+        order, order_line, order_line.variant, order_line.variant.product
+    )
+
+    # then
+    assert line_price_data.undiscounted_price == TaxedMoney(
+        net=Money("10.00", "USD"), gross=Money("12.30", "USD")
+    )
+    assert line_price_data.price_with_discounts == TaxedMoney(
         net=Money("8.13", "USD"), gross=Money("10.00", "USD")
     )
 
@@ -1014,6 +1177,52 @@ def test_calculate_checkout_line_unit_price(
         expected_line_price = TaxedMoney(
             net=Money("10.00", "USD"), gross=Money("10.00", "USD")
         )
+    assert line_price_data.price_with_sale == expected_line_price
+    assert line_price_data.undiscounted_price == expected_line_price
+    assert line_price_data.price_with_discounts == expected_line_price
+
+
+@pytest.mark.vcr
+@override_settings(PLUGINS=["saleor.plugins.avatax.plugin.AvataxPlugin"])
+def test_calculate_checkout_line_unit_price_in_JPY(
+    checkout_JPY_with_item,
+    shipping_zone_JPY,
+    site_settings,
+    ship_to_pl_address,
+    address,
+    channel_JPY,
+    plugin_configuration,
+):
+    checkout = checkout_JPY_with_item
+    plugin_configuration(channel=channel_JPY)
+
+    lines = fetch_checkout_lines(checkout)
+    checkout_line = lines[0]
+
+    manager = get_plugins_manager()
+
+    method = shipping_zone_JPY.shipping_methods.get()
+    checkout.shipping_address = ship_to_pl_address
+    checkout.shipping_method_name = method.name
+    checkout.shipping_method = method
+    checkout.save()
+
+    site_settings.company_address = address
+    site_settings.include_taxes_in_prices = True
+    site_settings.save()
+
+    checkout_info = fetch_checkout_info(checkout, lines, [], manager)
+    line_price_data = manager.calculate_checkout_line_unit_price(
+        checkout_info,
+        lines,
+        checkout_line,
+        checkout.shipping_address,
+        [],
+    )
+
+    expected_line_price = TaxedMoney(
+        net=Money("976", "JPY"), gross=Money("1200", "JPY")
+    )
     assert line_price_data.price_with_sale == expected_line_price
     assert line_price_data.undiscounted_price == expected_line_price
     assert line_price_data.price_with_discounts == expected_line_price
@@ -1533,13 +1742,17 @@ def test_get_checkout_line_tax_rate(
 
     checkout_info = CheckoutInfo(
         checkout=checkout_with_item,
-        shipping_method=checkout_with_item.shipping_method,
+        delivery_method_info=get_delivery_method_info(
+            convert_to_shipping_method_data(
+                checkout_with_item.shipping_method,
+                checkout_with_item.shipping_method.channel_listings.get(),
+            )
+        ),
         shipping_address=address,
         billing_address=None,
         channel=checkout_with_item.channel,
         user=None,
-        shipping_method_channel_listings=None,
-        valid_shipping_methods=[],
+        all_shipping_methods=[],
     )
     lines = fetch_checkout_lines(checkout_with_item)
     checkout_line_info = lines[0]
@@ -1586,13 +1799,17 @@ def test_get_checkout_line_tax_rate_for_product_with_charge_taxes_set_to_false(
 
     checkout_info = CheckoutInfo(
         checkout=checkout_with_item,
-        shipping_method=checkout_with_item.shipping_method,
+        delivery_method_info=get_delivery_method_info(
+            convert_to_shipping_method_data(
+                checkout_with_item.shipping_method,
+                checkout_with_item.shipping_method.channel_listings.get(),
+            )
+        ),
         shipping_address=address,
         billing_address=None,
         channel=checkout_with_item.channel,
         user=None,
-        shipping_method_channel_listings=None,
-        valid_shipping_methods=[],
+        all_shipping_methods=[],
     )
     lines = fetch_checkout_lines(checkout_with_item)
     checkout_line_info = lines[0]
@@ -1651,13 +1868,17 @@ def test_get_checkout_line_tax_rate_for_product_type_with_non_taxable_product(
     variant2 = product2.variants.first()
     checkout_info = CheckoutInfo(
         checkout=checkout_with_item,
-        shipping_method=checkout_with_item.shipping_method,
+        delivery_method_info=get_delivery_method_info(
+            convert_to_shipping_method_data(
+                checkout_with_item.shipping_method,
+                checkout_with_item.shipping_method.channel_listings.get(),
+            )
+        ),
         shipping_address=address,
         billing_address=None,
         channel=checkout_with_item.channel,
         user=None,
-        shipping_method_channel_listings=None,
-        valid_shipping_methods=[],
+        all_shipping_methods=[],
     )
     add_variant_to_checkout(checkout_info, variant2, 1)
 
@@ -1876,13 +2097,17 @@ def test_get_checkout_shipping_tax_rate(
     lines = fetch_checkout_lines(checkout_with_item)
     checkout_info = CheckoutInfo(
         checkout=checkout_with_item,
-        shipping_method=checkout_with_item.shipping_method,
+        delivery_method_info=get_delivery_method_info(
+            convert_to_shipping_method_data(
+                checkout_with_item.shipping_method,
+                checkout_with_item.shipping_method.channel_listings.get(),
+            )
+        ),
         shipping_address=address,
         billing_address=None,
         channel=checkout_with_item.channel,
         user=None,
-        shipping_method_channel_listings=None,
-        valid_shipping_methods=[],
+        all_shipping_methods=[],
     )
 
     # when
@@ -2692,7 +2917,13 @@ def test_get_order_lines_data_sets_different_tax_code_for_zero_amount(
 
     line = order_with_lines.lines.first()
     line.unit_price_gross_amount = Decimal("0")
-    line.save()
+    line.undiscounted_unit_price_gross_amount = Decimal("0")
+    line.save(
+        update_fields=[
+            "unit_price_gross_amount",
+            "undiscounted_unit_price_gross_amount",
+        ]
+    )
     variant = line.variant
     variant.product.store_value_in_metadata(
         {META_CODE_KEY: "taxcode", META_DESCRIPTION_KEY: "tax_description"}
@@ -2728,7 +2959,14 @@ def test_get_order_lines_data_sets_different_tax_code_only_for_zero_amount(
     line = order_with_lines.lines.first()
     line.quantity = 1
     line.unit_price_gross_amount = Decimal("10.0")
-    line.save()
+    line.undiscounted_unit_price_gross_amount = Decimal("10.0")
+    line.save(
+        update_fields=[
+            "quantity",
+            "unit_price_gross_amount",
+            "undiscounted_unit_price_gross_amount",
+        ]
+    )
     variant = line.variant
     variant.product.store_value_in_metadata(
         {META_CODE_KEY: "taxcode", META_DESCRIPTION_KEY: "tax_description"}

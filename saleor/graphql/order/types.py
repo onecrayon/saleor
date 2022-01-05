@@ -35,6 +35,7 @@ from ...payment.model_helpers import (
 from ...product import ProductMediaTypes
 from ...product.models import ALL_PRODUCTS_PERMISSIONS
 from ...product.product_images import get_product_image_thumbnail
+from ...shipping.utils import convert_to_shipping_method_data
 from ...warehouse.models import Backorder as backorder_model
 from ..account.dataloaders import AddressByIdLoader, UserByUserIdLoader
 from ..account.types import User
@@ -65,9 +66,12 @@ from ..product.dataloaders import (
     ProductVariantByIdLoader,
 )
 from ..product.types import ProductVariant
-from ..shipping.dataloaders import ShippingMethodByIdLoader
-from ..shipping.types import ShippingMethod
-from ..warehouse.types import Allocation, Warehouse, Backorder
+from ..shipping.dataloaders import (
+    ShippingMethodByIdLoader,
+    ShippingMethodChannelListingByShippingMethodIdAndChannelSlugLoader,
+)
+from ..shipping.types import ShippingMethod, ShippingMethodChannelListing
+from ..warehouse.types import Allocation, Backorder, Warehouse
 from .dataloaders import (
     AllocationsByOrderLineIdLoader,
     FulfillmentLinesByIdLoader,
@@ -868,12 +872,22 @@ class Order(CountableDjangoObjectType):
 
         def wrap_shipping_method_with_channel_context(data):
             shipping_method, channel = data
-            return ChannelContext(node=shipping_method, channel_slug=channel.slug)
+            listing = (
+                ShippingMethodChannelListingByShippingMethodIdAndChannelSlugLoader(
+                    info.context
+                ).load((shipping_method.id, channel.slug))
+            )
+
+            def calculate_price(listing: Optional[ShippingMethodChannelListing]):
+                return convert_to_shipping_method_data(shipping_method, listing)
+
+            return listing.then(calculate_price)
 
         shipping_method = ShippingMethodByIdLoader(info.context).load(
             root.shipping_method_id
         )
         channel = ChannelByIdLoader(info.context).load(root.channel_id)
+
         return Promise.all([shipping_method, channel]).then(
             wrap_shipping_method_with_channel_context
         )

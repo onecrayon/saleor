@@ -9,7 +9,7 @@ from django_countries.fields import Country
 from measurement.measures import Weight
 from prices import Money, TaxedMoney
 
-from ..checkout.interface import TaxedPricesData
+from ..checkout.interface import CheckoutTaxedPricesData
 from ..payment.interface import (
     CustomerSource,
     GatewayResponse,
@@ -17,6 +17,7 @@ from ..payment.interface import (
     PaymentData,
     PaymentGateway,
 )
+from ..shipping.interface import ShippingMethodData
 from .models import PluginConfiguration
 
 if TYPE_CHECKING:
@@ -68,17 +69,6 @@ class ExternalAccessTokens:
 class ExcludedShippingMethod:
     id: str
     reason: Optional[str]
-
-
-@dataclass
-class ShippingMethod:
-    id: str
-    price: Money
-    name: str
-    maximum_order_weight: Optional[Weight]
-    minimum_order_weight: Optional[Weight]
-    maximum_delivery_days: Optional[int]
-    minimum_delivery_days: Optional[int]
 
 
 class BasePlugin:
@@ -154,7 +144,7 @@ class BasePlugin:
             Iterable["DiscountInfo"],
             TaxedMoney,
         ],
-        TaxedPricesData,
+        CheckoutTaxedPricesData,
     ]
 
     #  Calculate checkout line unit price.
@@ -167,7 +157,7 @@ class BasePlugin:
             Iterable["DiscountInfo"],
             Any,
         ],
-        TaxedPricesData,
+        CheckoutTaxedPricesData,
     ]
 
     #  Calculate the shipping costs for checkout.
@@ -662,7 +652,7 @@ class BasePlugin:
     def excluded_shipping_methods_for_order(
         self,
         order: "Order",
-        available_shipping_methods: List[ShippingMethod],
+        available_shipping_methods: List[ShippingMethodData],
         previous_value,
     ) -> List[ExcludedShippingMethod]:
         return NotImplemented
@@ -670,7 +660,7 @@ class BasePlugin:
     def excluded_shipping_methods_for_checkout(
         self,
         checkout: "Checkout",
-        available_shipping_methods: List[ShippingMethod],
+        available_shipping_methods: List[ShippingMethodData],
         previous_value,
     ) -> List[ExcludedShippingMethod]:
         return NotImplemented
