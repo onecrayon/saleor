@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from hashlib import sha256
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, Any, List, Optional
 
@@ -15,6 +16,11 @@ from firstech.SAP import models as sap_models
 from firstech.SAP.constants import CUSTOM_SAP_SHIPPING_TYPE_NAME
 from saleor.checkout.models import Checkout
 from saleor.discount import DiscountValueType
+from saleor.graphql.SAP.mutations.business_partners import (
+    upsert_business_partner,
+    upsert_business_partner_addresses,
+    upsert_business_partner_contacts,
+)
 from saleor.order import FulfillmentStatus
 from saleor.plugins.base_plugin import BasePlugin, ConfigurationTypeField
 from saleor.plugins.sap_orders import (
@@ -138,22 +144,20 @@ class SAPPlugin(BasePlugin):
             )
         )
 
-    @staticmethod
-    def get_business_partner_from_order(order: "Order"):
+    def get_business_partner_from_order(self, order: "Order"):
         # If the order came from a b2bcheckout, the card code should be in the private
         # metadata.
-        if order.checkout_token:
-            checkout = Checkout.objects.get(token=order.checkout_token)
-            if checkout.private_metadata["sap_bp_code"]:
-                return sap_models.BusinessPartner.objects.get(
-                    sap_bp_code=checkout.private_metadata["sap_bp_code"]
-                )
+        if order.private_metadata.get("sap_bp_code"):
+            return sap_models.BusinessPartner.objects.get(
+                sap_bp_code=order.private_metadata["sap_bp_code"]
+            )
 
         # Otherwise the card code can be inferred from the user the order is for.
         try:
-            return sap_models.BusinessPartner.objects.get(
-                sapuserprofiles__user_id=order.user_id
-            )
+            if order.user_id:
+                return sap_models.BusinessPartner.objects.get(
+                    sapuserprofiles__user_id=order.user_id
+                )
         except sap_models.BusinessPartner.MultipleObjectsReturned:
             raise ValidationError(
                 "The customer belongs to more than one business partner. Orders for "
@@ -162,12 +166,70 @@ class SAPPlugin(BasePlugin):
         except sap_models.BusinessPartner.DoesNotExist:
             # The order could be for a guest/anonymous user, or a logged in user that
             # doesn't belong to a business partner using the normal b2c checkout
-            return
+            pass
 
-    @classmethod
-    def get_order_for_sap(cls, order: "Order"):
+        # Create a new card code based on the email address. Card codes must
+        # be unique and <= 15 characters long.
+        card_code = "B2C-" + sha256(order.user_email.encode("utf-8")).hexdigest()[:11]
+        billing_address = order.billing_address
+        shipping_address = order.shipping_address
+        new_bp = {
+            "CardName": billing_address.full_name,
+            "CardCode": card_code,
+            "CardType": "C",
+            "BPAddresses": [
+                {
+                    "AddressType": "bo_BillTo",
+                    "AddressName": billing_address.company_name or
+                                   order.billing_address.full_name,
+                    "Street": billing_address.street_address_1,
+                    "BuildingFloorRoom": billing_address.street_address_2,
+                    "City": billing_address.city,
+                    "State": billing_address.country_area,
+                    "Country": billing_address.country.code,
+                    "ZipCode": billing_address.postal_code,
+                    "RowNum": 1,
+                },
+                {
+                    "AddressType": "bo_ShipTo",
+                    "AddressName": shipping_address.company_name or
+                                   order.shipping_address.full_name,
+                    "Street": shipping_address.street_address_1,
+                    "BuildingFloorRoom": shipping_address.street_address_2,
+                    "City": shipping_address.city,
+                    "State": shipping_address.country_area,
+                    "Country": shipping_address.country.code,
+                    "ZipCode": shipping_address.postal_code,
+                    "RowNum": 2,
+                },
+            ],
+            "ContactEmployees": [
+                {
+                    "Name": order.user.name if order.user else order.user_email,
+                    "E_Mail": order.user_email,
+                    "Phone1": order.billing_address.phone,
+                }
+            ]
+        }
+        # Post a new business partner to SAP
+        bp: dict = self.service_layer_request(
+            "post", "BusinessPartners", body=new_bp
+        )
+        if bp.get("error", {}).get("code") == -10:
+            # A business partner with that card code already exists in SAP.
+            bp: dict = self.fetch_business_partner(card_code)
+        else:
+            self.fill_in_business_partner_details(bp)
+
+        # Perform the usual steps for upserting a business partner from SAP
+        business_partner: sap_models.BusinessPartner = upsert_business_partner(bp)
+        upsert_business_partner_addresses(bp, business_partner)
+        upsert_business_partner_contacts(bp, business_partner)
+        return business_partner
+
+    def get_order_for_sap(self, order: "Order"):
         """Build up the json payload needed to post/patch a sales order to SAP"""
-        if not (business_partner := cls.get_business_partner_from_order(order)):
+        if not (business_partner := self.get_business_partner_from_order(order)):
             return
 
         try:
@@ -198,8 +260,8 @@ class SAPPlugin(BasePlugin):
             "DocDate": order.created.strftime("%Y-%m-%d"),
             "DocDueDate": due_date,
             "NumAtCard": po_number,
-            "Address": cls.address_to_string(order.billing_address),
-            "Address2": cls.address_to_string(order.shipping_address),
+            "Address": self.address_to_string(order.billing_address),
+            "Address2": self.address_to_string(order.shipping_address),
         }
         if order.shipping_method.name != CUSTOM_SAP_SHIPPING_TYPE_NAME:
             order_for_sap["TransportationCode"] = transportation_code
@@ -507,12 +569,9 @@ class SAPPlugin(BasePlugin):
 
         return [email.strip() for email in email_text.split(",")]
 
-    def fetch_business_partner(self, sap_bp_code: str) -> dict:
-        """Used to get a business partner from SAP using the card code. Also looks up
-        all the other information we need on business partners from other tables"""
-        business_partner: dict = self.service_layer_request(
-            "get", f"BusinessPartners('{sap_bp_code}')"
-        )
+    def fill_in_business_partner_details(self, business_partner: dict):
+        """Given a dict of a business partner from SAP. Look up the other related key
+        values. Modifies the dict in place"""
 
         # Look up the name of the payment terms and add it to the dict
         if business_partner.get("PayTermsGrpCode"):
@@ -554,6 +613,13 @@ class SAPPlugin(BasePlugin):
                 "SalesEmployeeName"
             )
 
+    def fetch_business_partner(self, sap_bp_code: str) -> dict:
+        """Used to get a business partner from SAP using the card code. Also looks up
+        all the other information we need on business partners from other tables"""
+        business_partner: dict = self.service_layer_request(
+            "get", f"BusinessPartners('{sap_bp_code}')"
+        )
+        self.fill_in_business_partner_details(business_partner)
         return business_partner
 
     def fetch_order(self, doc_entry: int) -> dict:
