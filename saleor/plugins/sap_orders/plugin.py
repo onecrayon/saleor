@@ -137,7 +137,7 @@ class SAPPlugin(BasePlugin):
         return "\r".join(
             (
                 address.street_address_1,
-                address.street_address_2 if address.country.code == "US" else None,
+                address.street_address_2 if address.country.code == "US" else "",
                 address.city + " " + address.country_area + " " + address.postal_code,
                 address.country.code,
             )

@@ -160,6 +160,10 @@ class UpsertSAPOrder(DraftOrderUpdate):
         single text field where different address elements are separated by \r. This
         function parses those out into a dict.
 
+        This function doesn't include the `company_name` into the dict since that info
+        isn't included in SAP's address string. The company name can be added from the
+        `PayToCode` or `ShipToCode` that is included with SAP orders, returns, etc.
+
         Example inputs for US address:
             123 Fake St.\rUnit A\rTownsville NY 12345\rUSA
             742 Evergreen Terrace\r\rSpringfield OR 98123\rUSA
@@ -204,7 +208,9 @@ class UpsertSAPOrder(DraftOrderUpdate):
         sap_order = sap_plugin.fetch_order(data["doc_entry"])
         bp = sap_plugin.fetch_business_partner(sap_order["CardCode"])
         billing_address = cls.parse_address_string(sap_order["Address"])
+        billing_address["company_name"] = sap_order["PayToCode"]
         shipping_address = cls.parse_address_string(sap_order["Address2"])
+        shipping_address["company_name"] = sap_order["ShipToCode"]
         shipping_method_code = sap_order.get("TransportationCode")
         # Assumed true for now, will be set to false later on if the shipping price
         # in the SAP order matches the shipping price in Saleor.
