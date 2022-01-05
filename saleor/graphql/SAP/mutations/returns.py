@@ -98,9 +98,11 @@ class UpsertSAPReturnDocument(ModelMutation, I18nMixin):
             status = ReturnStatus.PENDING
 
         billing_address = UpsertSAPOrder.parse_address_string(sap_return["Address"])
+        billing_address["company_name"] = sap_return["PayToCode"]
         billing_address = cls.validate_address(billing_address, address_type="billing")
         billing_address.save()
         shipping_address = UpsertSAPOrder.parse_address_string(sap_return["Address2"])
+        shipping_address["company_name"] = sap_return["ShipToCode"]
         shipping_address = cls.validate_address(
             shipping_address, address_type="shipping"
         )
