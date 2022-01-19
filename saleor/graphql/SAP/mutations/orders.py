@@ -22,8 +22,6 @@ from saleor.graphql.order.mutations.discount_order import (
     OrderDiscountAdd,
     OrderDiscountDelete,
     OrderDiscountUpdate,
-    OrderLineDiscountRemove,
-    OrderLineDiscountUpdate
 )
 from saleor.graphql.order.mutations.draft_orders import (
     DraftOrderComplete,
@@ -39,12 +37,9 @@ from saleor.graphql.order.mutations.orders import (
 from saleor.graphql.order.types import Order, OrderLine
 from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
 from saleor.order import models as order_models
-from saleor.order.utils import (
-    get_valid_shipping_methods_for_order,
-    recalculate_order,
-)
+from saleor.order.utils import recalculate_order
 from saleor.plugins.sap_orders import get_sap_plugin_or_error
-from saleor.shipping.models import ShippingMethodChannelListing
+from saleor.shipping.models import ShippingMethodChannelListing, ShippingMethod
 
 
 class SAPLineItemInput(graphene.InputObjectType):
@@ -275,7 +270,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
                 net=Money(Decimal(str(document_line["Price"])), order.currency),
                 gross=Money(
                     Decimal(str(document_line["PriceAfterVAT"])), order.currency
-                )
+                ),
             )
             undiscounted_unit_price = TaxedMoney(
                 net=Money(Decimal(str(document_line["UnitPrice"])), order.currency),
@@ -287,8 +282,8 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     Decimal(
                         str(document_line["LineTotal"] + document_line["TaxTotal"])
                     ),
-                    order.currency
-                )
+                    order.currency,
+                ),
             )
             # SAP doesn't report `undiscounted_total_price`. Nevertheless, Saleor
             # requires this.
@@ -446,13 +441,19 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
         # Lookup the shipping method by code and update the order
         if shipping_method_code:
-            available_shipping_methods = get_valid_shipping_methods_for_order(order)
+            available_shipping_methods = (
+                ShippingMethod.objects.applicable_shipping_methods_for_instance(
+                    order,
+                    channel_id=order.channel_id,
+                    price=order.get_subtotal().gross,
+                    country_code=order.shipping_address.country.code,
+                )
+            )
             if shipping_method := available_shipping_methods.filter(
                 private_metadata__TrnspCode=str(shipping_method_code)
             ).first():
                 default_shipping_price = ShippingMethodChannelListing.objects.get(
-                    shipping_method=shipping_method,
-                    channel_id=channel_id
+                    shipping_method=shipping_method, channel_id=channel_id
                 ).price.amount
                 if default_shipping_price == sap_shipping_price:
                     # This is an ordinary shipping method and price that exists in both
@@ -536,7 +537,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     info,
                     discount_id=graphene.Node.to_global_id(
                         "OrderDiscount", discount_id
-                    )
+                    ),
                 )
 
         order.save()
