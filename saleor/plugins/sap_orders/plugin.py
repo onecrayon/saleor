@@ -4,6 +4,7 @@ from hashlib import sha256
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, Any, List, Optional
 
+import base64
 import pytz
 import requests
 from django.core.exceptions import ValidationError
@@ -174,8 +175,12 @@ class SAPPlugin(BasePlugin):
             pass
 
         # Create a new card code based on the email address. Card codes must
-        # be unique and <= 15 characters long.
-        card_code = "B2C-" + sha256(order.user_email.encode("utf-8")).hexdigest()[:11]
+        # be unique and <= 15 characters long. Our strategy is to use sha256 to hash the
+        # email, then base64 encode to increase the character set to reduce the
+        # likelihood of a collision. Unfortunately card codes are not case sensitive,
+        # so we are casting everything uppercase.
+        email_hash = base64.b64encode(sha256(order.user_email.encode("utf-8")).digest())
+        card_code = "B2C-" + email_hash.decode("utf-8").upper()[:11]
         billing_address = order.billing_address
         shipping_address = order.shipping_address
         new_bp = {
