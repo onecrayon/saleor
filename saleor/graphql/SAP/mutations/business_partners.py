@@ -24,7 +24,6 @@ from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.shipping.models import ShippingMethod
 
 
-
 def upsert_business_partner(bp: dict) -> models.BusinessPartner:
     """Upserts the business partner from SAP into Saleor.
     :param bp: The dict of business partner information retrieved from the SAP service
@@ -58,7 +57,6 @@ def upsert_business_partner(bp: dict) -> models.BusinessPartner:
         shipping_method_name = shipping_method.private_metadata["TrnspName"]
     else:
         shipping_method_name = None
-
 
     sync_partner = True if bp["U_V33_SYNCB2B"] == "YES" else False
 
