@@ -307,6 +307,33 @@ def list_payment_sources(
     return manager.list_payment_sources(gateway, customer_id, channel_slug=channel_slug)
 
 
+def create_payment_source(
+        gateway: str,
+        manager: "PluginsManager",
+        payment_source_details: [dict],
+        channel_slug: str,
+) -> "CustomerSource":
+    return manager.create_payment_source(gateway, payment_source_details, channel_slug)
+
+
+def update_payment_source(
+        gateway: str,
+        manager: "PluginsManager",
+        payment_source_details: [dict],
+        channel_slug: str,
+) -> "CustomerSource":
+    return manager.update_payment_source(gateway, payment_source_details, channel_slug)
+
+
+def delete_payment_source(
+        gateway: str,
+        manager: "PluginsManager",
+        payment_source_id: str,
+        channel_slug: str,
+) -> "CustomerSource":
+    return manager.delete_payment_source(gateway, payment_source_id, channel_slug)
+
+
 def list_gateways(
     manager: "PluginsManager", channel_slug: Optional[str] = None
 ) -> List["PaymentGateway"]:

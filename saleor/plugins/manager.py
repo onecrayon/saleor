@@ -807,6 +807,48 @@ class PluginsManager(PaymentInterface):
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
+    def create_payment_source(
+        self,
+        gateway: str,
+        payment_source_details: dict,
+        channel_slug: str,
+    ) -> "CustomerSource":
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "create_payment_source", None,
+                payment_source_details=payment_source_details
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
+    def update_payment_source(
+        self,
+        gateway: str,
+        payment_source_details: dict,
+        channel_slug: str,
+    ) -> "CustomerSource":
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "update_payment_source", None,
+                payment_source_details=payment_source_details
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
+    def delete_payment_source(
+        self,
+        gateway: str,
+        payment_source_id: str,
+        channel_slug: str,
+    ) -> "CustomerSource":
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "delete_payment_source", None,
+                payment_source_id=payment_source_id
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
     def translation_created(self, translation: "Translation"):
         default_value = None
         return self.__run_method_on_plugins(
