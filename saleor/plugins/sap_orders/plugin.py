@@ -124,6 +124,10 @@ class SAPPlugin(BasePlugin):
                 # only try again if skip_cache was initially false so that we don't get
                 # stuck in a loop
                 return self.service_layer_request(method, entity, body, skip_cache=True)
+            elif response_json.get("error", {}).get("code") == -10:
+                # This will occur when trying to create a business partner that already
+                # exists. The method that attempts that will handle this error.
+                return response_json
             elif response_json.get("error"):
                 raise Exception(
                     f"Received an error from the SAP Service Layer: "
@@ -354,7 +358,7 @@ class SAPPlugin(BasePlugin):
         Overwrite this method if you need to trigger specific logic after an order is
         confirmed.
         """
-        return NotImplemented
+        return self.order_created(order, previous_value)
 
     def order_updated(self, order: "Order", previous_value: Any) -> Any:
         """Trigger when order is updated. Also triggered when fulfillments are created
