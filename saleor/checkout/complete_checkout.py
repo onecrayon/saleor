@@ -608,6 +608,54 @@ def _process_payment(
     return txn
 
 
+# Total amount is computed automatically by summing up the following calculation
+# for all line items: quantity * unit_amount + tax_amount - discount_amount
+# There is a limit of 100 line items allowed by Stripe
+def prepare_line_items(order_data) -> List[dict]:
+    line_items = []
+
+    shipping_total = int(order_data["shipping_price"].net.amount * 100)
+
+    add_shipping_price = True
+    if shipping_total == 0:
+        add_shipping_price = False
+
+    for line in order_data["lines"]:
+        tax_total = line.line.total_price_gross_amount - \
+                    line.line.total_price_net_amount
+        tax_amount = int(tax_total * 100)
+        discount_amount = int(line.line.unit_discount_amount * 100)
+        unit_amount = int(line.line.undiscounted_unit_price_net_amount * 100)
+
+        if add_shipping_price:
+            shipping_price_part = int(shipping_total / line.line.quantity)
+            shipping_price_remainder = int(shipping_total % line.line.quantity)
+            unit_amount += shipping_price_part
+            tax_amount += shipping_price_remainder
+            add_shipping_price = False
+
+        line_item = {
+            "quantity": line.line.quantity,
+            "description": line.line.product_name,
+            "product_details": {
+                "currency": line.line.currency,
+                "product_sku": line.variant.sku
+            }
+        }
+        if tax_amount != 0:
+            line_item["tax_amount"] = tax_amount
+
+        if discount_amount != 0:
+            line_item["discount_amount"] = tax_amount
+
+        if unit_amount != 0:
+            line_item["product_details"]["unit_amount"] = unit_amount
+
+        line_items.append(line_item)
+
+    return line_items
+
+
 def complete_checkout(
     manager: "PluginsManager",
     checkout_info: "CheckoutInfo",
@@ -649,6 +697,7 @@ def complete_checkout(
         order_data = _get_order_data(
             manager, checkout_info, lines, discounts, taxes_included_in_prices
         )
+        payment_data["line_items"] = prepare_line_items(order_data)
     except ValidationError as exc:
         gateway.payment_refund_or_void(payment, manager, channel_slug=channel_slug)
         raise exc
