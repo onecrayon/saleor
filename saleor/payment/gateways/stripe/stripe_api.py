@@ -132,8 +132,7 @@ def create_payment_intent(
     setup_future_usage: Optional[str] = None,
     off_session: Optional[bool] = None,
     payment_method_types: Optional[List[str]] = None,
-    customer_email: Optional[str] = None,
-    line_items: Optional[List[dict]] = None
+    customer_email: Optional[str] = None
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
 
     capture_method = AUTOMATIC_CAPTURE_METHOD if auto_capture else MANUAL_CAPTURE_METHOD
@@ -161,16 +160,12 @@ def create_payment_intent(
     if customer_email:
         additional_params["receipt_email"] = customer_email
 
-    if line_items:
-        additional_params["line_items"] = line_items
-    else:
-        additional_params["amount"] = price_to_minor_unit(amount, currency)
-        additional_params["currency"] = currency
-
     try:
         with stripe_opentracing_trace("stripe.PaymentIntent.create"):
             intent = stripe.PaymentIntent.create(
                 api_key=api_key,
+                amount=price_to_minor_unit(amount, currency),
+                currency=currency,
                 capture_method=capture_method,
                 stripe_version=STRIPE_API_VERSION,
                 **additional_params,
