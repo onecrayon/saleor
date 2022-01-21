@@ -56,11 +56,11 @@ def _extra_log_data(error: StripeError, payment_intent_id: Optional[str] = None)
     return data
 
 
-def subscribe_webhook(api_key: str, channel_slug: str) -> Optional[StripeObject]:
+def subscribe_webhook(api_key: str) -> Optional[StripeObject]:
     domain = Site.objects.get_current().domain
     api_path = reverse(
-        "plugins-per-channel",
-        kwargs={"plugin_id": PLUGIN_ID, "channel_slug": channel_slug},
+        "plugins-global",
+        kwargs={"plugin_id": PLUGIN_ID},
     )
 
     base_url = build_absolute_uri(api_path)
@@ -183,17 +183,94 @@ def create_payment_intent(
         return None, error
 
 
-def update_payment_method(api_key: str, payment_method_id: str, channel_slug: str):
+def create_payment_method(
+    api_key: str,
+    payment_method_type: str,
+    card_info: Optional[dict] = None,
+    metadata: Optional[dict] = None
+) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
+    try:
+        with stripe_opentracing_trace("stripe.PaymentMethod.create"):
+            payment_method = stripe.PaymentMethod.create(
+                api_key=api_key,
+                type=payment_method_type,
+                card=card_info,
+                metadata=metadata
+            )
+            return payment_method, None
+    except StripeError as error:
+        logger.warning(
+            "Failed to create Stripe payment method", extra=_extra_log_data(error)
+        )
+        return None, error
+
+
+def update_payment_method(
+        api_key: str, payment_method_id: str):
     with stripe_opentracing_trace("stripe.PaymentMethod.modify"):
         try:
             stripe.PaymentMethod.modify(
-                payment_method_id, api_key=api_key, metadata={"channel": channel_slug}
+                payment_method_id, api_key=api_key
             )
         except StripeError as error:
             logger.warning(
-                "Failed to assign channel slug to payment method",
+                "Failed to update payment method",
                 extra=_extra_log_data(error),
             )
+
+
+def update_payment_method_card(
+        api_key: str,
+        payment_method_id: str,
+        card: dict,
+        metadata: dict):
+    with stripe_opentracing_trace("stripe.PaymentMethod.modify"):
+        try:
+            payment_method = stripe.PaymentMethod.modify(
+                payment_method_id,
+                api_key=api_key,
+                card=card,
+                metadata=metadata
+            )
+            return payment_method, None
+        except StripeError as error:
+            logger.warning(
+                "Failed to update payment method [card]",
+                extra=_extra_log_data(error),
+            )
+            return None, error
+
+
+def attach_payment_method(
+    api_key: str,
+    payment_method_id: str,
+    customer_id: str
+) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
+    try:
+        with stripe_opentracing_trace("stripe.PaymentMethod.attach"):
+            payment_method = stripe.PaymentMethod.attach(
+                api_key=api_key,
+                sid=payment_method_id,
+                customer=customer_id
+            )
+        return payment_method, None
+    except StripeError as error:
+        return None, error
+
+
+def detach_payment_method(
+    api_key: str,
+    payment_method_id: str
+) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
+    try:
+        with stripe_opentracing_trace("stripe.PaymentMethod.detach"):
+            payment_method = stripe.PaymentMethod.detach(
+                api_key=api_key,
+                sid=payment_method_id
+            )
+        return payment_method, None
+    except StripeError as error:
+        return None, error
 
 
 def list_customer_payment_methods(

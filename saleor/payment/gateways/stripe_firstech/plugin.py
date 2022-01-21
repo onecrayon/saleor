@@ -2,7 +2,7 @@ import logging
 from typing import TYPE_CHECKING, List, Tuple
 
 from django.contrib.sites.models import Site
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse, HttpResponseNotFound
 from django.http.request import split_domain_port
@@ -31,7 +31,8 @@ from .stripe_api import (
     list_customer_payment_methods,
     refund_payment_intent,
     retrieve_payment_intent,
-    subscribe_webhook,
+    subscribe_webhook, create_payment_method, update_payment_method_card,
+    attach_payment_method, detach_payment_method,
 )
 from .webhooks import handle_webhook
 
@@ -55,6 +56,7 @@ logger = logging.getLogger(__name__)
 class StripeGatewayPlugin(BasePlugin):
     PLUGIN_NAME = PLUGIN_NAME
     PLUGIN_ID = PLUGIN_ID
+    CONFIGURATION_PER_CHANNEL = False
     DEFAULT_CONFIGURATION = [
         {"name": "public_api_key", "value": None},
         {"name": "secret_api_key", "value": None},
@@ -121,7 +123,7 @@ class StripeGatewayPlugin(BasePlugin):
     def webhook(self, request: WSGIRequest, path: str, previous_value) -> HttpResponse:
         config = self.config
         if path.startswith(WEBHOOK_PATH, 1):  # 1 as we don't check the '/'
-            return handle_webhook(request, config, self.channel.slug)  # type: ignore
+            return handle_webhook(request, config)
         logger.warning(
             "Received request to incorrect stripe path", extra={"path": path}
         )
@@ -204,7 +206,6 @@ class StripeGatewayPlugin(BasePlugin):
             customer=customer,
             payment_method_id=payment_method_id,
             metadata={
-                "channel": self.channel.slug,  # type: ignore
                 "payment_id": payment_information.graphql_payment_id,
             },
             setup_future_usage=setup_future_usage,
@@ -423,7 +424,6 @@ class StripeGatewayPlugin(BasePlugin):
             customer_id=customer_id,
         )
         if payment_methods:
-            channel_slug: str = self.channel.slug  # type: ignore
             customer_sources = [
                 CustomerSource(
                     id=payment_method.id,
@@ -437,10 +437,118 @@ class StripeGatewayPlugin(BasePlugin):
                     ),
                 )
                 for payment_method in payment_methods
-                if payment_method.metadata.get("channel") == channel_slug
             ]
             previous_value.extend(customer_sources)
         return previous_value
+
+    @require_active_plugin
+    def create_payment_source(
+        self,
+        payment_source_details: [dict],
+        previous_value
+    ) -> CustomerSource:
+
+        metadata = {}
+        if "metadata" in payment_source_details:
+            metadata = payment_source_details["metadata"]
+
+        customer = get_or_create_customer(
+            api_key=self.config.connection_params["secret_api_key"]
+        )
+
+        if customer:
+            payment_source_details["customer_id"] = customer.id
+
+        payment_method, error = create_payment_method(
+            api_key=self.config.connection_params["secret_api_key"],
+            payment_method_type=payment_source_details["type"],
+            card_info=payment_source_details["card_info"],
+            metadata=metadata
+        )
+
+        if error:
+            raise ValidationError(error.user_message)
+
+        payment_method, error = attach_payment_method(
+            api_key=self.config.connection_params["secret_api_key"],
+            payment_method_id=payment_method.get("id"),
+            customer_id="cus_KuwWIySOZ8nDMV"
+        )
+
+        if error:
+            raise ValidationError(error.user_message)
+
+        return CustomerSource(
+            id=payment_method.id,
+            gateway=PLUGIN_ID,
+            credit_card_info=PaymentMethodInfo(
+                exp_year=payment_method.card.exp_year,
+                exp_month=payment_method.card.exp_month,
+                last_4=payment_method.card.last4,
+                name=None,
+                brand=payment_method.card.brand,
+            ),
+        )
+
+    @require_active_plugin
+    def update_payment_source(
+        self,
+        payment_source_details: [dict],
+        previous_value
+    ) -> CustomerSource:
+
+        metadata = {}
+        if "metadata" in payment_source_details:
+            metadata = payment_source_details["metadata"]
+
+        payment_method, error = update_payment_method_card(
+            api_key=self.config.connection_params["secret_api_key"],
+            payment_method_id=payment_source_details["payment_method_id"],
+            card=payment_source_details["card_info"],
+            metadata=metadata
+        )
+
+        if error:
+            raise ValidationError(message=error.user_message)
+
+        return CustomerSource(
+            id=payment_method.id,
+            gateway=PLUGIN_ID,
+            credit_card_info=PaymentMethodInfo(
+                exp_year=payment_method.card.exp_year,
+                exp_month=payment_method.card.exp_month,
+                last_4=payment_method.card.last4,
+                name=None,
+                brand=payment_method.card.brand,
+            ),
+        )
+
+    @require_active_plugin
+    def delete_payment_source(
+        self,
+        payment_source_id: str,
+        previous_value
+    ) -> CustomerSource:
+
+        payment_method, error = detach_payment_method(
+            api_key=self.config.connection_params["secret_api_key"],
+            payment_method_id=payment_source_id
+        )
+
+        if error:
+            raise ValidationError(error.user_message)
+
+        return CustomerSource(
+            id=payment_method.id,
+            gateway=PLUGIN_ID,
+            credit_card_info=PaymentMethodInfo(
+                exp_year=payment_method.card.exp_year,
+                exp_month=payment_method.card.exp_month,
+                last_4=payment_method.card.last4,
+                name=None,
+                brand=payment_method.card.brand,
+            ),
+        )
 
     @classmethod
     def pre_save_plugin_configuration(cls, plugin_configuration: "PluginConfiguration"):
@@ -491,9 +599,7 @@ class StripeGatewayPlugin(BasePlugin):
 
         webhook = None
         if not webhook_id and not webhook_secret:
-            webhook = subscribe_webhook(
-                api_key, plugin_configuration.channel.slug  # type: ignore
-            )
+            webhook = subscribe_webhook(api_key)
 
         if not webhook:
             logger.warning(
