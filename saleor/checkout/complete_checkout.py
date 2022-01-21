@@ -621,9 +621,11 @@ def prepare_line_items(order_data) -> List[dict]:
         add_shipping_price = False
 
     for line in order_data["lines"]:
-        tax_amount = int(line.line.tax_rate * 100)
+        tax_total = line.line.total_price_gross_amount - \
+                    line.line.total_price_net_amount
+        tax_amount = int(tax_total * 100)
         discount_amount = int(line.line.unit_discount_amount * 100)
-        unit_amount = int(line.line.undiscounted_unit_price_gross_amount * 100)
+        unit_amount = int(line.line.undiscounted_unit_price_net_amount * 100)
 
         if add_shipping_price:
             shipping_price_part = int(shipping_total / line.line.quantity)
