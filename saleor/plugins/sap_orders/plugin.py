@@ -365,7 +365,12 @@ class SAPPlugin(BasePlugin):
             self.service_layer_request(
                 "patch", f"Orders({doc_entry})", body=self.get_order_for_sap(order)
             )
-
+            # Unfortunately SAP doesn't return the object after patching, so we need
+            # to fetch it in order to validate the order totals.
+            validate_order_totals(
+                order,
+                self.service_layer_request("get", f"Orders({doc_entry})")
+            )
             # Update Delivery Documents
             fulfillments = order.fulfillments.all()
             for fulfillment in fulfillments:
@@ -417,7 +422,7 @@ class SAPPlugin(BasePlugin):
         else:
             # Try to create a new sales order in SAP since evidently this one isn't
             # attached to an SAP order yet.
-            self.order_created(order, previous_value)
+            return self.order_created(order, previous_value)
 
         return previous_value
 
