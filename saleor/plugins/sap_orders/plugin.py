@@ -23,6 +23,7 @@ from saleor.graphql.SAP.mutations.business_partners import (
     upsert_business_partner_addresses,
     upsert_business_partner_contacts,
 )
+from saleor.graphql.SAP.mutations.orders import validate_order_totals
 from saleor.order import FulfillmentStatus
 from saleor.plugins.base_plugin import BasePlugin, ConfigurationTypeField
 from saleor.plugins.sap_orders import (
@@ -328,6 +329,7 @@ class SAPPlugin(BasePlugin):
         result = self.service_layer_request("post", "Orders", body=order_data)
         # Get the doc_entry from the response and save it in metadata
         if result.get("DocEntry"):
+            validate_order_totals(order, result)
             order.store_value_in_private_metadata(
                 items={
                     "doc_entry": result["DocEntry"],
@@ -335,7 +337,7 @@ class SAPPlugin(BasePlugin):
                 }
             )
             order.store_value_in_metadata(items={"due_date": result["DocDueDate"]})
-            order.save(update_fields=["private_metadata"])
+            order.save(update_fields=["metadata", "private_metadata"])
 
         return previous_value
 

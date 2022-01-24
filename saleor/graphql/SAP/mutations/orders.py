@@ -42,6 +42,28 @@ from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.shipping.models import ShippingMethodChannelListing, ShippingMethod
 
 
+def validate_order_totals(order: order_models.Order, sap_order: dict):
+    """Sanity check to make sure all of the prices, discounts, and shipping prices
+    have been copied over correctly. If gross totals between SAP and Saleor orders don't
+    match, then a note is added to the order's metadata noting taxes need to be
+    resolved.
+
+    :raises: ValidationError if net totals don't match between SAP and Saleor orders.
+    """
+    sap_gross_total = Decimal(str(sap_order["DocTotal"]))
+    sap_net_total = sap_gross_total - Decimal(str(sap_order["VatSum"]))
+    if order.total.net.amount != sap_net_total:
+        raise ValidationError("Saleor order total does not match SAP order total")
+
+    # If the gross prices in Saleor don't match the gross prices in SAP, make a note
+    # in the metadata that taxes for this order need to be resolved.
+    order.store_value_in_metadata(
+        items={
+            "taxes_need_resolving": order.total.gross.amount != sap_gross_total
+        }
+    )
+
+
 class SAPLineItemInput(graphene.InputObjectType):
     sku = graphene.String()
     quantity = graphene.Int()
@@ -544,10 +566,8 @@ class UpsertSAPOrder(DraftOrderUpdate):
         recalculate_order(order)
         order.refresh_from_db()
 
-        # Sanity check to make sure all of the discounts, tax, and shipping prices
-        # have been copied over correctly.
-        if order.total.gross.amount != Decimal(str(sap_order["DocTotal"])):
-            raise ValidationError("Saleor order total does not match SAP order total")
+        validate_order_totals(order, sap_order)
+        order.save(update_fields=["metadata"])
 
         if data.get("confirm_order", False) and order.status not in CONFIRMED_ORDERS:
             # Try to move this draft order to confirmed
