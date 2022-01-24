@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from hashlib import sha256
+from decimal import Decimal
 from json import JSONDecodeError
 from typing import TYPE_CHECKING, Any, List, Optional
 
@@ -33,7 +34,7 @@ from saleor.plugins.sap_orders import (
 
 if TYPE_CHECKING:
     from saleor.invoice.models import Invoice
-    from saleor.order.models import Order
+    from saleor.order.models import Order, OrderLine
 
 
 # Suppress only the single warning from urllib3 needed.
@@ -284,25 +285,11 @@ class SAPPlugin(BasePlugin):
 
         document_lines = []
         for line_item in order.lines.all():
-            document_line = {
-                "ItemCode": line_item.product_sku,
-                "Quantity": line_item.quantity,
-                # Possibly include pricing/discount information in case of discount
-                "UnitPrice": float(line_item.undiscounted_unit_price_gross_amount),
-            }
-            # Note: SAP only supports "discounts" by percentage. If there is a
-            # fixed discount amount in a saleor order, the discount will be
-            # reflected in the unit_price_gross_amount
-            if line_item.unit_discount_type == DiscountValueType.PERCENTAGE:
-                document_line["DiscountPercent"] = float(line_item.unit_discount_value)
-            else:
-                document_line["DiscountPercent"] = 0
-                document_line["UnitPrice"] = float(line_item.unit_price_gross_amount)
-
-            document_lines.append(document_line)
+            document_lines.append(self.prepare_order_line_for_SAP(line_item))
 
         order_for_sap["DocumentLines"] = document_lines
 
+        # Apply any discounts on the entire order
         if discount := order.discounts.first():
             if discount.value_type == DiscountValueType.PERCENTAGE:
                 order_for_sap["DiscountPercent"] = float(discount.value)
@@ -399,23 +386,26 @@ class SAPPlugin(BasePlugin):
                     lines = fulfillment.lines.all()
                     document_lines = []
                     for line in lines:
-                        document_lines.append(
+                        sap_line = self.prepare_order_line_for_SAP(line)
+                        sap_line.update(
                             {
-                                "ItemCode": line.order_line.variant.sku,
-                                "Quantity": line.quantity,
+                                "DocEntry": doc_entry,
                                 "WarehouseCode": line.stock.warehouse.metadata[
                                     "warehouse_id"
                                 ],
                             }
                         )
+                        document_lines.append(sap_line)
 
                     response = self.service_layer_request(
                         "post",
                         "DeliveryNotes",
                         body={
+                            "DocEntry": doc_entry,
                             "CardCode": order.private_metadata["sap_bp_code"],
                             "TrackingNumber": fulfillment.tracking_number,
                             "DocumentLines": document_lines,
+                            "NumAtCard": order.metadata.get("po_number"),
                         },
                     )
                     fulfillment.store_value_in_private_metadata(
@@ -655,3 +645,26 @@ class SAPPlugin(BasePlugin):
             return order.shipping_price
 
         return previous_value
+
+    @staticmethod
+    def prepare_order_line_for_SAP(order_line: "OrderLine") -> dict:
+        """Given a Saleor OrderLine, prepare a dict to be upserted to SAP. This can be
+        used in an SAP order, delivery document, etc.
+        """
+        # Without knowing what tax code to apply, these are the only fields we can
+        # update in SAP.
+        document_line = {
+            "ItemCode": order_line.product_sku,
+            "Quantity": order_line.quantity,
+            "UnitPrice": float(order_line.undiscounted_unit_price_net_amount),
+        }
+        # Note: SAP only supports "discounts" by percentage. If there is a
+        # fixed discount amount in a saleor order, the discount will be
+        # reflected in the unit_price_net_amount
+        if order_line.unit_discount_type == DiscountValueType.PERCENTAGE:
+            document_line["DiscountPercent"] = float(order_line.unit_discount_value)
+        else:
+            document_line["DiscountPercent"] = 0
+            document_line["UnitPrice"] = float(order_line.unit_price_net_amount)
+
+        return document_line
