@@ -22,8 +22,6 @@ from saleor.graphql.order.mutations.discount_order import (
     OrderDiscountAdd,
     OrderDiscountDelete,
     OrderDiscountUpdate,
-    OrderLineDiscountRemove,
-    OrderLineDiscountUpdate
 )
 from saleor.graphql.order.mutations.draft_orders import (
     DraftOrderComplete,
@@ -39,12 +37,31 @@ from saleor.graphql.order.mutations.orders import (
 from saleor.graphql.order.types import Order, OrderLine
 from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
 from saleor.order import models as order_models
-from saleor.order.utils import (
-    get_valid_shipping_methods_for_order,
-    recalculate_order,
-)
+from saleor.order.utils import recalculate_order
 from saleor.plugins.sap_orders import get_sap_plugin_or_error
-from saleor.shipping.models import ShippingMethodChannelListing
+from saleor.shipping.models import ShippingMethodChannelListing, ShippingMethod
+
+
+def validate_order_totals(order: order_models.Order, sap_order: dict):
+    """Sanity check to make sure all of the prices, discounts, and shipping prices
+    have been copied over correctly. If gross totals between SAP and Saleor orders don't
+    match, then a note is added to the order's metadata noting taxes need to be
+    resolved.
+
+    :raises: ValidationError if net totals don't match between SAP and Saleor orders.
+    """
+    sap_gross_total = Decimal(str(sap_order["DocTotal"]))
+    sap_net_total = sap_gross_total - Decimal(str(sap_order["VatSum"]))
+    if order.total.net.amount != sap_net_total:
+        raise ValidationError("Saleor order total does not match SAP order total")
+
+    # If the gross prices in Saleor don't match the gross prices in SAP, make a note
+    # in the metadata that taxes for this order need to be resolved.
+    order.store_value_in_metadata(
+        items={
+            "taxes_need_resolving": order.total.gross.amount != sap_gross_total
+        }
+    )
 
 
 class SAPLineItemInput(graphene.InputObjectType):
@@ -206,6 +223,8 @@ class UpsertSAPOrder(DraftOrderUpdate):
         order: order_models.Order = cls.get_instance(info, **data)
         new_order = False if order.pk else True
         sap_order = sap_plugin.fetch_order(data["doc_entry"])
+        if sap_order["DocCurrency"] == "$":
+            order.currency = "USD"
         bp = sap_plugin.fetch_business_partner(sap_order["CardCode"])
         billing_address = cls.parse_address_string(sap_order["Address"])
         billing_address["company_name"] = sap_order["PayToCode"]
@@ -258,61 +277,104 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
         # The SAP order has all the line items, but we need to rename the keys that it
         # uses to match what Saleor's Order mutations expect. We also only care about
-        # sku, quantity, and discount and not any of the other dozens of fields SAP has.
+        # sku, quantity, unit price, and discount and not any of the other dozens of
+        # fields SAP has.
+
+        # Because Saleor calculates discounts and taxes in the wrong order, we are going
+        # to set all of the prices on the order lines manually rather than using Saleor
+        # mutations.
         lines = []
-        # We will make a note of any discounts on line items for later on
-        line_item_discounts = {}
-        document_lines = sap_order.get("DocumentLines", [])
-        if document_lines:
-            for document_line in document_lines:
-                lines.append(
-                    {
-                        "sku": document_line["ItemCode"],
-                        "quantity": int(document_line["Quantity"]),
-                        "discount_percent": document_line.get("DiscountPercent", 0),
-                    }
-                )
+        line_item_extra_info = {}
+        for document_line in sap_order.get("DocumentLines", []):
+            # Coerce our unit price from SAP's after discount fields
+            quantity = int(document_line["Quantity"])
+            unit_price = TaxedMoney(
+                net=Money(Decimal(str(document_line["Price"])), order.currency),
+                gross=Money(
+                    Decimal(str(document_line["PriceAfterVAT"])), order.currency
+                ),
+            )
+            undiscounted_unit_price = TaxedMoney(
+                net=Money(Decimal(str(document_line["UnitPrice"])), order.currency),
+                gross=Money(Decimal(str(document_line["GrossPrice"])), order.currency),
+            )
+            total_price = TaxedMoney(
+                net=Money(Decimal(str(document_line["LineTotal"])), order.currency),
+                gross=Money(
+                    Decimal(
+                        str(document_line["LineTotal"] + document_line["TaxTotal"])
+                    ),
+                    order.currency,
+                ),
+            )
+            # SAP doesn't report `undiscounted_total_price`. Nevertheless, Saleor
+            # requires this.
+            undiscounted_total_price = quantity * undiscounted_unit_price
 
-        # Form the line items for the order
-        if lines:
-            # We need to translate SKU into variant ids.
-            # Sort our line items by SKU
-            lines = sorted(lines, key=lambda line: line["sku"])
+            # Sum up the total tax rate from the individual taxes that SAP keeps
+            tax_rate = 0.0
+            for tax_jurisdiction in document_line.get("LineTaxJurisdictions", []):
+                tax_rate += tax_jurisdiction.get("TaxRate", 0)
 
-            # Get all the product variants for the SKUs provided (also sorted by SKU)
-            product_variants: List[dict] = list(
-                product_models.ProductVariant.objects.filter(
-                    sku__in=[line["sku"] for line in lines]
-                )
-                .values("id", "sku")
-                .order_by("sku")
+            lines.append(
+                {
+                    "sku": document_line["ItemCode"],
+                    "quantity": quantity,
+                    "unit_price": unit_price,
+                    "undiscounted_unit_price": undiscounted_unit_price,
+                    "total_price": total_price,
+                    "undiscounted_total_price": undiscounted_total_price,
+                    "discount_percent": document_line.get("DiscountPercent", 0),
+                    "tax_rate": tax_rate,
+                }
             )
 
-            # Replace each line item's SKU key-value pair with variant's global id
-            # There is a possibility that there are SKUs from SAP that don't exist in
-            # Saleor, so we will raise a validation error if any exist
-            i = 0
-            bad_line_items = []
-            num_product_variants = len(product_variants)
-            for sap_line in lines:
-                if (
-                    i < num_product_variants
-                    and sap_line["sku"] == product_variants[i]["sku"]
-                ):
-                    sap_line["variant_id"] = graphene.Node.to_global_id(
-                        "ProductVariant", product_variants[i]["id"]
-                    )
-                    line_item_discounts[sap_line["sku"]] = sap_line["discount_percent"]
-                    del sap_line["sku"]
-                    del sap_line["discount_percent"]
-                    i += 1
-                else:
-                    bad_line_items.append(sap_line["sku"])
+        # Form the line items for the order
+        # We need to translate SKU into variant ids.
+        # Sort our line items by SKU
+        lines = sorted(lines, key=lambda line: line["sku"])
 
-            if bad_line_items:
-                raise ValidationError(
-                    f"The following SKUs do not exist in Saleor: {bad_line_items}"
+        # Get all the product variants for the SKUs provided (also sorted by SKU)
+        product_variants: List[dict] = list(
+            product_models.ProductVariant.objects.filter(
+                sku__in=[line["sku"] for line in lines]
+            )
+            .values("id", "sku")
+            .order_by("sku")
+        )
+
+        # Replace each line item's SKU key-value pair with variant's global id
+        # There is a possibility that there are SKUs from SAP that don't exist in
+        # Saleor, so we will raise a validation error if any exist
+        i = 0
+        bad_line_items = []
+        num_product_variants = len(product_variants)
+        for sap_line in lines:
+            if (
+                i < num_product_variants
+                and sap_line["sku"] == product_variants[i]["sku"]
+            ):
+                sap_line["variant_id"] = graphene.Node.to_global_id(
+                    "ProductVariant", product_variants[i]["id"]
                 )
+
+                line_item_extra_info[sap_line["sku"]] = sap_line.copy()
+
+                # Need to remove these keys for the DraftCreate mutation
+                del sap_line["discount_percent"]
+                del sap_line["unit_price"]
+                del sap_line["undiscounted_unit_price"]
+                del sap_line["undiscounted_total_price"]
+                del sap_line["tax_rate"]
+                del sap_line["sku"]
+                i += 1
+            else:
+                bad_line_items.append(sap_line["sku"])
+
+        if bad_line_items:
+            raise ValidationError(
+                f"The following SKUs do not exist in Saleor: {bad_line_items}"
+            )
 
         metadata = {
             "due_date": sap_order["DocDueDate"] or "",
@@ -401,13 +463,19 @@ class UpsertSAPOrder(DraftOrderUpdate):
 
         # Lookup the shipping method by code and update the order
         if shipping_method_code:
-            available_shipping_methods = get_valid_shipping_methods_for_order(order)
+            available_shipping_methods = (
+                ShippingMethod.objects.applicable_shipping_methods_for_instance(
+                    order,
+                    channel_id=order.channel_id,
+                    price=order.get_subtotal().gross,
+                    country_code=order.shipping_address.country.code,
+                )
+            )
             if shipping_method := available_shipping_methods.filter(
                 private_metadata__TrnspCode=str(shipping_method_code)
             ).first():
                 default_shipping_price = ShippingMethodChannelListing.objects.get(
-                    shipping_method=shipping_method,
-                    channel_id=channel_id
+                    shipping_method=shipping_method, channel_id=channel_id
                 ).price.amount
                 if default_shipping_price == sap_shipping_price:
                     # This is an ordinary shipping method and price that exists in both
@@ -442,38 +510,23 @@ class UpsertSAPOrder(DraftOrderUpdate):
                 order.currency,
             )
 
-        # We will need to call the `recalculate_order` function before we are done, but
-        # some of the discount mutations below will do that for us.
-        need_to_recalculate_order = True
-
-        # Include line item discounts
+        # Set the line item prices manually to ensure the values match SAP
         for line in order.lines.all():
-            discount = line_item_discounts[line.product_sku]
-            if discount > 0:
-                OrderLineDiscountUpdate.perform_mutation(
-                    _root,
-                    info,
-                    input={
-                        "value_type": DiscountValueType.PERCENTAGE,
-                        "value": Decimal(discount),
-                        "reason": "From SAP Order",
-                    },
-                    order_line_id=graphene.Node.to_global_id("OrderLine", line.id),
-                )
-                need_to_recalculate_order = False
-            elif line.unit_discount_value:
-                # Remove discounts that don't exist in SAP
-                OrderLineDiscountRemove.perform_mutation(
-                    _root,
-                    info,
-                    order_line_id=graphene.Node.to_global_id("OrderLine", line.id),
-                )
+            extra_info = line_item_extra_info[line.product_sku]
+            line.unit_price = extra_info["unit_price"]
+            line.total_price = extra_info["total_price"]
+            line.undiscounted_unit_price = extra_info["undiscounted_unit_price"]
+            line.undiscounted_total_price = extra_info["undiscounted_total_price"]
+            line.unit_discount_value = extra_info["discount_percent"]
+            line.unit_discount_type = DiscountValueType.PERCENTAGE
+            line.tax_rate = extra_info["tax_rate"]
+            line.save()
 
         # Include any discounts on the entire sales order
         if sap_order["TotalDiscount"]:
             discount_input = {
                 "value_type": DiscountValueType.FIXED,
-                "value": Decimal(sap_order["TotalDiscount"]),
+                "value": Decimal(str(sap_order["TotalDiscount"])),
                 "reason": "From SAP Order",
             }
             try:
@@ -498,7 +551,6 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     ),
                     input=discount_input,
                 )
-                need_to_recalculate_order = False
         else:
             # Remove any discounts that don't exist in SAP
             for discount_id in order.discounts.values_list("id", flat=True):
@@ -507,17 +559,15 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     info,
                     discount_id=graphene.Node.to_global_id(
                         "OrderDiscount", discount_id
-                    )
+                    ),
                 )
 
         order.save()
-        if need_to_recalculate_order:
-            recalculate_order(order)
+        recalculate_order(order)
+        order.refresh_from_db()
 
-        # Sanity check to make sure all of the discounts, tax, and shipping prices
-        # have been copied over correctly.
-        if order.total.net.amount != Decimal(str(sap_order["DocTotal"])):
-            raise ValidationError("Saleor order total does not match SAP order total")
+        validate_order_totals(order, sap_order)
+        order.save(update_fields=["metadata"])
 
         if data.get("confirm_order", False) and order.status not in CONFIRMED_ORDERS:
             # Try to move this draft order to confirmed
