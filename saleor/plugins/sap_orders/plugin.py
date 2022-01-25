@@ -371,6 +371,7 @@ class SAPPlugin(BasePlugin):
                 order,
                 self.service_layer_request("get", f"Orders({doc_entry})")
             )
+            order.save(update_fields=["metadata"])
             # Update Delivery Documents
             fulfillments = order.fulfillments.all()
             for fulfillment in fulfillments:
