@@ -15,7 +15,7 @@ from ...interface import (
     GatewayConfig,
     GatewayResponse,
     PaymentData,
-    PaymentMethodInfo,
+    PaymentMethodInfo, AddressData,
 )
 from ...models import Transaction
 from ...utils import price_from_minor_unit, price_to_minor_unit
@@ -435,6 +435,19 @@ class StripeGatewayPlugin(BasePlugin):
                         name=None,
                         brand=payment_method.card.brand,
                     ),
+                    billing_info=AddressData(
+                        first_name=payment_method.billing_details.name,
+                        last_name="",
+                        company_name="",
+                        city_area="",
+                        street_address_1=payment_method.billing_details.address.line1,
+                        street_address_2=payment_method.billing_details.address.line2,
+                        city=payment_method.billing_details.address.city,
+                        postal_code=payment_method.billing_details.address.postal_code,
+                        country=payment_method.billing_details.address.country,
+                        country_area=payment_method.billing_details.address.state,
+                        phone=payment_method.billing_details.phone
+                    )
                 )
                 for payment_method in payment_methods
             ]
@@ -452,17 +465,11 @@ class StripeGatewayPlugin(BasePlugin):
         if "metadata" in payment_source_details:
             metadata = payment_source_details["metadata"]
 
-        customer = get_or_create_customer(
-            api_key=self.config.connection_params["secret_api_key"]
-        )
-
-        if customer:
-            payment_source_details["customer_id"] = customer.id
-
         payment_method, error = create_payment_method(
             api_key=self.config.connection_params["secret_api_key"],
             payment_method_type=payment_source_details["type"],
             card_info=payment_source_details["card_info"],
+            billing_details=payment_source_details["billing_details"],
             metadata=metadata
         )
 
@@ -472,7 +479,7 @@ class StripeGatewayPlugin(BasePlugin):
         payment_method, error = attach_payment_method(
             api_key=self.config.connection_params["secret_api_key"],
             payment_method_id=payment_method.get("id"),
-            customer_id="cus_KuwWIySOZ8nDMV"
+            customer_id=payment_source_details["customer_id"]
         )
 
         if error:
@@ -488,6 +495,19 @@ class StripeGatewayPlugin(BasePlugin):
                 name=None,
                 brand=payment_method.card.brand,
             ),
+            billing_info=AddressData(
+                first_name=payment_method.billing_details.name,
+                last_name="",
+                company_name="",
+                city_area="",
+                street_address_1=payment_method.billing_details.address.line1,
+                street_address_2=payment_method.billing_details.address.line2,
+                city=payment_method.billing_details.address.city,
+                postal_code=payment_method.billing_details.address.postal_code,
+                country=payment_method.billing_details.address.country,
+                country_area=payment_method.billing_details.address.state,
+                phone=payment_method.billing_details.phone
+            )
         )
 
     @require_active_plugin
@@ -505,6 +525,7 @@ class StripeGatewayPlugin(BasePlugin):
             api_key=self.config.connection_params["secret_api_key"],
             payment_method_id=payment_source_details["payment_method_id"],
             card=payment_source_details["card_info"],
+            billing_details=payment_source_details["billing_info"],
             metadata=metadata
         )
 
@@ -521,6 +542,19 @@ class StripeGatewayPlugin(BasePlugin):
                 name=None,
                 brand=payment_method.card.brand,
             ),
+            billing_info=AddressData(
+                first_name=payment_method.billing_details.name,
+                last_name="",
+                company_name="",
+                city_area="",
+                street_address_1=payment_method.billing_details.address.line1,
+                street_address_2=payment_method.billing_details.address.line2,
+                city=payment_method.billing_details.address.city,
+                postal_code=payment_method.billing_details.address.postal_code,
+                country=payment_method.billing_details.address.country,
+                country_area=payment_method.billing_details.address.state,
+                phone=payment_method.billing_details.phone
+            )
         )
 
     @require_active_plugin
@@ -548,6 +582,19 @@ class StripeGatewayPlugin(BasePlugin):
                 name=None,
                 brand=payment_method.card.brand,
             ),
+            billing_info=AddressData(
+                first_name=payment_method.billing_details.name,
+                last_name="",
+                company_name="",
+                city_area="",
+                street_address_1=payment_method.billing_details.address.line1,
+                street_address_2=payment_method.billing_details.address.line2,
+                city=payment_method.billing_details.address.city,
+                postal_code=payment_method.billing_details.address.postal_code,
+                country=payment_method.billing_details.address.country,
+                country_area=payment_method.billing_details.address.state,
+                phone=payment_method.billing_details.phone
+            )
         )
 
     @classmethod

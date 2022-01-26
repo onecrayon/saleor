@@ -1,6 +1,7 @@
 import graphene
 from graphene import relay
 
+from ..account.enums import CountryCodeEnum
 from ...core.permissions import OrderPermissions
 from ...core.tracing import traced_resolver
 from ...payment import models
@@ -52,6 +53,17 @@ class CreditCard(graphene.ObjectType):
     )
 
 
+class PaymentSourceBillingInfo(graphene.ObjectType):
+    name = graphene.String()
+    street_address_1 = graphene.String()
+    street_address_2 = graphene.String()
+    city = graphene.String()
+    state = graphene.String()
+    postal_code = graphene.String()
+    country_code = graphene.Field(CountryCodeEnum)
+    phone = graphene.String()
+
+
 class PaymentSource(graphene.ObjectType):
     class Meta:
         description = (
@@ -63,6 +75,10 @@ class PaymentSource(graphene.ObjectType):
     payment_method_id = graphene.String(description="ID of stored payment method.")
     credit_card_info = graphene.Field(
         CreditCard, description="Stored credit card details if available."
+    )
+    billing_info = graphene.Field(
+        PaymentSourceBillingInfo,
+        description="Stored credit card billing details if available."
     )
 
 

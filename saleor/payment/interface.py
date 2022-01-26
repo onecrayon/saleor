@@ -140,6 +140,7 @@ class CustomerSource:
     id: str
     gateway: str
     credit_card_info: Optional[PaymentMethodInfo] = None
+    billing_info: Optional[AddressData] = None
 
 
 @dataclass

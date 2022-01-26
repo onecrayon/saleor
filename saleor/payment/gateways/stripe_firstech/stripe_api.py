@@ -187,6 +187,7 @@ def create_payment_method(
     api_key: str,
     payment_method_type: str,
     card_info: Optional[dict] = None,
+    billing_details: Optional[dict] = None,
     metadata: Optional[dict] = None
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
     try:
@@ -195,6 +196,7 @@ def create_payment_method(
                 api_key=api_key,
                 type=payment_method_type,
                 card=card_info,
+                billing_details=billing_details,
                 metadata=metadata
             )
             return payment_method, None
@@ -223,6 +225,7 @@ def update_payment_method_card(
         api_key: str,
         payment_method_id: str,
         card: dict,
+        billing_details: dict,
         metadata: dict):
     with stripe_opentracing_trace("stripe.PaymentMethod.modify"):
         try:
@@ -230,6 +233,7 @@ def update_payment_method_card(
                 payment_method_id,
                 api_key=api_key,
                 card=card,
+                billing_details=billing_details,
                 metadata=metadata
             )
             return payment_method, None
