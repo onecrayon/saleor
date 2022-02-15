@@ -476,7 +476,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
             ).first():
                 default_shipping_price = ShippingMethodChannelListing.objects.get(
                     shipping_method=shipping_method, channel_id=channel_id
-                ).price.amount
+                ).price
                 if default_shipping_price == sap_shipping_price:
                     # This is an ordinary shipping method and price that exists in both
                     # SAP and Saleor
@@ -511,7 +511,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
             )
 
         # Set the line item prices manually to ensure the values match SAP
-        for line in order.lines.all():
+        for line in order_models.OrderLine.objects.filter(order_id=order.id).all():
             extra_info = line_item_extra_info[line.product_sku]
             line.unit_price = extra_info["unit_price"]
             line.total_price = extra_info["total_price"]
