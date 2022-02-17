@@ -18,7 +18,7 @@ from ..discount.utils import fetch_active_discounts
 from ..order import FulfillmentLineData, FulfillmentStatus, OrderLineData
 from ..order.models import FulfillmentLine, Order, OrderLine
 from ..plugins.manager import PluginsManager, get_plugins_manager
-from . import ChargeStatus, GatewayError, PaymentError, TransactionKind
+from . import ChargeStatus, GatewayError, PaymentError, TransactionKind, gateway
 from .error_codes import PaymentErrorCode
 from .interface import (
     AddressData,
@@ -54,7 +54,7 @@ def create_checkout_payment_lines_information(
     checkout: Checkout, manager: PluginsManager
 ) -> List[PaymentLineData]:
     line_items = []
-    lines = fetch_checkout_lines(checkout)
+    lines, _ = fetch_checkout_lines(checkout)
     discounts = fetch_active_discounts()
     checkout_info = fetch_checkout_info(checkout, lines, discounts, manager)
     address = checkout_info.shipping_address or checkout_info.billing_address
@@ -378,6 +378,7 @@ def create_payment(
         "gateway": gateway,
         "total": total,
         "return_url": return_url,
+        "partial": False,
         "psp_reference": external_reference or "",
     }
 
@@ -670,3 +671,36 @@ def price_to_minor_unit(value: Decimal, currency: str):
     number_places = Decimal("10.0") ** precision
     value_without_comma = value * number_places
     return str(value_without_comma.quantize(Decimal("1")))
+
+
+def get_channel_slug_from_payment(payment: Payment) -> Optional[str]:
+    channel_slug = None
+
+    if payment.checkout:
+        channel_slug = payment.checkout.channel.slug
+    elif payment.order:
+        channel_slug = payment.order.channel.slug
+
+    return channel_slug
+
+
+def try_void_or_refund_inactive_payment(
+    payment: Payment, transaction: Transaction, manager: "PluginsManager"
+):
+    """Handle refund or void inactive payments.
+
+    In case when we have open multiple payments for single checkout but only one is
+    active. Some payment methods don't required confirmation so we can receive delayed
+    webhook when we have order already paid.
+    """
+    if transaction.is_success:
+        update_payment_charge_status(payment, transaction)
+        channel_slug = get_channel_slug_from_payment(payment)
+        try:
+            gateway.payment_refund_or_void(payment, manager, channel_slug=channel_slug)
+        except PaymentError:
+            logger.exception(
+                "Unable to void/refund an inactive payment %s, %s.",
+                payment.id,
+                payment.psp_reference,
+            )

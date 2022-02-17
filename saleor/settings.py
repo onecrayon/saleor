@@ -192,6 +192,12 @@ if not SECRET_KEY and DEBUG:
     warnings.warn("SECRET_KEY not configured, using a random temporary key.")
     SECRET_KEY = get_random_secret_key()
 
+RSA_PRIVATE_KEY = os.environ.get("RSA_PRIVATE_KEY", None)
+RSA_PRIVATE_PASSWORD = os.environ.get("RSA_PRIVATE_PASSWORD", None)
+JWT_MANAGER_PATH = os.environ.get(
+    "JWT_MANAGER_PATH", "saleor.core.jwt_manager.JWTManager"
+)
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -531,6 +537,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "saleor.warehouse.tasks.delete_empty_allocations_task",
         "schedule": timedelta(days=1),
     },
+    "update-stocks-quantity-allocated": {
+        "task": "saleor.warehouse.tasks.update_stocks_quantity_allocated_task",
+        "schedule": timedelta(days=1),
+    },
 }
 
 # Change this value if your application is running behind a proxy,
@@ -563,11 +573,6 @@ def SENTRY_INIT(dsn: str, sentry_opts: dict):
 GRAPHENE = {
     "RELAY_CONNECTION_ENFORCE_FIRST_OR_LAST": True,
     "RELAY_CONNECTION_MAX_LIMIT": 100,
-    "MIDDLEWARE": [
-        # Those middlewares are executed from bottom to top
-        "saleor.graphql.middleware.JWTMiddleware",
-        "saleor.graphql.middleware.app_middleware",
-    ],
 }
 
 # Max number entities that can be requested in single query by Apollo Federation

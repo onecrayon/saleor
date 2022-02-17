@@ -2,16 +2,18 @@ from collections import defaultdict, namedtuple
 from typing import TYPE_CHECKING, Dict, Iterable, List, cast
 
 from django.db.models import F, Sum
+from django.db.models.expressions import Exists, OuterRef
 
 from ..core.exceptions import AllocationError, InsufficientStock, InsufficientStockData
 from ..core.tracing import traced_atomic_transaction
 from ..order import OrderLineData
+from ..order.models import OrderLine
 from ..plugins.manager import get_plugins_manager
 from ..product.models import ProductVariant, ProductVariantChannelListing
 from .models import Allocation, Stock, Warehouse, Backorder
 
 if TYPE_CHECKING:
-    from ..order.models import Order, OrderLine
+    from ..order.models import Order
 
 
 StockData = namedtuple("StockData", ["pk", "quantity"])
@@ -106,16 +108,14 @@ def allocate_stocks(
             )
 
     if allocations:
-        for allocation in allocations:
-            try:
-                existing_allocation = Allocation.objects.get(
-                    order_line=allocation.order_line,
-                    stock=allocation.stock,
-                )
-                existing_allocation.quantity_allocated += allocation.quantity_allocated
-                existing_allocation.save()
-            except Allocation.DoesNotExist:
-                allocation.save()
+        stocks_to_update = []
+        for alloc in Allocation.objects.bulk_create(allocations):
+            stock = alloc.stock
+            stock.quantity_allocated = (
+                F("quantity_allocated") + alloc.quantity_allocated
+            )
+            stocks_to_update.append(stock)
+        Stock.objects.bulk_update(stocks_to_update, ["quantity_allocated"])
 
 
 def _create_allocations(
@@ -187,6 +187,7 @@ def deallocate_stock(order_lines_data: Iterable["OrderLineData"]):
         line_to_allocations[allocation.order_line_id].append(allocation)
 
     allocations_to_update = []
+    stocks_to_update = []
     not_dellocated_lines = []
     for line_info in order_lines_data:
         order_line = line_info.line
@@ -201,6 +202,11 @@ def deallocate_stock(order_lines_data: Iterable["OrderLineData"]):
                 allocation.quantity_allocated = (
                     allocation.quantity_allocated - quantity_to_deallocate
                 )
+                stock = allocation.stock
+                stock.quantity_allocated = (
+                    F("quantity_allocated") - quantity_to_deallocate
+                )
+                stocks_to_update.append(stock)
                 quantity_dealocated += quantity_to_deallocate
                 allocations_to_update.append(allocation)
                 if quantity_dealocated == quantity:
@@ -209,6 +215,7 @@ def deallocate_stock(order_lines_data: Iterable["OrderLineData"]):
             not_dellocated_lines.append(order_line)
 
     Allocation.objects.bulk_update(allocations_to_update, ["quantity_allocated"])
+    Stock.objects.bulk_update(stocks_to_update, ["quantity_allocated"])
 
     if not_dellocated_lines:
         raise AllocationError(not_dellocated_lines)
@@ -216,7 +223,7 @@ def deallocate_stock(order_lines_data: Iterable["OrderLineData"]):
 
 @traced_atomic_transaction()
 def increase_stock(
-    order_line: "OrderLine",
+    order_line: OrderLine,
     warehouse: Warehouse,
     quantity: int,
     allocate: bool = False,
@@ -251,6 +258,8 @@ def increase_stock(
             Allocation.objects.create(
                 order_line=order_line, stock=stock, quantity_allocated=quantity
             )
+        stock.quantity_allocated = F("quantity_allocated") + quantity
+        stock.save(update_fields=["quantity_allocated"])
 
     fill_backorders(order_line.variant)
 
@@ -276,7 +285,13 @@ def increase_allocations(lines_info: Iterable["OrderLineData"], channel_slug: st
         # line_info.quantity resembles amount to add, sum it with already allocated.
         line_info.quantity += allocated
 
+    stocks_to_update = []
+    for alloc in allocations:
+        stock = alloc.stock
+        stock.quantity_allocated = F("quantity_allocated") - alloc.quantity_allocated
+        stocks_to_update.append(stock)
     Allocation.objects.filter(pk__in=allocation_pks_to_delete).delete()
+    Stock.objects.bulk_update(stocks_to_update, ["quantity_allocated"])
 
     allocate_stocks(
         lines_info,
@@ -342,13 +357,12 @@ def decrease_stock(
         .annotate(Sum("quantity_allocated"))
     )
 
-    quantity_allocation_for_stocks: Dict[int, int] = defaultdict(int)
-    for allocation in quantity_allocation_list:
-        quantity_allocation_for_stocks[allocation["stock"]] += allocation[
-            "quantity_allocated__sum"
-        ]
-
     if update_stocks:
+        quantity_allocation_for_stocks: Dict[int, int] = defaultdict(int)
+        for allocation in quantity_allocation_list:
+            quantity_allocation_for_stocks[allocation["stock"]] += allocation[
+                "quantity_allocated__sum"
+            ]
         _decrease_stocks_quantity(
             order_lines_info,
             variant_and_warehouse_to_stock,
@@ -418,10 +432,21 @@ def get_order_lines_with_track_inventory(
 @traced_atomic_transaction()
 def deallocate_stock_for_order(order: "Order"):
     """Remove all allocations for given order."""
-    allocations = Allocation.objects.filter(
-        order_line__order=order, quantity_allocated__gt=0
-    ).select_for_update(of=("self",))
+    lines = OrderLine.objects.filter(order_id=order.id)
+    allocations = (
+        Allocation.objects.filter(
+            Exists(lines.filter(id=OuterRef("order_line_id"))), quantity_allocated__gt=0
+        )
+        .select_related("stock")
+        .select_for_update(of=("self",))
+    )
+    stocks_to_update = []
+    for alloc in allocations:
+        stock = alloc.stock
+        stock.quantity_allocated = F("quantity_allocated") - alloc.quantity_allocated
+        stocks_to_update.append(stock)
     allocations.update(quantity_allocated=0)
+    Stock.objects.bulk_update(stocks_to_update, ["quantity_allocated"])
 
 
 @traced_atomic_transaction()

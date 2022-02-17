@@ -150,81 +150,80 @@ def get_product_availability(
     country: Country,
     local_currency: Optional[str] = None,
 ) -> ProductAvailability:
-    with opentracing.global_tracer().start_active_span("get_product_availability"):
-        channel_slug = channel.slug
+    channel_slug = channel.slug
 
-        discounted = None
-        discounted_net_range = get_product_price_range(
-            product=product,
-            variants=variants,
-            variants_channel_listing=variants_channel_listing,
-            collections=collections,
-            discounts=discounts,
-            channel=channel,
+    discounted = None
+    discounted_net_range = get_product_price_range(
+        product=product,
+        variants=variants,
+        variants_channel_listing=variants_channel_listing,
+        collections=collections,
+        discounts=discounts,
+        channel=channel,
+    )
+    if discounted_net_range is not None:
+        discounted = TaxedMoneyRange(
+            start=manager.apply_taxes_to_product(
+                product,
+                discounted_net_range.start,
+                country,
+                channel_slug=channel_slug,
+            ),
+            stop=manager.apply_taxes_to_product(
+                product,
+                discounted_net_range.stop,
+                country,
+                channel_slug=channel_slug,
+            ),
         )
-        if discounted_net_range is not None:
-            discounted = TaxedMoneyRange(
-                start=manager.apply_taxes_to_product(
-                    product,
-                    discounted_net_range.start,
-                    country,
-                    channel_slug=channel_slug,
-                ),
-                stop=manager.apply_taxes_to_product(
-                    product,
-                    discounted_net_range.stop,
-                    country,
-                    channel_slug=channel_slug,
-                ),
-            )
 
-        undiscounted = None
-        undiscounted_net_range = get_product_price_range(
-            product=product,
-            variants=variants,
-            variants_channel_listing=variants_channel_listing,
-            collections=collections,
-            discounts=[],
-            channel=channel,
+    undiscounted = None
+    undiscounted_net_range = get_product_price_range(
+        product=product,
+        variants=variants,
+        variants_channel_listing=variants_channel_listing,
+        collections=collections,
+        discounts=[],
+        channel=channel,
+    )
+    if undiscounted_net_range is not None:
+        undiscounted = TaxedMoneyRange(
+            start=manager.apply_taxes_to_product(
+                product,
+                undiscounted_net_range.start,
+                country,
+                channel_slug=channel_slug,
+            ),
+            stop=manager.apply_taxes_to_product(
+                product,
+                undiscounted_net_range.stop,
+                country,
+                channel_slug=channel_slug,
+            ),
         )
-        if undiscounted_net_range is not None:
-            undiscounted = TaxedMoneyRange(
-                start=manager.apply_taxes_to_product(
-                    product,
-                    undiscounted_net_range.start,
-                    country,
-                    channel_slug=channel_slug,
-                ),
-                stop=manager.apply_taxes_to_product(
-                    product,
-                    undiscounted_net_range.stop,
-                    country,
-                    channel_slug=channel_slug,
-                ),
-            )
 
-        discount = None
-        price_range_local = None
-        discount_local_currency = None
-        if undiscounted_net_range is not None and discounted_net_range is not None:
-            discount = _get_total_discount_from_range(undiscounted, discounted)
-            price_range_local, discount_local_currency = _get_product_price_range(
-                discounted, undiscounted, local_currency
-            )
-
-        is_visible = (
-            product_channel_listing is not None and product_channel_listing.is_visible
+    discount = None
+    price_range_local = None
+    discount_local_currency = None
+    if undiscounted_net_range is not None and discounted_net_range is not None:
+        discount = _get_total_discount_from_range(undiscounted, discounted)
+        price_range_local, discount_local_currency = _get_product_price_range(
+            discounted, undiscounted, local_currency
         )
-        is_on_sale = is_visible and discount is not None
 
-        return ProductAvailability(
-            on_sale=is_on_sale,
-            price_range=discounted,
-            price_range_undiscounted=undiscounted,
-            discount=discount,
-            price_range_local_currency=price_range_local,
-            discount_local_currency=discount_local_currency,
-        )
+    is_visible = (
+        product_channel_listing is not None and product_channel_listing.is_visible
+    )
+    is_on_sale = is_visible and discount is not None
+
+    return ProductAvailability(
+        on_sale=is_on_sale,
+        price_range=discounted,
+        price_range_undiscounted=undiscounted,
+        discount=discount,
+        price_range_local_currency=price_range_local,
+        discount_local_currency=discount_local_currency,
+    )
 
 
 def get_variant_availability(
@@ -239,54 +238,53 @@ def get_variant_availability(
     country: Country,
     local_currency: Optional[str] = None,
 ) -> VariantAvailability:
-    with opentracing.global_tracer().start_active_span("get_variant_availability"):
-        channel_slug = channel.slug
-        discounted = plugins.apply_taxes_to_product(
-            product,
-            get_variant_price(
-                variant=variant,
-                variant_channel_listing=variant_channel_listing,
-                product=product,
-                collections=collections,
-                discounts=discounts,
-                channel=channel,
-            ),
-            country,
-            channel_slug=channel_slug,
-        )
-        undiscounted = plugins.apply_taxes_to_product(
-            product,
-            get_variant_price(
-                variant=variant,
-                variant_channel_listing=variant_channel_listing,
-                product=product,
-                collections=collections,
-                discounts=[],
-                channel=channel,
-            ),
-            country,
-            channel_slug=channel_slug,
-        )
+    channel_slug = channel.slug
+    discounted = plugins.apply_taxes_to_product(
+        product,
+        get_variant_price(
+            variant=variant,
+            variant_channel_listing=variant_channel_listing,
+            product=product,
+            collections=collections,
+            discounts=discounts,
+            channel=channel,
+        ),
+        country,
+        channel_slug=channel_slug,
+    )
+    undiscounted = plugins.apply_taxes_to_product(
+        product,
+        get_variant_price(
+            variant=variant,
+            variant_channel_listing=variant_channel_listing,
+            product=product,
+            collections=collections,
+            discounts=[],
+            channel=channel,
+        ),
+        country,
+        channel_slug=channel_slug,
+    )
 
-        discount = _get_total_discount(undiscounted, discounted)
+    discount = _get_total_discount(undiscounted, discounted)
 
-        if local_currency:
-            price_local_currency = to_local_currency(discounted, local_currency)
-            discount_local_currency = to_local_currency(discount, local_currency)
-        else:
-            price_local_currency = None
-            discount_local_currency = None
+    if local_currency:
+        price_local_currency = to_local_currency(discounted, local_currency)
+        discount_local_currency = to_local_currency(discount, local_currency)
+    else:
+        price_local_currency = None
+        discount_local_currency = None
 
-        is_visible = (
-            product_channel_listing is not None and product_channel_listing.is_visible
-        )
-        is_on_sale = is_visible and discount is not None
+    is_visible = (
+        product_channel_listing is not None and product_channel_listing.is_visible
+    )
+    is_on_sale = is_visible and discount is not None
 
-        return VariantAvailability(
-            on_sale=is_on_sale,
-            price=discounted,
-            price_undiscounted=undiscounted,
-            discount=discount,
-            price_local_currency=price_local_currency,
-            discount_local_currency=discount_local_currency,
-        )
+    return VariantAvailability(
+        on_sale=is_on_sale,
+        price=discounted,
+        price_undiscounted=undiscounted,
+        discount=discount,
+        price_local_currency=price_local_currency,
+        discount_local_currency=discount_local_currency,
+    )

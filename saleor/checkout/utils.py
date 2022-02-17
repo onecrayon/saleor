@@ -429,8 +429,7 @@ def recalculate_checkout_discount(
     applicable.
     """
     checkout = checkout_info.checkout
-    voucher = get_voucher_for_checkout_info(checkout_info)
-    if voucher is not None:
+    if voucher := checkout_info.voucher:
         address = checkout_info.shipping_address or checkout_info.billing_address
         try:
             discount = get_voucher_discount_for_checkout(
@@ -438,6 +437,7 @@ def recalculate_checkout_discount(
             )
         except NotApplicable:
             remove_voucher_from_checkout(checkout)
+            checkout_info.voucher = None
         else:
             subtotal = calculations.checkout_subtotal(
                 manager=manager,
@@ -552,6 +552,7 @@ def add_voucher_to_checkout(
             "last_change",
         ]
     )
+    checkout_info.voucher = voucher
 
 
 def remove_promo_code_from_checkout(checkout_info: "CheckoutInfo", promo_code: str):
@@ -564,9 +565,10 @@ def remove_promo_code_from_checkout(checkout_info: "CheckoutInfo", promo_code: s
 
 def remove_voucher_code_from_checkout(checkout_info: "CheckoutInfo", voucher_code: str):
     """Remove voucher data from checkout by code."""
-    existing_voucher = get_voucher_for_checkout_info(checkout_info)
+    existing_voucher = checkout_info.voucher
     if existing_voucher and existing_voucher.code == voucher_code:
         remove_voucher_from_checkout(checkout_info.checkout)
+        checkout_info.voucher = None
 
 
 def remove_voucher_from_checkout(checkout: Checkout):
@@ -681,28 +683,3 @@ def is_shipping_required(lines: Iterable["CheckoutLineInfo"]):
     return any(
         line_info.product.product_type.is_shipping_required for line_info in lines
     )
-
-
-def validate_variants_in_checkout_lines(lines: Iterable["CheckoutLineInfo"]):
-    variants_listings_map = {line.variant.id: line.channel_listing for line in lines}
-
-    not_available_variants = [
-        variant_id
-        for variant_id, channel_listing in variants_listings_map.items()
-        if channel_listing is None or channel_listing.price is None
-    ]
-    if not_available_variants:
-        not_available_variants_ids = {
-            graphene.Node.to_global_id("ProductVariant", pk)
-            for pk in not_available_variants
-        }
-        error_code = CheckoutErrorCode.UNAVAILABLE_VARIANT_IN_CHANNEL
-        raise ValidationError(
-            {
-                "lines": ValidationError(
-                    "Cannot add lines with unavailable variants.",
-                    code=error_code,  # type: ignore
-                    params={"variants": not_available_variants_ids},
-                )
-            }
-        )

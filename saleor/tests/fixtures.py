@@ -282,6 +282,15 @@ def checkout_with_item(checkout, product):
 
 
 @pytest.fixture
+def checkout_with_item_total_0(checkout, product_price_0):
+    variant = product_price_0.variants.get()
+    checkout_info = fetch_checkout_info(checkout, [], [], get_plugins_manager())
+    add_variant_to_checkout(checkout_info, variant, 1)
+    checkout.save()
+    return checkout
+
+
+@pytest.fixture
 def checkout_JPY_with_item(checkout_JPY, product_in_channel_JPY):
     variant = product_in_channel_JPY.variants.get()
     checkout_info = fetch_checkout_info(checkout_JPY, [], [], get_plugins_manager())
@@ -1543,6 +1552,39 @@ def product(product_type, category, warehouse, channel_USD):
 
 
 @pytest.fixture
+def product_price_0(category, warehouse, channel_USD):
+    product_type = ProductType.objects.create(
+        name="Type with no shipping",
+        slug="no-shipping",
+        has_variants=False,
+        is_shipping_required=False,
+    )
+    product = Product.objects.create(
+        name="Test product",
+        slug="test-product-4",
+        product_type=product_type,
+        category=category,
+    )
+    ProductChannelListing.objects.create(
+        product=product,
+        channel=channel_USD,
+        is_published=True,
+        visible_in_listings=True,
+        available_for_purchase=datetime.date(1999, 1, 1),
+    )
+    variant = ProductVariant.objects.create(product=product, sku="SKU_C")
+    ProductVariantChannelListing.objects.create(
+        variant=variant,
+        channel=channel_USD,
+        price_amount=Decimal(0),
+        cost_price_amount=Decimal(0),
+        currency=channel_USD.currency_code,
+    )
+    Stock.objects.create(product_variant=variant, warehouse=warehouse, quantity=1)
+    return product
+
+
+@pytest.fixture
 def product_in_channel_JPY(product, channel_JPY, warehouse_JPY):
     ProductChannelListing.objects.create(
         product=product,
@@ -2056,6 +2098,7 @@ def product_without_shipping(category, warehouse, channel_USD):
         channel=channel_USD,
         is_published=True,
         visible_in_listings=True,
+        available_for_purchase=datetime.date(1999, 1, 1),
     )
     variant = ProductVariant.objects.create(product=product, sku="SKU_B")
     ProductVariantChannelListing.objects.create(
@@ -2118,6 +2161,7 @@ def product_list(product_type, category, warehouse, channel_USD, channel_PLN):
                 discounted_price_amount=10,
                 currency=channel_USD.currency_code,
                 visible_in_listings=True,
+                available_for_purchase=datetime.date(1999, 1, 1),
             ),
             ProductChannelListing(
                 product=products[1],
@@ -2126,6 +2170,7 @@ def product_list(product_type, category, warehouse, channel_USD, channel_PLN):
                 discounted_price_amount=20,
                 currency=channel_USD.currency_code,
                 visible_in_listings=True,
+                available_for_purchase=datetime.date(1999, 1, 1),
             ),
             ProductChannelListing(
                 product=products[2],
@@ -2134,6 +2179,7 @@ def product_list(product_type, category, warehouse, channel_USD, channel_PLN):
                 discounted_price_amount=30,
                 currency=channel_USD.currency_code,
                 visible_in_listings=True,
+                available_for_purchase=datetime.date(1999, 1, 1),
             ),
         ]
     )
@@ -2623,6 +2669,12 @@ def order_line_with_allocation_in_many_stocks(
         ]
     )
 
+    stocks_to_update = list(stocks)
+    stocks_to_update[0].quantity_allocated = 2
+    stocks_to_update[1].quantity_allocated = 1
+
+    Stock.objects.bulk_update(stocks_to_update, ["quantity_allocated"])
+
     return order_line
 
 
@@ -2666,6 +2718,9 @@ def order_line_with_one_allocation(
     Allocation.objects.create(
         order_line=order_line, stock=stocks[0], quantity_allocated=1
     )
+    stock = stocks[0]
+    stock.quantity_allocated = 1
+    stock.save(update_fields=["quantity_allocated"])
 
     return order_line
 
@@ -4187,6 +4242,15 @@ def webhook(app):
         name="Simple webhook", app=app, target_url="http://www.example.com/test"
     )
     webhook.events.create(event_type=WebhookEventType.ORDER_CREATED)
+    return webhook
+
+
+@pytest.fixture
+def any_webhook(app):
+    webhook = Webhook.objects.create(
+        name="Any webhook", app=app, target_url="http://www.example.com/any"
+    )
+    webhook.events.create(event_type=WebhookEventType.ANY)
     return webhook
 
 
