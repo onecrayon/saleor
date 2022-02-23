@@ -95,7 +95,7 @@ def test_create_payment(checkout_with_item, address):
     checkout_with_item.save()
 
     manager = get_plugins_manager()
-    lines = fetch_checkout_lines(checkout_with_item)
+    lines, _ = fetch_checkout_lines(checkout_with_item)
     checkout_info = fetch_checkout_info(checkout_with_item, lines, [], manager)
     total = checkout_total(
         manager=manager, checkout_info=checkout_info, lines=lines, address=address
@@ -135,7 +135,7 @@ def test_create_payment_from_checkout_requires_billing_address(checkout_with_ite
     checkout_with_item.save()
 
     manager = get_plugins_manager()
-    lines = fetch_checkout_lines(checkout_with_item)
+    lines, _ = fetch_checkout_lines(checkout_with_item)
     checkout_info = fetch_checkout_info(checkout_with_item, lines, [], manager)
     total = checkout_total(
         manager=manager, checkout_info=checkout_info, lines=lines, address=None
@@ -177,7 +177,7 @@ def test_create_payment_information_for_checkout_payment(address, checkout_with_
     checkout_with_item.save()
 
     manager = get_plugins_manager()
-    lines = fetch_checkout_lines(checkout_with_item)
+    lines, _ = fetch_checkout_lines(checkout_with_item)
     checkout_info = fetch_checkout_info(checkout_with_item, lines, [], manager)
     total = checkout_total(
         manager=manager, checkout_info=checkout_info, lines=lines, address=address
@@ -290,17 +290,6 @@ def test_create_transaction_no_gateway_response(transaction_data):
     transaction_data.pop("gateway_response")
     txn = create_transaction(**transaction_data)
     assert txn.gateway_response == {}
-
-
-@pytest.mark.parametrize(
-    "func",
-    [gateway.authorize, gateway.capture, gateway.confirm, gateway.refund, gateway.void],
-)
-def test_payment_needs_to_be_active_for_any_action(func, payment_dummy):
-    payment_dummy.is_active = False
-    with pytest.raises(PaymentError) as exc:
-        func(payment_dummy, "token")
-    assert exc.value.message == NOT_ACTIVE_PAYMENT_ERROR
 
 
 @patch.object(PluginsManager, "capture_payment")
@@ -482,7 +471,7 @@ def test_can_void(payment_txn_preauth: Payment):
     assert payment_txn_preauth.charge_status == ChargeStatus.NOT_CHARGED
 
     payment_txn_preauth.is_active = False
-    assert not payment_txn_preauth.can_void()
+    assert payment_txn_preauth.can_void()
 
     payment_txn_preauth.is_active = True
     assert payment_txn_preauth.can_void()

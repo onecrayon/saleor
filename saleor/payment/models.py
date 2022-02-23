@@ -33,6 +33,7 @@ class Payment(models.Model):
     gateway = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     to_confirm = models.BooleanField(default=False)
+    partial = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
     charge_status = models.CharField(
@@ -183,7 +184,7 @@ class Payment(models.Model):
         return True
 
     def can_void(self):
-        return self.is_active and self.not_charged and self.is_authorized
+        return self.not_charged and self.is_authorized
 
     def can_refund(self):
         can_refund_charge_status = (
@@ -191,7 +192,7 @@ class Payment(models.Model):
             ChargeStatus.FULLY_CHARGED,
             ChargeStatus.PARTIALLY_REFUNDED,
         )
-        return self.is_active and self.charge_status in can_refund_charge_status
+        return self.charge_status in can_refund_charge_status
 
     def can_confirm(self):
         return self.is_active and self.not_charged

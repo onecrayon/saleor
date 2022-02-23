@@ -149,9 +149,18 @@ def _validate_order(order: "Order") -> bool:
     shipping_address = order.shipping_address
     shipping_required = order.is_shipping_required()
     address = shipping_address or order.billing_address
-    return _validate_adddress_details(
-        shipping_address, shipping_required, address, order.shipping_method
+    shipping_method = order.shipping_method
+    valid_address_details = _validate_adddress_details(
+        shipping_address, shipping_required, address, shipping_method
     )
+    if not valid_address_details:
+        return False
+    channel_listing = shipping_method.channel_listings.filter(  # type: ignore
+        channel_id=order.channel_id
+    ).first()
+    if not channel_listing:
+        return False
+    return True
 
 
 def _validate_checkout(
@@ -298,9 +307,10 @@ def get_checkout_lines_data(
             )
 
     if checkout_info.delivery_method_info.delivery_method:
+        price = checkout_info.delivery_method_info.delivery_method.price
         append_shipping_to_data(
             data,
-            getattr(checkout_info.delivery_method_info.delivery_method, "price", None),
+            price.amount if price else None,
             config.shipping_tax_code,
         )
 
@@ -308,7 +318,7 @@ def get_checkout_lines_data(
 
 
 def get_order_lines_data(
-    order: "Order", config: AvataxConfiguration
+    order: "Order", config: AvataxConfiguration, invoice_transaction_type: bool = False
 ) -> List[Dict[str, Union[str, int, bool, None]]]:
     data: List[Dict[str, Union[str, int, bool, None]]] = []
     lines = order.lines.prefetch_related(
@@ -359,7 +369,11 @@ def get_order_lines_data(
             amount=undiscounted_amount,
         )
 
-        if undiscounted_amount != price_with_discounts_amount:
+        # for invoice transaction we want to include only final price
+        if (
+            not invoice_transaction_type
+            and undiscounted_amount != price_with_discounts_amount
+        ):
             append_line_to_data(
                 **append_line_to_data_kwargs,
                 amount=price_with_discounts_amount,
@@ -512,12 +526,13 @@ def get_checkout_tax_data(
 
 def get_order_request_data(order: "Order", config: AvataxConfiguration):
     address = order.shipping_address or order.billing_address
-    lines = get_order_lines_data(order, config)
     transaction = (
         TransactionType.INVOICE
         if not (order.is_draft() or order.is_unconfirmed())
         else TransactionType.ORDER
     )
+    is_invoice_transaction = transaction == TransactionType.INVOICE
+    lines = get_order_lines_data(order, config, is_invoice_transaction)
     data = generate_request_data(
         transaction_type=transaction,
         lines=lines,
