@@ -2,10 +2,12 @@ import graphene
 
 from .mutations.checkouts import B2BCheckoutCreate
 from .mutations.orders import OrderLineCancel, OrderLineReduce
-from saleor.graphql.firstech.mutations.payment_sources import (
+from saleor.graphql.firstech.mutations.stripe import (
+    CreateCustomerSession,
+    CreateSetupIntent,
     PaymentSourceCreate,
     PaymentSourceDelete,
-    PaymentSourceUpdate
+    PaymentSourceUpdate,
 )
 
 
@@ -15,7 +17,9 @@ class FirstechOrderMutations(graphene.ObjectType):
     b2b_checkout_create = B2BCheckoutCreate.Field()
 
 
-class StripePaymentSourcesMutations(graphene.ObjectType):
+class FirstechStripeMutations(graphene.ObjectType):
+    create_customer_session = CreateCustomerSession.Field()
+    create_setup_intent = CreateSetupIntent.Field()
     payment_source_create = PaymentSourceCreate.Field()
     payment_source_delete = PaymentSourceDelete.Field()
     payment_source_update = PaymentSourceUpdate.Field()

@@ -32,7 +32,8 @@ from .stripe_api import (
     refund_payment_intent,
     retrieve_payment_intent,
     subscribe_webhook, create_payment_method, update_payment_method_card,
-    attach_payment_method, detach_payment_method,
+    attach_payment_method, detach_payment_method, create_setup_intent,
+    create_ephemeral_key,
 )
 from .webhooks import handle_webhook
 
@@ -416,6 +417,22 @@ class StripeGatewayPlugin(BasePlugin):
         )
 
     @require_active_plugin
+    def create_customer_session(self, customer: dict, previous_value
+                                ) -> str:
+        customer = get_or_create_customer(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_email=customer["email"],
+            customer_id=customer["id"]
+        )
+
+        ephemeral_key, error = create_ephemeral_key(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_id=customer.stripe_id
+        )
+
+        return ephemeral_key
+
+    @require_active_plugin
     def list_payment_sources(
         self, customer_id: str, previous_value
     ) -> List[CustomerSource]:
@@ -453,6 +470,22 @@ class StripeGatewayPlugin(BasePlugin):
             ]
             previous_value.extend(customer_sources)
         return previous_value
+
+    @require_active_plugin
+    def create_setup_intent(self, customer: dict, previous_value) -> str:
+
+        cus = get_or_create_customer(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_email=customer["customer_email"],
+            customer_id=customer["customer_id"]
+        )
+
+        setup_intent, error = create_setup_intent(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_id=cus.stripe_id
+        )
+
+        return setup_intent["client_secret"]
 
     @require_active_plugin
     def create_payment_source(

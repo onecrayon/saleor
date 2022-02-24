@@ -277,6 +277,27 @@ def detach_payment_method(
         return None, error
 
 
+def create_ephemeral_key(
+    api_key: str,
+    customer_id: str
+):
+    try:
+        with stripe_opentracing_trace("stripe.EphemeralKey.create"):
+            ephemeral_key = stripe.EphemeralKey.create(
+                api_key=api_key,
+                customer=customer_id,
+                stripe_version=STRIPE_API_VERSION,
+            )
+        return ephemeral_key, None
+    except StripeError as error:
+        logger.warning(
+            "Unable to create customer session",
+            extra=_extra_log_data(error),
+        )
+
+        return None, error
+
+
 def list_customer_payment_methods(
     api_key: str, customer_id: str
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
@@ -290,6 +311,28 @@ def list_customer_payment_methods(
             )
         return payment_methods, None
     except StripeError as error:
+        return None, error
+
+
+def create_setup_intent(
+    api_key: str,
+    customer_id: str
+):
+    try:
+        with stripe_opentracing_trace("stripe.SetupIntent.create"):
+            setup_intent = stripe.SetupIntent.create(
+                api_key=api_key,
+                customer=customer_id,
+                stripe_version=STRIPE_API_VERSION,
+            )
+        return setup_intent, None
+    except StripeError as error:
+        print(error)
+        logger.warning(
+            "Unable to create SetupIntent",
+            extra=_extra_log_data(error),
+        )
+
         return None, error
 
 

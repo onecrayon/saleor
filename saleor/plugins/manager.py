@@ -804,6 +804,20 @@ class PluginsManager(PaymentInterface):
             gtw, method_name, default_value, token_config=token_config
         )
 
+    def create_customer_session(
+        self,
+        gateway: str,
+        customer: dict,
+        channel_slug: str,
+    ) -> str:
+        default_value: list = []
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "create_customer_session", default_value, customer=customer
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
     def list_payment_sources(
         self,
         gateway: str,
@@ -815,6 +829,20 @@ class PluginsManager(PaymentInterface):
         if gtw is not None:
             return self.__run_method_on_single_plugin(
                 gtw, "list_payment_sources", default_value, customer_id=customer_id
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
+    def create_setup_intent(
+        self,
+        gateway: str,
+        customer: dict,
+        channel_slug: str,
+    ) -> str:
+        default_value: list = []
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "create_setup_intent", default_value, customer=customer
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 

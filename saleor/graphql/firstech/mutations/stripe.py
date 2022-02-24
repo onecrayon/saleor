@@ -40,6 +40,7 @@ class PaymentSourceBillingInfoInput(graphene.InputObjectType):
     state = graphene.String()
     postal_code = graphene.String()
     country_code = graphene.InputField(CountryCodeEnum)
+    email = graphene.String()
     phone = graphene.String()
 
 
@@ -71,6 +72,94 @@ def create_payment_source_response(cls, customer_source):
         ),
         "errors": []
     })
+
+
+class CreateCustomerSession(BaseMutation):
+    ephemeralKey = graphene.String(description="EphemeralKey JSON")
+
+    class Meta:
+        description = "Create Stripe customer session"
+        permissions = ()
+        error_type_class = Error
+        error_type_field = "errors"
+
+    @classmethod
+    def perform_mutation(cls, _root, info, **data):
+        gateway_id = StripeGatewayPlugin.PLUGIN_ID
+        manager = info.context.plugins
+
+        cls.validate_gateway(gateway_id, manager)
+
+        user = info.context.user
+        customer_id = None
+        if user.is_authenticated:
+            customer_id = fetch_customer_id(user=user, gateway=gateway_id)
+
+        ephemeral_key = gateway.create_customer_session(
+            gateway=gateway_id,
+            manager=manager,
+            customer={
+                "id": customer_id,
+                "email": user.email
+            },
+            channel_slug=""
+        )
+
+        return cls(**{
+            "ephemeralKey": ephemeral_key,
+            "errors": []
+        })
+
+    @classmethod
+    def validate_gateway(cls, gateway_id, manager):
+        gateways_id = [gtw.id for gtw in manager.list_payment_gateways()]
+
+        if gateway_id not in gateways_id:
+            raise ValidationError("Method not available")
+
+
+class CreateSetupIntent(BaseMutation):
+    client_secret = graphene.String(description="Client secret")
+
+    class Meta:
+        description = "Create Stripe SetupIntent"
+        permissions = ()
+        error_type_class = Error
+        error_type_field = "errors"
+
+    @classmethod
+    def perform_mutation(cls, _root, info, **data):
+        gateway_id = StripeGatewayPlugin.PLUGIN_ID
+        manager = info.context.plugins
+
+        cls.validate_gateway(gateway_id, manager)
+
+        user = info.context.user
+        customer_id = None
+        if user.is_authenticated:
+            customer_id = fetch_customer_id(user=user, gateway=gateway_id)
+
+        client_secret = gateway.create_setup_intent(
+            gateway=gateway_id,
+            manager=manager,
+            customer={
+                "customer_id": customer_id,
+                "customer_email": user.email
+            },
+            channel_slug=""
+        )
+
+        return cls(**{
+            "client_secret": client_secret,
+            "errors": []
+        })
+
+    @classmethod
+    def validate_gateway(cls, gateway_id, manager):
+        gateways_id = [gtw.id for gtw in manager.list_payment_gateways()]
+
+        if gateway_id not in gateways_id:
+            raise ValidationError("Method not available")
 
 
 class PaymentSourceCreate(BaseMutation):
@@ -168,7 +257,7 @@ class PaymentSourceUpdate(BaseMutation):
             description="Card info.",
             required=False
         )
-        billing_details = AddressInput(
+        billing_details = PaymentSourceBillingInfoInput(
             description="Payment method billing info.",
             required=False
         )

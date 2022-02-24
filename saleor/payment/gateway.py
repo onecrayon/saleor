@@ -296,6 +296,15 @@ def confirm(
     )
 
 
+def create_customer_session(
+    gateway: str,
+    customer: dict,
+    manager: "PluginsManager",
+    channel_slug: str
+) -> str:
+    return manager.create_customer_session(gateway, customer, channel_slug=channel_slug)
+
+
 def list_payment_sources(
     gateway: str,
     customer_id: str,
@@ -303,6 +312,15 @@ def list_payment_sources(
     channel_slug: str,
 ) -> List["CustomerSource"]:
     return manager.list_payment_sources(gateway, customer_id, channel_slug=channel_slug)
+
+
+def create_setup_intent(
+    gateway: str,
+    customer: dict,
+    manager: "PluginsManager",
+    channel_slug: str
+) -> str:
+    return manager.create_setup_intent(gateway, customer, channel_slug=channel_slug)
 
 
 def create_payment_source(
