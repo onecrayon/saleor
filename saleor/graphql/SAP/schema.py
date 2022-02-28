@@ -32,7 +32,7 @@ from .resolvers import (
 from ...core.exceptions import PermissionDenied
 from ..core.fields import FilterInputConnectionField
 from ..utils import get_user_or_app_from_context
-from .types import BusinessPartner, SAPUserProfile
+from .sap_types import BusinessPartner, SAPUserProfile
 
 
 class SAPQueries(graphene.ObjectType):

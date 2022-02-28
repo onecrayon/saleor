@@ -32,7 +32,7 @@ from ..drone.types import DroneUserProfile
 from ..giftcard.dataloaders import GiftCardsByUserLoader
 from ..meta.types import ObjectWithMetadata
 from ..order.dataloaders import OrderLineByIdLoader, OrdersByUserLoader
-from ..SAP.types import SAPUserProfile
+from ..SAP.sap_types import SAPUserProfile
 from ..utils import format_permissions_for_display, get_user_or_app_from_context
 from ..wishlist.resolvers import resolve_wishlist_items_from_user
 from .dataloaders import CustomerEventsByUserLoader

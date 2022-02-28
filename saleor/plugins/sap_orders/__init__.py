@@ -79,10 +79,21 @@ def get_price_list_cache(config: SAPServiceLayerConfiguration) -> dict:
     return price_list_cache
 
 
-def get_sap_plugin_or_error(manager: "PluginsManager"):
-    """Returns the SAP plugin if it is configured correctly, or returns Error.
+def get_sap_plugin_or_error(manager: "PluginsManager", remove_from_manager=True):
+    """Returns the SAP plugin if it is configured correctly, or returns Error. The
+    remove_from_manager parameter can be used to remove the sap plugin from the plugin
+    manager's list of plugins. This is useful when we are updating existing objects in
+    saleor, and don't want to trigger a redundant and cyclical update. For example,
+    when updating an existing order using the UpsertSAPOrder mutation, the
+    "order_updated" plugin method will be triggered when we save the Order. This would
+    cause the SAP plugin to send a PATCH request back to SAP even though our changes
+    are coming *from* SAP. By removing the plugin from the manager, those methods can't
+    be triggered.
+
     :param manager: An instance of a plugins manager. Usually can be obtained through
         a mutation's info.context.plugins attribute.
+    :param remove_from_manager: Whether or not to "pop" the plugin from the manager's
+        list of plugins.
     :returns: An instance of the SAPPlugin class.
     """
     sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
@@ -94,5 +105,20 @@ def get_sap_plugin_or_error(manager: "PluginsManager"):
         if not config["value"] and config["value"] is not False:
             # Raise error for any fields that are null or blank (explicitly False is ok)
             raise ImproperlyConfigured("SAP Plugin is not properly configured.")
+
+    if remove_from_manager:
+        try:
+            manager.all_plugins.remove(sap_plugin)
+        except ValueError:
+            pass
+        try:
+            manager.global_plugins.remove(sap_plugin)
+        except ValueError:
+            pass
+        for channel, plugin_list in manager.plugins_per_channel.items():
+            try:
+                plugin_list.remove(sap_plugin)
+            except ValueError:
+                pass
 
     return sap_plugin
