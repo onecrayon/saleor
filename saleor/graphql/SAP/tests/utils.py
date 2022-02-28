@@ -1,7 +1,4 @@
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from saleor.account.models import Address
+from saleor.account.models import Address
 
 
 def assert_address_match(address1: Address, address2: Address):
