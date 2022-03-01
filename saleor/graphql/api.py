@@ -14,7 +14,8 @@ from .discount.schema import DiscountMutations, DiscountQueries
 
 # Firstech Custom
 from .drone.schema import DroneQueries, DroneMutations
-from .firstech.schema import FirstechOrderMutations, FirstechStripeMutations
+from .firstech.schema import FirstechOrderMutations, FirstechStripeMutations, \
+    FirstechStripeQueries
 from .giftcard.schema import GiftCardMutations, GiftCardQueries
 from .invoice.schema import InvoiceMutations
 from .menu.schema import MenuMutations, MenuQueries
@@ -59,6 +60,8 @@ class Query(
     # Firstech Custom
     DroneQueries,
     SAPQueries,
+    FirstechStripeQueries,
+
 ):
     pass
 

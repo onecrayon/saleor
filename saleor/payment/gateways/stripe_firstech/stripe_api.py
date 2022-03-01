@@ -277,6 +277,55 @@ def detach_payment_method(
         return None, error
 
 
+def create_payment_source(
+    api_key: str,
+    token: str,
+    customer_id: str
+):
+    try:
+        with stripe_opentracing_trace("stripe.Customer.create_source"):
+            setup_intent = stripe.Customer.create_source(
+                customer_id,
+                source=token,
+                api_key=api_key,
+                stripe_version=STRIPE_API_VERSION,
+            )
+        return setup_intent, None
+    except StripeError as error:
+        print(error)
+        logger.warning(
+            "Unable to create Payment Source",
+            extra=_extra_log_data(error),
+        )
+
+        return None, error
+
+
+def verify_payment_source(
+    api_key: str,
+    customer_id: str,
+    payment_source_id: str,
+    amounts: list
+):
+    try:
+        with stripe_opentracing_trace("stripe.Customer.retrieve_source"):
+            bank_account = stripe.Customer.retrieve_source(
+                customer_id,
+                payment_source_id,
+                api_key=api_key
+            )
+            response = bank_account.verify(amounts=amounts)
+        return response, None
+    except StripeError as error:
+        print(error)
+        logger.warning(
+            "Unable to verify Source",
+            extra=_extra_log_data(error),
+        )
+
+        return None, error
+
+
 def create_ephemeral_key(
     api_key: str,
     customer_id: str
@@ -295,6 +344,22 @@ def create_ephemeral_key(
             extra=_extra_log_data(error),
         )
 
+        return None, error
+
+
+def set_default_payment_method(
+    api_key: str, customer_id: str, payment_method_id: str
+) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
+    try:
+        with stripe_opentracing_trace("stripe.PaymentMethod.list"):
+            customer = stripe.Customer.modify(
+                customer_id,
+                api_key=api_key,
+                metadata={"default_payment_method": payment_method_id},
+                stripe_version=STRIPE_API_VERSION
+            )
+        return customer, None
+    except StripeError as error:
         return None, error
 
 

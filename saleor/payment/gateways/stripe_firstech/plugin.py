@@ -33,7 +33,8 @@ from .stripe_api import (
     retrieve_payment_intent,
     subscribe_webhook, create_payment_method, update_payment_method_card,
     attach_payment_method, detach_payment_method, create_setup_intent,
-    create_ephemeral_key,
+    create_ephemeral_key, create_payment_source, verify_payment_source,
+    set_default_payment_method,
 )
 from .webhooks import handle_webhook
 
@@ -433,6 +434,36 @@ class StripeGatewayPlugin(BasePlugin):
         return ephemeral_key
 
     @require_active_plugin
+    def default_payment_method(
+            self, customer: dict, previous_value
+    ) -> str:
+        cus = get_or_create_customer(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_email=customer["customer_email"],
+            customer_id=customer["customer_id"]
+        )
+
+        return cus.metadata["default_payment_method"]
+
+    @require_active_plugin
+    def set_default_payment_method(
+            self, payment_method_info: dict, previous_value
+    ) -> str:
+        cus = get_or_create_customer(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_email=payment_method_info["customer_email"],
+            customer_id=payment_method_info["customer_id"]
+        )
+
+        cus, error = set_default_payment_method(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_id=payment_method_info["customer_id"],
+            payment_method_id=payment_method_info["payment_method_id"]
+        )
+
+        return cus.metadata["default_payment_method"]
+
+    @require_active_plugin
     def list_payment_sources(
         self, customer_id: str, previous_value
     ) -> List[CustomerSource]:
@@ -488,7 +519,7 @@ class StripeGatewayPlugin(BasePlugin):
         return setup_intent["client_secret"]
 
     @require_active_plugin
-    def create_payment_source(
+    def create_payment_method(
         self,
         payment_source_details: [dict],
         previous_value
@@ -629,6 +660,41 @@ class StripeGatewayPlugin(BasePlugin):
                 phone=payment_method.billing_details.phone
             )
         )
+
+    @require_active_plugin
+    def create_payment_source(self, customer: dict, previous_value) -> str:
+
+        cus = get_or_create_customer(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_email=customer["customer_email"],
+            customer_id=customer["customer_id"]
+        )
+
+        source, error = create_payment_source(
+            api_key=self.config.connection_params["secret_api_key"],
+            token=customer["token"],
+            customer_id=cus.id
+        )
+
+        return source
+
+    @require_active_plugin
+    def verify_payment_source(self, verification_details: dict, previous_value) -> str:
+
+        cus = get_or_create_customer(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_email=verification_details["customer_email"],
+            customer_id=verification_details["customer_id"]
+        )
+
+        response, error = verify_payment_source(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_id=cus.stripe_id,
+            payment_source_id=verification_details["payment_source_id"],
+            amounts=verification_details["amounts"]
+        )
+
+        return response
 
     @classmethod
     def pre_save_plugin_configuration(cls, plugin_configuration: "PluginConfiguration"):

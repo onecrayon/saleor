@@ -5,10 +5,13 @@ from .mutations.orders import OrderLineCancel, OrderLineReduce
 from saleor.graphql.firstech.mutations.stripe import (
     CreateCustomerSession,
     CreateSetupIntent,
+    PaymentMethodCreate,
+    PaymentMethodDelete,
+    PaymentMethodUpdate,
     PaymentSourceCreate,
-    PaymentSourceDelete,
-    PaymentSourceUpdate,
+    PaymentSourceVerify, SaveDefaultPaymentMethod,
 )
+from .resolvers import resolve_default_payment_method
 
 
 class FirstechOrderMutations(graphene.ObjectType):
@@ -20,6 +23,16 @@ class FirstechOrderMutations(graphene.ObjectType):
 class FirstechStripeMutations(graphene.ObjectType):
     create_customer_session = CreateCustomerSession.Field()
     create_setup_intent = CreateSetupIntent.Field()
+    payment_method_create = PaymentMethodCreate.Field()
+    payment_method_delete = PaymentMethodDelete.Field()
+    payment_method_update = PaymentMethodUpdate.Field()
     payment_source_create = PaymentSourceCreate.Field()
-    payment_source_delete = PaymentSourceDelete.Field()
-    payment_source_update = PaymentSourceUpdate.Field()
+    payment_source_verify = PaymentSourceVerify.Field()
+    save_default_payment_method = SaveDefaultPaymentMethod.Field()
+
+
+class FirstechStripeQueries(graphene.ObjectType):
+    default_payment_method = graphene.String()
+
+    def resolve_default_payment_method(self, info):
+        return resolve_default_payment_method(info)

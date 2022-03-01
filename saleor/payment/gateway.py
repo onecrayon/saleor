@@ -305,6 +305,26 @@ def create_customer_session(
     return manager.create_customer_session(gateway, customer, channel_slug=channel_slug)
 
 
+def default_payment_method(
+    gateway: str,
+    customer: dict,
+    manager: "PluginsManager",
+    channel_slug: str,
+) -> str:
+    return manager.default_payment_method(gateway, customer,
+                                          channel_slug=channel_slug)
+
+
+def set_default_payment_method(
+    gateway: str,
+    payment_method_info: dict,
+    manager: "PluginsManager",
+    channel_slug: str,
+) -> str:
+    return manager.set_default_payment_method(gateway, payment_method_info,
+                                              channel_slug=channel_slug)
+
+
 def list_payment_sources(
     gateway: str,
     customer_id: str,
@@ -323,7 +343,7 @@ def create_setup_intent(
     return manager.create_setup_intent(gateway, customer, channel_slug=channel_slug)
 
 
-def create_payment_source(
+def create_payment_method(
         gateway: str,
         manager: "PluginsManager",
         payment_source_details: [dict],
@@ -332,7 +352,7 @@ def create_payment_source(
     return manager.create_payment_source(gateway, payment_source_details, channel_slug)
 
 
-def update_payment_source(
+def update_payment_method(
         gateway: str,
         manager: "PluginsManager",
         payment_source_details: [dict],
@@ -341,13 +361,33 @@ def update_payment_source(
     return manager.update_payment_source(gateway, payment_source_details, channel_slug)
 
 
-def delete_payment_source(
+def delete_payment_method(
         gateway: str,
         manager: "PluginsManager",
         payment_source_id: str,
         channel_slug: str,
 ) -> "CustomerSource":
     return manager.delete_payment_source(gateway, payment_source_id, channel_slug)
+
+
+def create_payment_source(
+    gateway: str,
+    payment_source_details: dict,
+    manager: "PluginsManager",
+    channel_slug: str
+) -> "CustomerSource":
+    return manager.create_payment_source(gateway, payment_source_details,
+                                         channel_slug=channel_slug)
+
+
+def verify_payment_source(
+    gateway: str,
+    verification_details: dict,
+    manager: "PluginsManager",
+    channel_slug: str
+) -> "CustomerSource":
+    return manager.verify_payment_source(gateway, verification_details,
+                                         channel_slug=channel_slug)
 
 
 def list_gateways(
