@@ -16,7 +16,7 @@ from saleor.graphql.product.mutations.channels import (
 )
 from saleor.graphql.product.mutations.products import ProductVariantCreate
 from saleor.graphql.product.types import ProductVariant
-from saleor.graphql.SAP.types import SAPProductError
+from saleor.graphql.SAP.sap_types import SAPProductError
 from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.warehouse.models import Stock, Warehouse
 
