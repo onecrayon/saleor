@@ -1,0 +1,2245 @@
+interactions:
+- request:
+    body: '{"UserName": "test", "Password": "test", "CompanyDB": "test"}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '85'
+      Content-Type:
+      - application/json
+      User-Agent:
+      - python-requests/2.26.0
+    method: POST
+    uri: https://api.myfirstech.com:50000/b1s/v1/Login
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#B1Sessions/@Element\",\n
+        \  \"SessionId\" : \"0e25a556-9b24-11ec-8000-02e74e0ca33a\",\n   \"Version\"
+        : \"1000170\",\n   \"SessionTimeout\" : 30\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      Date:
+      - Thu, 03 Mar 2022 18:59:30 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Set-Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a;HttpOnly;;Secure;SameSite=None
+      - ROUTEID=.node7; path=/;Secure;SameSite=None
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '207'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/BusinessPartners('RIAN')
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#BusinessPartners/@Element\",\n
+        \  \"odata.etag\" : \"W/\\\"887309D048BEEF83AD3EABF2A79A64A389AB1C9F\\\"\",\n
+        \  \"CardCode\" : \"RIAN\",\n   \"CardName\" : \"Mom's Friendly Robot Company\",\n
+        \  \"CardType\" : \"cCustomer\",\n   \"GroupCode\" : 134,\n   \"Address\"
+        : \"123 4th ave\",\n   \"ZipCode\" : \"10006\",\n   \"MailAddress\" : \"123
+        5th ave\",\n   \"MailZipCode\" : \"10006\",\n   \"Phone1\" : \"987654321\",\n
+        \  \"Phone2\" : \"456456456\",\n   \"Fax\" : \"1234\",\n   \"ContactPerson\"
+        : \"Mom\",\n   \"Notes\" : \"Notes botes gotes\",\n   \"PayTermsGrpCode\"
+        : 8,\n   \"CreditLimit\" : 10000.0,\n   \"MaxCommitment\" : 10000.0,\n   \"DiscountPercent\"
+        : null,\n   \"VatLiable\" : \"vLiable\",\n   \"FederalTaxID\" : null,\n   \"DeductibleAtSource\"
+        : \"tNO\",\n   \"DeductionPercent\" : 0.0,\n   \"DeductionValidUntil\" : null,\n
+        \  \"PriceListNum\" : 2,\n   \"IntrestRatePercent\" : 0.0,\n   \"CommissionPercent\"
+        : 0.0,\n   \"CommissionGroupCode\" : 0,\n   \"FreeText\" : null,\n   \"SalesPersonCode\"
+        : 21,\n   \"Currency\" : \"$\",\n   \"RateDiffAccount\" : \"\",\n   \"Cellular\"
+        : \"12345\",\n   \"AvarageLate\" : null,\n   \"City\" : \"New York City\",\n
+        \  \"County\" : null,\n   \"Country\" : \"US\",\n   \"MailCity\" : \"New York
+        City\",\n   \"MailCounty\" : null,\n   \"MailCountry\" : \"US\",\n   \"EmailAddress\"
+        : null,\n   \"Picture\" : null,\n   \"DefaultAccount\" : null,\n   \"DefaultBranch\"
+        : null,\n   \"DefaultBankCode\" : \"-1\",\n   \"AdditionalID\" : null,\n   \"Pager\"
+        : null,\n   \"FatherCard\" : null,\n   \"CardForeignName\" : null,\n   \"FatherType\"
+        : \"cPayments_sum\",\n   \"DeductionOffice\" : null,\n   \"ExportCode\" :
+        null,\n   \"MinIntrest\" : 0.0,\n   \"CurrentAccountBalance\" : 0.0,\n   \"OpenDeliveryNotesBalance\"
+        : 2004.380,\n   \"OpenOrdersBalance\" : 34893.260,\n   \"OpenChecksBalance\"
+        : 0.0,\n   \"VatGroup\" : null,\n   \"ShippingType\" : 3,\n   \"Password\"
+        : null,\n   \"Indicator\" : null,\n   \"IBAN\" : null,\n   \"CreditCardCode\"
+        : 1,\n   \"CreditCardNum\" : \"**********0027\",\n   \"CreditCardExpiration\"
+        : \"2022-01-31\",\n   \"DebitorAccount\" : \"_SYS00000000067\",\n   \"OpenOpportunities\"
+        : null,\n   \"Valid\" : \"tYES\",\n   \"ValidFrom\" : null,\n   \"ValidTo\"
+        : null,\n   \"ValidRemarks\" : null,\n   \"Frozen\" : \"tNO\",\n   \"FrozenFrom\"
+        : null,\n   \"FrozenTo\" : null,\n   \"FrozenRemarks\" : null,\n   \"Block\"
+        : null,\n   \"BillToState\" : \"NY\",\n   \"ShipToState\" : \"NY\",\n   \"ExemptNum\"
+        : null,\n   \"Priority\" : -1,\n   \"FormCode1099\" : null,\n   \"Box1099\"
+        : null,\n   \"PeymentMethodCode\" : null,\n   \"BackOrder\" : \"tYES\",\n
+        \  \"PartialDelivery\" : \"tYES\",\n   \"BlockDunning\" : \"tNO\",\n   \"BankCountry\"
+        : null,\n   \"HouseBank\" : \"KEY\",\n   \"HouseBankCountry\" : \"US\",\n
+        \  \"HouseBankAccount\" : \"4479683033829\",\n   \"ShipToDefault\" : \"Mom
+        Corp\",\n   \"DunningLevel\" : null,\n   \"DunningDate\" : null,\n   \"CollectionAuthorization\"
+        : \"tNO\",\n   \"DME\" : null,\n   \"InstructionKey\" : null,\n   \"SinglePayment\"
+        : \"tNO\",\n   \"ISRBillerID\" : null,\n   \"PaymentBlock\" : \"tNO\",\n   \"ReferenceDetails\"
+        : null,\n   \"HouseBankBranch\" : \"Seattle\",\n   \"OwnerIDNumber\" : null,\n
+        \  \"PaymentBlockDescription\" : -1,\n   \"TaxExemptionLetterNum\" : null,\n
+        \  \"MaxAmountOfExemption\" : 0.0,\n   \"ExemptionValidityDateFrom\" : null,\n
+        \  \"ExemptionValidityDateTo\" : null,\n   \"LinkedBusinessPartner\" : \"12
+        Volt\",\n   \"LastMultiReconciliationNum\" : null,\n   \"DeferredTax\" : \"tNO\",\n
+        \  \"Equalization\" : \"tNO\",\n   \"SubjectToWithholdingTax\" : null,\n   \"CertificateNumber\"
+        : null,\n   \"ExpirationDate\" : null,\n   \"NationalInsuranceNum\" : null,\n
+        \  \"AccrualCriteria\" : \"tNO\",\n   \"WTCode\" : null,\n   \"BillToBuildingFloorRoom\"
+        : \"\",\n   \"DownPaymentClearAct\" : \"_SYS00000000118\",\n   \"ChannelBP\"
+        : null,\n   \"DefaultTechnician\" : null,\n   \"BilltoDefault\" : \"Mom Corp\",\n
+        \  \"CustomerBillofExchangDisc\" : null,\n   \"Territory\" : null,\n   \"ShipToBuildingFloorRoom\"
+        : \"\",\n   \"CustomerBillofExchangPres\" : null,\n   \"ProjectCode\" : null,\n
+        \  \"VatGroupLatinAmerica\" : null,\n   \"DunningTerm\" : null,\n   \"Website\"
+        : \"ilovebender.com/website\",\n   \"OtherReceivablePayable\" : null,\n   \"BillofExchangeonCollection\"
+        : null,\n   \"CompanyPrivate\" : \"cCompany\",\n   \"LanguageCode\" : 3,\n
+        \  \"UnpaidBillofExchange\" : null,\n   \"WithholdingTaxDeductionGroup\" :
+        -1,\n   \"ClosingDateProcedureNumber\" : null,\n   \"Profession\" : null,\n
+        \  \"BankChargesAllocationCode\" : null,\n   \"TaxRoundingRule\" : \"trr_CompanyDefault\",\n
+        \  \"Properties1\" : \"tYES\",\n   \"Properties2\" : \"tYES\",\n   \"Properties3\"
+        : \"tYES\",\n   \"Properties4\" : \"tYES\",\n   \"Properties5\" : \"tYES\",\n
+        \  \"Properties6\" : \"tYES\",\n   \"Properties7\" : \"tYES\",\n   \"Properties8\"
+        : \"tYES\",\n   \"Properties9\" : \"tYES\",\n   \"Properties10\" : \"tYES\",\n
+        \  \"Properties11\" : \"tYES\",\n   \"Properties12\" : \"tYES\",\n   \"Properties13\"
+        : \"tYES\",\n   \"Properties14\" : \"tYES\",\n   \"Properties15\" : \"tYES\",\n
+        \  \"Properties16\" : \"tYES\",\n   \"Properties17\" : \"tYES\",\n   \"Properties18\"
+        : \"tYES\",\n   \"Properties19\" : \"tYES\",\n   \"Properties20\" : \"tYES\",\n
+        \  \"Properties21\" : \"tYES\",\n   \"Properties22\" : \"tYES\",\n   \"Properties23\"
+        : \"tYES\",\n   \"Properties24\" : \"tYES\",\n   \"Properties25\" : \"tYES\",\n
+        \  \"Properties26\" : \"tYES\",\n   \"Properties27\" : \"tYES\",\n   \"Properties28\"
+        : \"tYES\",\n   \"Properties29\" : \"tYES\",\n   \"Properties30\" : \"tYES\",\n
+        \  \"Properties31\" : \"tYES\",\n   \"Properties32\" : \"tYES\",\n   \"Properties33\"
+        : \"tYES\",\n   \"Properties34\" : \"tYES\",\n   \"Properties35\" : \"tYES\",\n
+        \  \"Properties36\" : \"tYES\",\n   \"Properties37\" : \"tYES\",\n   \"Properties38\"
+        : \"tYES\",\n   \"Properties39\" : \"tYES\",\n   \"Properties40\" : \"tYES\",\n
+        \  \"Properties41\" : \"tYES\",\n   \"Properties42\" : \"tYES\",\n   \"Properties43\"
+        : \"tYES\",\n   \"Properties44\" : \"tYES\",\n   \"Properties45\" : \"tYES\",\n
+        \  \"Properties46\" : \"tYES\",\n   \"Properties47\" : \"tYES\",\n   \"Properties48\"
+        : \"tYES\",\n   \"Properties49\" : \"tYES\",\n   \"Properties50\" : \"tYES\",\n
+        \  \"Properties51\" : \"tYES\",\n   \"Properties52\" : \"tYES\",\n   \"Properties53\"
+        : \"tYES\",\n   \"Properties54\" : \"tYES\",\n   \"Properties55\" : \"tYES\",\n
+        \  \"Properties56\" : \"tYES\",\n   \"Properties57\" : \"tYES\",\n   \"Properties58\"
+        : \"tYES\",\n   \"Properties59\" : \"tYES\",\n   \"Properties60\" : \"tYES\",\n
+        \  \"Properties61\" : \"tYES\",\n   \"Properties62\" : \"tYES\",\n   \"Properties63\"
+        : \"tYES\",\n   \"Properties64\" : \"tYES\",\n   \"CompanyRegistrationNumber\"
+        : null,\n   \"VerificationNumber\" : null,\n   \"DiscountBaseObject\" : \"dgboNone\",\n
+        \  \"DiscountRelations\" : \"dgrLowestDiscount\",\n   \"TypeReport\" : \"atCompany\",\n
+        \  \"ThresholdOverlook\" : \"tNO\",\n   \"SurchargeOverlook\" : \"tNO\",\n
+        \  \"DownPaymentInterimAccount\" : null,\n   \"OperationCode347\" : \"ocSalesOrServicesRevenues\",\n
+        \  \"InsuranceOperation347\" : \"tNO\",\n   \"HierarchicalDeduction\" : \"tNO\",\n
+        \  \"ShaamGroup\" : \"sgServicesAndAsset\",\n   \"WithholdingTaxCertified\"
+        : \"tNO\",\n   \"BookkeepingCertified\" : \"tNO\",\n   \"PlanningGroup\" :
+        null,\n   \"Affiliate\" : \"tNO\",\n   \"Industry\" : null,\n   \"VatIDNum\"
+        : null,\n   \"DatevAccount\" : null,\n   \"DatevFirstDataEntry\" : \"tYES\",\n
+        \  \"UseShippedGoodsAccount\" : \"tNO\",\n   \"GTSRegNo\" : null,\n   \"GTSBankAccountNo\"
+        : null,\n   \"GTSBillingAddrTel\" : null,\n   \"ETaxWebSite\" : null,\n   \"HouseBankIBAN\"
+        : \"\",\n   \"VATRegistrationNumber\" : null,\n   \"RepresentativeName\" :
+        null,\n   \"IndustryType\" : null,\n   \"BusinessType\" : null,\n   \"Series\"
+        : 1,\n   \"AutomaticPosting\" : null,\n   \"InterestAccount\" : null,\n   \"FeeAccount\"
+        : null,\n   \"CampaignNumber\" : null,\n   \"AliasName\" : null,\n   \"DefaultBlanketAgreementNumber\"
+        : null,\n   \"EffectiveDiscount\" : \"dgrLowestDiscount\",\n   \"NoDiscounts\"
+        : \"tNO\",\n   \"EffectivePrice\" : \"epDefaultPriority\",\n   \"EffectivePriceConsidersPriceBeforeDiscount\"
+        : \"tNO\",\n   \"GlobalLocationNumber\" : null,\n   \"EDISenderID\" : null,\n
+        \  \"EDIRecipientID\" : null,\n   \"ResidenNumber\" : \"rntSpanishFiscalID\",\n
+        \  \"RelationshipCode\" : null,\n   \"RelationshipDateFrom\" : null,\n   \"RelationshipDateTill\"
+        : null,\n   \"UnifiedFederalTaxID\" : null,\n   \"AttachmentEntry\" : null,\n
+        \  \"TypeOfOperation\" : null,\n   \"EndorsableChecksFromBP\" : \"tYES\",\n
+        \  \"AcceptsEndorsedChecks\" : \"tNO\",\n   \"OwnerCode\" : null,\n   \"BlockSendingMarketingContent\"
+        : \"tNO\",\n   \"AgentCode\" : null,\n   \"PriceMode\" : null,\n   \"EDocGenerationType\"
+        : null,\n   \"EDocStreet\" : null,\n   \"EDocStreetNumber\" : null,\n   \"EDocBuildingNumber\"
+        : null,\n   \"EDocZipCode\" : null,\n   \"EDocCity\" : null,\n   \"EDocCountry\"
+        : null,\n   \"EDocDistrict\" : null,\n   \"EDocRepresentativeFirstName\" :
+        null,\n   \"EDocRepresentativeSurname\" : null,\n   \"EDocRepresentativeCompany\"
+        : null,\n   \"EDocRepresentativeFiscalCode\" : null,\n   \"EDocRepresentativeAdditionalId\"
+        : null,\n   \"EDocPECAddress\" : null,\n   \"IPACodeForPA\" : null,\n   \"UpdateDate\"
+        : \"2022-03-03\",\n   \"UpdateTime\" : \"10:58:31\",\n   \"ExemptionMaxAmountValidationType\"
+        : \"emaIndividual\",\n   \"ECommerceMerchantID\" : null,\n   \"UseBillToAddrToDetermineTax\"
+        : \"tNO\",\n   \"CreateDate\" : \"2021-05-13\",\n   \"CreateTime\" : \"13:44:34\",\n
+        \  \"DefaultTransporterEntry\" : null,\n   \"DefaultTransporterLineNumber\"
+        : null,\n   \"FCERelevant\" : \"tNO\",\n   \"FCEValidateBaseDelivery\" : \"tNO\",\n
+        \  \"MainUsage\" : null,\n   \"EBooksVATExemptionCause\" : null,\n   \"LegalText\"
+        : null,\n   \"DataVersion\" : 26,\n   \"ExchangeRateForIncomingPayment\" :
+        \"tYES\",\n   \"ExchangeRateForOutgoingPayment\" : \"tYES\",\n   \"CertificateDetails\"
+        : null,\n   \"DefaultCurrency\" : null,\n   \"EORINumber\" : null,\n   \"FCEAsPaymentMeans\"
+        : \"tNO\",\n   \"U_V33_PTACCTNUM\" : null,\n   \"U_Territory\" : \"T1\",\n
+        \  \"U_PriceLevel\" : null,\n   \"U_SalesManager\" : \"Jason\",\n   \"U_SalesSupport\"
+        : \"Rob\",\n   \"U_BBUPS\" : null,\n   \"U_AddNotes\" : null,\n   \"U_VIR\"
+        : \"YES\",\n   \"U_Pro\" : null,\n   \"U_SpecPricing\" : null,\n   \"U_V33_SYNCB2B\"
+        : \"YES\",\n   \"U_V33_PRODLR\" : \"NO\",\n   \"U_V33_COMPUSTAR\" : \"YES\",\n
+        \  \"U_V33_ARCSTART\" : \"YES\",\n   \"U_V33_FTX\" : \"YES\",\n   \"U_FT_Per_Guarantee\"
+        : null,\n   \"U_FT_Agr_Update_Date\" : null,\n   \"U_FT_Reseller_Permit\"
+        : null,\n   \"U_FT_Fall_VIR_Partic\" : \"NO\",\n   \"U_AP_Contact\" : null,\n
+        \  \"U_AP_Email\" : null,\n   \"U_AP_Phone\" : null,\n   \"U_AP_Notes\" :
+        null,\n   \"U_FT_DFI_PRICING\" : \"YES\",\n   \"U_BOY_23_QCCS\" : null,\n
+        \  \"U_BOY_23_ADPRTCD\" : null,\n   \"U_BOY_TB_0\" : \"N\",\n   \"U_Warranty\"
+        : \"EXCHANGE\",\n   \"U_MAP_Policy_Date\" : null,\n   \"ElectronicProtocols\"
+        : [],\n   \"BPAddresses\" : [\n      {\n         \"AddressName\" : \"Planet
+        Express\",\n         \"Street\" : \"5432 New Street\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"1234\",\n         \"City\" : \"New New York\",\n
+        \        \"County\" : null,\n         \"Country\" : \"CA\",\n         \"State\"
+        : \"\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"\",\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 2,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-04\",\n         \"CreateTime\"
+        : \"13:51:19\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Mom Corp\",\n         \"Street\"
+        : \"123 5th ave\",\n         \"Block\" : null,\n         \"ZipCode\" : \"10006\",\n
+        \        \"City\" : \"New York City\",\n         \"County\" : null,\n         \"Country\"
+        : \"US\",\n         \"State\" : \"NY\",\n         \"FederalTaxID\" : null,\n
+        \        \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : null,\n         \"AddressType\"
+        : \"bo_ShipTo\",\n         \"AddressName2\" : null,\n         \"AddressName3\"
+        : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\" : null,\n
+        \        \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 3,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"13:48:12\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Mom Corp\",\n         \"Street\" : \"123 4th ave\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"10006\",\n         \"City\" : \"New York
+        City\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"\",\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 4,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-07\",\n         \"CreateTime\"
+        : \"09:47:06\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Canadian Shipping\",\n
+        \        \"Street\" : \"456 Thank you way\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"V1X 8O8\",\n         \"City\" : \"Nice Town\",\n
+        \        \"County\" : null,\n         \"Country\" : \"CA\",\n         \"State\"
+        : \"BC\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 6,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-24\",\n         \"CreateTime\"
+        : \"12:06:48\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"billing 3\",\n         \"Street\"
+        : \"123 nice ave.\",\n         \"Block\" : null,\n         \"ZipCode\" : \"12345\",\n
+        \        \"City\" : \"Townsville\",\n         \"County\" : null,\n         \"Country\"
+        : \"US\",\n         \"State\" : \"NE\",\n         \"FederalTaxID\" : null,\n
+        \        \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : \"unit A\",\n
+        \        \"AddressType\" : \"bo_BillTo\",\n         \"AddressName2\" : null,\n
+        \        \"AddressName3\" : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\"
+        : null,\n         \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 8,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2021-06-24\",\n         \"CreateTime\" : \"12:13:51\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Wernstrom Enterprise\",\n         \"Street\" : \"1729 cube way\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"12345\",\n         \"City\" : \"New New
+        York\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"Unit 0\",\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 10,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-09-09\",\n         \"CreateTime\"
+        : \"10:22:02\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"new shipping address\",\n
+        \        \"Street\" : \"1456 streety ave\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"12875\",\n         \"City\" : \"make belive town\",\n
+        \        \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"OR\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 11,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-09-09\",\n         \"CreateTime\"
+        : \"15:02:56\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Zoidberg\",\n         \"Street\"
+        : \"12345 Lost City St\",\n         \"Block\" : null,\n         \"ZipCode\"
+        : \"30301\",\n         \"City\" : \"Atlanta\",\n         \"County\" : null,\n
+        \        \"Country\" : \"US\",\n         \"State\" : \"GA\",\n         \"FederalTaxID\"
+        : null,\n         \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : null,\n
+        \        \"AddressType\" : \"bo_BillTo\",\n         \"AddressName2\" : null,\n
+        \        \"AddressName3\" : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\"
+        : null,\n         \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 13,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2022-02-25\",\n         \"CreateTime\" : \"11:37:59\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Awesome Express\",\n         \"Street\" : \"4567\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"10001\",\n         \"City\" : \"New New
+        York\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 14,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2022-02-25\",\n         \"CreateTime\"
+        : \"11:39:02\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      }\n   ],\n   \"ContactEmployees\" : [\n      {\n         \"CardCode\"
+        : \"RIAN\",\n         \"Name\" : \"Mom\",\n         \"Position\" : null,\n
+        \        \"Address\" : \"123 Fakes Street\",\n         \"Phone1\" : \"123123123\",\n
+        \        \"Phone2\" : null,\n         \"MobilePhone\" : null,\n         \"Fax\"
+        : null,\n         \"E_Mail\" : \"droneinator+mom@gmail.com\",\n         \"Pager\"
+        : null,\n         \"Remarks1\" : null,\n         \"Remarks2\" : null,\n         \"Password\"
+        : null,\n         \"InternalCode\" : 12697,\n         \"PlaceOfBirth\" : \"AO\",\n
+        \        \"DateOfBirth\" : \"2121-06-04\",\n         \"Gender\" : \"gt_Undefined\",\n
+        \        \"Profession\" : null,\n         \"Title\" : \"CEO\",\n         \"CityOfBirth\"
+        : null,\n         \"Active\" : \"tYES\",\n         \"FirstName\" : \"Mom\",\n
+        \        \"MiddleName\" : null,\n         \"LastName\" : \"Tester\",\n         \"EmailGroupCode\"
+        : null,\n         \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-05-26\",\n         \"CreateTime\" : \"11:31:14\",\n         \"UpdateDate\"
+        : \"2021-12-15\",\n         \"UpdateTime\" : \"16:07:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : \"passwords in plain text??\",\n         \"U_v33_IsLoginEnabled\" : null,\n
+        \        \"U_v33_B1WebRoles\" : null,\n         \"U_v33_LinkedObjKey\" : null,\n
+        \        \"U_v33_Answer\" : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\"
+        : null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" :
+        null,\n         \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" :
+        null,\n         \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Walt\",\n         \"Position\" : null,\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+walter@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12698,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        null,\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Walter\",\n         \"MiddleName\" : \"Carol\",\n
+        \        \"LastName\" : \"Miller\",\n         \"EmailGroupCode\" : null,\n
+        \        \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"10:44:29\",\n         \"UpdateDate\"
+        : \"2021-12-15\",\n         \"UpdateTime\" : \"10:32:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Ignar\",\n         \"Position\" : null,\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+Ignar@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12699,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        \"Lackey\",\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Ignar\",\n         \"MiddleName\" : \"Willy\",\n
+        \        \"LastName\" : null,\n         \"EmailGroupCode\" : null,\n         \"BlockSendingMarketingContent\"
+        : \"tNO\",\n         \"CreateDate\" : \"2021-06-04\",\n         \"CreateTime\"
+        : \"10:56:22\",\n         \"UpdateDate\" : \"2022-03-03\",\n         \"UpdateTime\"
+        : \"10:58:00\",\n         \"ConnectedAddressName\" : null,\n         \"ConnectedAddressType\"
+        : null,\n         \"ForeignCountry\" : null,\n         \"U_v33_TempPassword\"
+        : null,\n         \"U_v33_PasswordHash\" : null,\n         \"U_v33_IsLoginEnabled\"
+        : null,\n         \"U_v33_B1WebRoles\" : null,\n         \"U_v33_LinkedObjKey\"
+        : null,\n         \"U_v33_Answer\" : null,\n         \"U_v33_Question\" :
+        null,\n         \"U_ZEDS_BPLId\" : null,\n         \"U_BOY_85_ECAT\" : null,\n
+        \        \"U_BOY_85_ECAT2\" : null,\n         \"U_BOY_85_ECAT3\" : null,\n
+        \        \"U_BOY_85_ECAT4\" : null,\n         \"U_BOY_85_ECAT5\" : null,\n
+        \        \"ContactEmployeeBlockSendingMarketingContents\" : []\n      },\n
+        \     {\n         \"CardCode\" : \"RIAN\",\n         \"Name\" : \"Larry\",\n
+        \        \"Position\" : \"Goon\",\n         \"Address\" : null,\n         \"Phone1\"
+        : null,\n         \"Phone2\" : null,\n         \"MobilePhone\" : null,\n         \"Fax\"
+        : null,\n         \"E_Mail\" : \"droneinator+larry@gmail.com\",\n         \"Pager\"
+        : null,\n         \"Remarks1\" : null,\n         \"Remarks2\" : null,\n         \"Password\"
+        : null,\n         \"InternalCode\" : 12700,\n         \"PlaceOfBirth\" : \"-1\",\n
+        \        \"DateOfBirth\" : null,\n         \"Gender\" : \"gt_Undefined\",\n
+        \        \"Profession\" : null,\n         \"Title\" : \"Goon\",\n         \"CityOfBirth\"
+        : null,\n         \"Active\" : \"tYES\",\n         \"FirstName\" : \"Larry\",\n
+        \        \"MiddleName\" : null,\n         \"LastName\" : null,\n         \"EmailGroupCode\"
+        : null,\n         \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"13:53:49\",\n         \"UpdateDate\"
+        : \"2022-03-03\",\n         \"UpdateTime\" : \"10:58:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      }\n   ],\n   \"BPAccountReceivablePaybleCollection\" : [],\n   \"BPPaymentMethods\"
+        : [],\n   \"BPWithholdingTaxCollection\" : [],\n   \"BPPaymentDates\" : [],\n
+        \  \"BPBranchAssignment\" : [],\n   \"BPBankAccounts\" : [],\n   \"BPFiscalTaxIDCollection\"
+        : [],\n   \"DiscountGroups\" : [],\n   \"BPIntrastatExtension\" : {},\n   \"BPBlockSendingMarketingContents\"
+        : [],\n   \"BPCurrenciesCollection\" : []\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 18:59:30 GMT
+      ETag:
+      - W/"887309D048BEEF83AD3EABF2A79A64A389AB1C9F"
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '24416'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/PaymentTermsTypes(8)
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#PaymentTermsTypes/@Element\",\n
+        \  \"GroupNumber\" : 8,\n   \"PaymentTermsGroupName\" : \"1% 45 Net 60 Days\",\n
+        \  \"StartFrom\" : \"pdt_None\",\n   \"NumberOfAdditionalMonths\" : 0,\n   \"NumberOfAdditionalDays\"
+        : 60,\n   \"CreditLimit\" : 0.0,\n   \"GeneralDiscount\" : 0.0,\n   \"InterestOnArrears\"
+        : 0.0,\n   \"PriceListNo\" : 2,\n   \"LoadLimit\" : 0.0,\n   \"OpenReceipt\"
+        : \"oip_No\",\n   \"DiscountCode\" : \"1 per 45 Days\",\n   \"DunningCode\"
+        : \"\",\n   \"BaselineDate\" : \"bld_TaxDate\",\n   \"NumberOfInstallments\"
+        : 0,\n   \"NumberOfToleranceDays\" : null\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 18:59:31 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '591'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/PriceLists?$skip=0
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#PriceLists\",\n
+        \  \"value\" : [\n      {\n         \"RoundingMethod\" : \"borm_NoRounding\",\n
+        \        \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\" : 1,\n
+        \        \"Factor\" : 1.0,\n         \"PriceListNo\" : 1,\n         \"PriceListName\"
+        : \"MSRP\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\" : \"tYES\",\n
+        \        \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n         \"DefaultPrimeCurrency\"
+        : \"$\",\n         \"DefaultAdditionalCurrency1\" : \"$\",\n         \"DefaultAdditionalCurrency2\"
+        : \"$\",\n         \"RoundingRule\" : \"borrRoundOff\",\n         \"FixedAmount\"
+        : 0.0\n      },\n      {\n         \"RoundingMethod\" : \"borm_NoRounding\",\n
+        \        \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\" : 2,\n
+        \        \"Factor\" : 1.0,\n         \"PriceListNo\" : 2,\n         \"PriceListName\"
+        : \"Dealer\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\" :
+        \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 4,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 3,\n         \"PriceListName\"
+        : \"Preferred\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 4,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 4,\n         \"PriceListName\"
+        : \"Preferred Plus\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 4,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 5,\n         \"PriceListName\"
+        : \"Elite\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\" :
+        \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 6,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 6,\n         \"PriceListName\"
+        : \"Distributor\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 7,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 7,\n         \"PriceListName\"
+        : \"Strategic Partner\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 2,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 8,\n         \"PriceListName\"
+        : \"Car Dealer Direct\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 9,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 9,\n         \"PriceListName\"
+        : \"Staub\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\" :
+        \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"CAN\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 10,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 10,\n         \"PriceListName\"
+        : \"RT\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\" : \"tYES\",\n
+        \        \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n         \"DefaultPrimeCurrency\"
+        : \"CAN\",\n         \"DefaultAdditionalCurrency1\" : \"$\",\n         \"DefaultAdditionalCurrency2\"
+        : \"$\",\n         \"RoundingRule\" : \"borrRoundOff\",\n         \"FixedAmount\"
+        : 0.0\n      },\n      {\n         \"RoundingMethod\" : \"borm_NoRounding\",\n
+        \        \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\" : 6,\n
+        \        \"Factor\" : 1.0,\n         \"PriceListNo\" : 11,\n         \"PriceListName\"
+        : \"MESA Gold\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 12,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 12,\n         \"PriceListName\"
+        : \"Best Buy\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 4,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 13,\n         \"PriceListName\"
+        : \"RPM Dealer\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 4,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 14,\n         \"PriceListName\"
+        : \"RPM Program\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 6,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 15,\n         \"PriceListName\"
+        : \"PRM Distributor\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 25,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 16,\n         \"PriceListName\"
+        : \"RPM MESA Gold\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 25,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 17,\n         \"PriceListName\"
+        : \"RPM MESA Platinum\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 7,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 18,\n         \"PriceListName\"
+        : \"RPM Strategic Partner\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : -1,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 19,\n         \"PriceListName\"
+        : \"Segi Warranty\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 2,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 20,\n         \"PriceListName\"
+        : \"Special 3\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      }\n   ],\n   \"odata.nextLink\"
+        : \"PriceLists?$skip=20\"\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 18:59:31 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '11070'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/PriceLists?$skip=20
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#PriceLists\",\n
+        \  \"value\" : [\n      {\n         \"RoundingMethod\" : \"borm_NoRounding\",\n
+        \        \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\" : 2,\n
+        \        \"Factor\" : 1.0,\n         \"PriceListNo\" : 21,\n         \"PriceListName\"
+        : \"Special 4\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 2,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 22,\n         \"PriceListName\"
+        : \"Special 5\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 2,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 23,\n         \"PriceListName\"
+        : \"Special 6\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 2,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 24,\n         \"PriceListName\"
+        : \"Special 7\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 6,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 25,\n         \"PriceListName\"
+        : \"MESA Platinum\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\"
+        : \"tYES\",\n         \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n
+        \        \"DefaultPrimeCurrency\" : \"$\",\n         \"DefaultAdditionalCurrency1\"
+        : \"$\",\n         \"DefaultAdditionalCurrency2\" : \"$\",\n         \"RoundingRule\"
+        : \"borrRoundOff\",\n         \"FixedAmount\" : 0.0\n      },\n      {\n         \"RoundingMethod\"
+        : \"borm_NoRounding\",\n         \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\"
+        : 26,\n         \"Factor\" : 1.0,\n         \"PriceListNo\" : 26,\n         \"PriceListName\"
+        : \"MAP\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\" : \"tYES\",\n
+        \        \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n         \"DefaultPrimeCurrency\"
+        : \"$\",\n         \"DefaultAdditionalCurrency1\" : \"$\",\n         \"DefaultAdditionalCurrency2\"
+        : \"$\",\n         \"RoundingRule\" : \"borrRoundOff\",\n         \"FixedAmount\"
+        : 0.0\n      },\n      {\n         \"RoundingMethod\" : \"borm_NoRounding\",\n
+        \        \"GroupNum\" : \"boplgn_Group2\",\n         \"BasePriceList\" : 27,\n
+        \        \"Factor\" : 1.0,\n         \"PriceListNo\" : 27,\n         \"PriceListName\"
+        : \"LISA\",\n         \"IsGrossPrice\" : \"tNO\",\n         \"Active\" : \"tYES\",\n
+        \        \"ValidFrom\" : null,\n         \"ValidTo\" : null,\n         \"DefaultPrimeCurrency\"
+        : \"$\",\n         \"DefaultAdditionalCurrency1\" : \"$\",\n         \"DefaultAdditionalCurrency2\"
+        : \"$\",\n         \"RoundingRule\" : \"borrRoundOff\",\n         \"FixedAmount\"
+        : 0.0\n      }\n   ]\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 18:59:31 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '3912'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/SalesPersons(21)
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#SalesPersons/@Element\",\n
+        \  \"SalesEmployeeCode\" : 21,\n   \"SalesEmployeeName\" : \"Paradise Marketing\",\n
+        \  \"Remarks\" : \"\",\n   \"CommissionForSalesEmployee\" : 0.0,\n   \"CommissionGroup\"
+        : 0,\n   \"Locked\" : \"tNO\",\n   \"EmployeeID\" : null,\n   \"Active\" :
+        \"tYES\",\n   \"Telephone\" : null,\n   \"Mobile\" : null,\n   \"Fax\" : null,\n
+        \  \"Email\" : \"outside_sales_person@example.com\",\n   \"U_BOY_50_BRKO\" : null\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 18:59:32 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '451'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/BusinessPartners('RIAN')
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#BusinessPartners/@Element\",\n
+        \  \"odata.etag\" : \"W/\\\"887309D048BEEF83AD3EABF2A79A64A389AB1C9F\\\"\",\n
+        \  \"CardCode\" : \"RIAN\",\n   \"CardName\" : \"Mom's Friendly Robot Company\",\n
+        \  \"CardType\" : \"cCustomer\",\n   \"GroupCode\" : 134,\n   \"Address\"
+        : \"123 4th ave\",\n   \"ZipCode\" : \"10006\",\n   \"MailAddress\" : \"123
+        5th ave\",\n   \"MailZipCode\" : \"10006\",\n   \"Phone1\" : \"987654321\",\n
+        \  \"Phone2\" : \"456456456\",\n   \"Fax\" : \"1234\",\n   \"ContactPerson\"
+        : \"Mom\",\n   \"Notes\" : \"Notes botes gotes\",\n   \"PayTermsGrpCode\"
+        : 8,\n   \"CreditLimit\" : 10000.0,\n   \"MaxCommitment\" : 10000.0,\n   \"DiscountPercent\"
+        : null,\n   \"VatLiable\" : \"vLiable\",\n   \"FederalTaxID\" : null,\n   \"DeductibleAtSource\"
+        : \"tNO\",\n   \"DeductionPercent\" : 0.0,\n   \"DeductionValidUntil\" : null,\n
+        \  \"PriceListNum\" : 2,\n   \"IntrestRatePercent\" : 0.0,\n   \"CommissionPercent\"
+        : 0.0,\n   \"CommissionGroupCode\" : 0,\n   \"FreeText\" : null,\n   \"SalesPersonCode\"
+        : 21,\n   \"Currency\" : \"$\",\n   \"RateDiffAccount\" : \"\",\n   \"Cellular\"
+        : \"12345\",\n   \"AvarageLate\" : null,\n   \"City\" : \"New York City\",\n
+        \  \"County\" : null,\n   \"Country\" : \"US\",\n   \"MailCity\" : \"New York
+        City\",\n   \"MailCounty\" : null,\n   \"MailCountry\" : \"US\",\n   \"EmailAddress\"
+        : null,\n   \"Picture\" : null,\n   \"DefaultAccount\" : null,\n   \"DefaultBranch\"
+        : null,\n   \"DefaultBankCode\" : \"-1\",\n   \"AdditionalID\" : null,\n   \"Pager\"
+        : null,\n   \"FatherCard\" : null,\n   \"CardForeignName\" : null,\n   \"FatherType\"
+        : \"cPayments_sum\",\n   \"DeductionOffice\" : null,\n   \"ExportCode\" :
+        null,\n   \"MinIntrest\" : 0.0,\n   \"CurrentAccountBalance\" : 0.0,\n   \"OpenDeliveryNotesBalance\"
+        : 2004.380,\n   \"OpenOrdersBalance\" : 34893.260,\n   \"OpenChecksBalance\"
+        : 0.0,\n   \"VatGroup\" : null,\n   \"ShippingType\" : 3,\n   \"Password\"
+        : null,\n   \"Indicator\" : null,\n   \"IBAN\" : null,\n   \"CreditCardCode\"
+        : 1,\n   \"CreditCardNum\" : \"**********0027\",\n   \"CreditCardExpiration\"
+        : \"2022-01-31\",\n   \"DebitorAccount\" : \"_SYS00000000067\",\n   \"OpenOpportunities\"
+        : null,\n   \"Valid\" : \"tYES\",\n   \"ValidFrom\" : null,\n   \"ValidTo\"
+        : null,\n   \"ValidRemarks\" : null,\n   \"Frozen\" : \"tNO\",\n   \"FrozenFrom\"
+        : null,\n   \"FrozenTo\" : null,\n   \"FrozenRemarks\" : null,\n   \"Block\"
+        : null,\n   \"BillToState\" : \"NY\",\n   \"ShipToState\" : \"NY\",\n   \"ExemptNum\"
+        : null,\n   \"Priority\" : -1,\n   \"FormCode1099\" : null,\n   \"Box1099\"
+        : null,\n   \"PeymentMethodCode\" : null,\n   \"BackOrder\" : \"tYES\",\n
+        \  \"PartialDelivery\" : \"tYES\",\n   \"BlockDunning\" : \"tNO\",\n   \"BankCountry\"
+        : null,\n   \"HouseBank\" : \"KEY\",\n   \"HouseBankCountry\" : \"US\",\n
+        \  \"HouseBankAccount\" : \"4479683033829\",\n   \"ShipToDefault\" : \"Mom
+        Corp\",\n   \"DunningLevel\" : null,\n   \"DunningDate\" : null,\n   \"CollectionAuthorization\"
+        : \"tNO\",\n   \"DME\" : null,\n   \"InstructionKey\" : null,\n   \"SinglePayment\"
+        : \"tNO\",\n   \"ISRBillerID\" : null,\n   \"PaymentBlock\" : \"tNO\",\n   \"ReferenceDetails\"
+        : null,\n   \"HouseBankBranch\" : \"Seattle\",\n   \"OwnerIDNumber\" : null,\n
+        \  \"PaymentBlockDescription\" : -1,\n   \"TaxExemptionLetterNum\" : null,\n
+        \  \"MaxAmountOfExemption\" : 0.0,\n   \"ExemptionValidityDateFrom\" : null,\n
+        \  \"ExemptionValidityDateTo\" : null,\n   \"LinkedBusinessPartner\" : \"12
+        Volt\",\n   \"LastMultiReconciliationNum\" : null,\n   \"DeferredTax\" : \"tNO\",\n
+        \  \"Equalization\" : \"tNO\",\n   \"SubjectToWithholdingTax\" : null,\n   \"CertificateNumber\"
+        : null,\n   \"ExpirationDate\" : null,\n   \"NationalInsuranceNum\" : null,\n
+        \  \"AccrualCriteria\" : \"tNO\",\n   \"WTCode\" : null,\n   \"BillToBuildingFloorRoom\"
+        : \"\",\n   \"DownPaymentClearAct\" : \"_SYS00000000118\",\n   \"ChannelBP\"
+        : null,\n   \"DefaultTechnician\" : null,\n   \"BilltoDefault\" : \"Mom Corp\",\n
+        \  \"CustomerBillofExchangDisc\" : null,\n   \"Territory\" : null,\n   \"ShipToBuildingFloorRoom\"
+        : \"\",\n   \"CustomerBillofExchangPres\" : null,\n   \"ProjectCode\" : null,\n
+        \  \"VatGroupLatinAmerica\" : null,\n   \"DunningTerm\" : null,\n   \"Website\"
+        : \"ilovebender.com/website\",\n   \"OtherReceivablePayable\" : null,\n   \"BillofExchangeonCollection\"
+        : null,\n   \"CompanyPrivate\" : \"cCompany\",\n   \"LanguageCode\" : 3,\n
+        \  \"UnpaidBillofExchange\" : null,\n   \"WithholdingTaxDeductionGroup\" :
+        -1,\n   \"ClosingDateProcedureNumber\" : null,\n   \"Profession\" : null,\n
+        \  \"BankChargesAllocationCode\" : null,\n   \"TaxRoundingRule\" : \"trr_CompanyDefault\",\n
+        \  \"Properties1\" : \"tYES\",\n   \"Properties2\" : \"tYES\",\n   \"Properties3\"
+        : \"tYES\",\n   \"Properties4\" : \"tYES\",\n   \"Properties5\" : \"tYES\",\n
+        \  \"Properties6\" : \"tYES\",\n   \"Properties7\" : \"tYES\",\n   \"Properties8\"
+        : \"tYES\",\n   \"Properties9\" : \"tYES\",\n   \"Properties10\" : \"tYES\",\n
+        \  \"Properties11\" : \"tYES\",\n   \"Properties12\" : \"tYES\",\n   \"Properties13\"
+        : \"tYES\",\n   \"Properties14\" : \"tYES\",\n   \"Properties15\" : \"tYES\",\n
+        \  \"Properties16\" : \"tYES\",\n   \"Properties17\" : \"tYES\",\n   \"Properties18\"
+        : \"tYES\",\n   \"Properties19\" : \"tYES\",\n   \"Properties20\" : \"tYES\",\n
+        \  \"Properties21\" : \"tYES\",\n   \"Properties22\" : \"tYES\",\n   \"Properties23\"
+        : \"tYES\",\n   \"Properties24\" : \"tYES\",\n   \"Properties25\" : \"tYES\",\n
+        \  \"Properties26\" : \"tYES\",\n   \"Properties27\" : \"tYES\",\n   \"Properties28\"
+        : \"tYES\",\n   \"Properties29\" : \"tYES\",\n   \"Properties30\" : \"tYES\",\n
+        \  \"Properties31\" : \"tYES\",\n   \"Properties32\" : \"tYES\",\n   \"Properties33\"
+        : \"tYES\",\n   \"Properties34\" : \"tYES\",\n   \"Properties35\" : \"tYES\",\n
+        \  \"Properties36\" : \"tYES\",\n   \"Properties37\" : \"tYES\",\n   \"Properties38\"
+        : \"tYES\",\n   \"Properties39\" : \"tYES\",\n   \"Properties40\" : \"tYES\",\n
+        \  \"Properties41\" : \"tYES\",\n   \"Properties42\" : \"tYES\",\n   \"Properties43\"
+        : \"tYES\",\n   \"Properties44\" : \"tYES\",\n   \"Properties45\" : \"tYES\",\n
+        \  \"Properties46\" : \"tYES\",\n   \"Properties47\" : \"tYES\",\n   \"Properties48\"
+        : \"tYES\",\n   \"Properties49\" : \"tYES\",\n   \"Properties50\" : \"tYES\",\n
+        \  \"Properties51\" : \"tYES\",\n   \"Properties52\" : \"tYES\",\n   \"Properties53\"
+        : \"tYES\",\n   \"Properties54\" : \"tYES\",\n   \"Properties55\" : \"tYES\",\n
+        \  \"Properties56\" : \"tYES\",\n   \"Properties57\" : \"tYES\",\n   \"Properties58\"
+        : \"tYES\",\n   \"Properties59\" : \"tYES\",\n   \"Properties60\" : \"tYES\",\n
+        \  \"Properties61\" : \"tYES\",\n   \"Properties62\" : \"tYES\",\n   \"Properties63\"
+        : \"tYES\",\n   \"Properties64\" : \"tYES\",\n   \"CompanyRegistrationNumber\"
+        : null,\n   \"VerificationNumber\" : null,\n   \"DiscountBaseObject\" : \"dgboNone\",\n
+        \  \"DiscountRelations\" : \"dgrLowestDiscount\",\n   \"TypeReport\" : \"atCompany\",\n
+        \  \"ThresholdOverlook\" : \"tNO\",\n   \"SurchargeOverlook\" : \"tNO\",\n
+        \  \"DownPaymentInterimAccount\" : null,\n   \"OperationCode347\" : \"ocSalesOrServicesRevenues\",\n
+        \  \"InsuranceOperation347\" : \"tNO\",\n   \"HierarchicalDeduction\" : \"tNO\",\n
+        \  \"ShaamGroup\" : \"sgServicesAndAsset\",\n   \"WithholdingTaxCertified\"
+        : \"tNO\",\n   \"BookkeepingCertified\" : \"tNO\",\n   \"PlanningGroup\" :
+        null,\n   \"Affiliate\" : \"tNO\",\n   \"Industry\" : null,\n   \"VatIDNum\"
+        : null,\n   \"DatevAccount\" : null,\n   \"DatevFirstDataEntry\" : \"tYES\",\n
+        \  \"UseShippedGoodsAccount\" : \"tNO\",\n   \"GTSRegNo\" : null,\n   \"GTSBankAccountNo\"
+        : null,\n   \"GTSBillingAddrTel\" : null,\n   \"ETaxWebSite\" : null,\n   \"HouseBankIBAN\"
+        : \"\",\n   \"VATRegistrationNumber\" : null,\n   \"RepresentativeName\" :
+        null,\n   \"IndustryType\" : null,\n   \"BusinessType\" : null,\n   \"Series\"
+        : 1,\n   \"AutomaticPosting\" : null,\n   \"InterestAccount\" : null,\n   \"FeeAccount\"
+        : null,\n   \"CampaignNumber\" : null,\n   \"AliasName\" : null,\n   \"DefaultBlanketAgreementNumber\"
+        : null,\n   \"EffectiveDiscount\" : \"dgrLowestDiscount\",\n   \"NoDiscounts\"
+        : \"tNO\",\n   \"EffectivePrice\" : \"epDefaultPriority\",\n   \"EffectivePriceConsidersPriceBeforeDiscount\"
+        : \"tNO\",\n   \"GlobalLocationNumber\" : null,\n   \"EDISenderID\" : null,\n
+        \  \"EDIRecipientID\" : null,\n   \"ResidenNumber\" : \"rntSpanishFiscalID\",\n
+        \  \"RelationshipCode\" : null,\n   \"RelationshipDateFrom\" : null,\n   \"RelationshipDateTill\"
+        : null,\n   \"UnifiedFederalTaxID\" : null,\n   \"AttachmentEntry\" : null,\n
+        \  \"TypeOfOperation\" : null,\n   \"EndorsableChecksFromBP\" : \"tYES\",\n
+        \  \"AcceptsEndorsedChecks\" : \"tNO\",\n   \"OwnerCode\" : null,\n   \"BlockSendingMarketingContent\"
+        : \"tNO\",\n   \"AgentCode\" : null,\n   \"PriceMode\" : null,\n   \"EDocGenerationType\"
+        : null,\n   \"EDocStreet\" : null,\n   \"EDocStreetNumber\" : null,\n   \"EDocBuildingNumber\"
+        : null,\n   \"EDocZipCode\" : null,\n   \"EDocCity\" : null,\n   \"EDocCountry\"
+        : null,\n   \"EDocDistrict\" : null,\n   \"EDocRepresentativeFirstName\" :
+        null,\n   \"EDocRepresentativeSurname\" : null,\n   \"EDocRepresentativeCompany\"
+        : null,\n   \"EDocRepresentativeFiscalCode\" : null,\n   \"EDocRepresentativeAdditionalId\"
+        : null,\n   \"EDocPECAddress\" : null,\n   \"IPACodeForPA\" : null,\n   \"UpdateDate\"
+        : \"2022-03-03\",\n   \"UpdateTime\" : \"10:58:31\",\n   \"ExemptionMaxAmountValidationType\"
+        : \"emaIndividual\",\n   \"ECommerceMerchantID\" : null,\n   \"UseBillToAddrToDetermineTax\"
+        : \"tNO\",\n   \"CreateDate\" : \"2021-05-13\",\n   \"CreateTime\" : \"13:44:34\",\n
+        \  \"DefaultTransporterEntry\" : null,\n   \"DefaultTransporterLineNumber\"
+        : null,\n   \"FCERelevant\" : \"tNO\",\n   \"FCEValidateBaseDelivery\" : \"tNO\",\n
+        \  \"MainUsage\" : null,\n   \"EBooksVATExemptionCause\" : null,\n   \"LegalText\"
+        : null,\n   \"DataVersion\" : 26,\n   \"ExchangeRateForIncomingPayment\" :
+        \"tYES\",\n   \"ExchangeRateForOutgoingPayment\" : \"tYES\",\n   \"CertificateDetails\"
+        : null,\n   \"DefaultCurrency\" : null,\n   \"EORINumber\" : null,\n   \"FCEAsPaymentMeans\"
+        : \"tNO\",\n   \"U_V33_PTACCTNUM\" : null,\n   \"U_Territory\" : \"T1\",\n
+        \  \"U_PriceLevel\" : null,\n   \"U_SalesManager\" : \"Jason\",\n   \"U_SalesSupport\"
+        : \"Rob\",\n   \"U_BBUPS\" : null,\n   \"U_AddNotes\" : null,\n   \"U_VIR\"
+        : \"YES\",\n   \"U_Pro\" : null,\n   \"U_SpecPricing\" : null,\n   \"U_V33_SYNCB2B\"
+        : \"YES\",\n   \"U_V33_PRODLR\" : \"NO\",\n   \"U_V33_COMPUSTAR\" : \"YES\",\n
+        \  \"U_V33_ARCSTART\" : \"YES\",\n   \"U_V33_FTX\" : \"YES\",\n   \"U_FT_Per_Guarantee\"
+        : null,\n   \"U_FT_Agr_Update_Date\" : null,\n   \"U_FT_Reseller_Permit\"
+        : null,\n   \"U_FT_Fall_VIR_Partic\" : \"NO\",\n   \"U_AP_Contact\" : null,\n
+        \  \"U_AP_Email\" : null,\n   \"U_AP_Phone\" : null,\n   \"U_AP_Notes\" :
+        null,\n   \"U_FT_DFI_PRICING\" : \"YES\",\n   \"U_BOY_23_QCCS\" : null,\n
+        \  \"U_BOY_23_ADPRTCD\" : null,\n   \"U_BOY_TB_0\" : \"N\",\n   \"U_Warranty\"
+        : \"EXCHANGE\",\n   \"U_MAP_Policy_Date\" : null,\n   \"ElectronicProtocols\"
+        : [],\n   \"BPAddresses\" : [\n      {\n         \"AddressName\" : \"Planet
+        Express\",\n         \"Street\" : \"5432 New Street\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"1234\",\n         \"City\" : \"New New York\",\n
+        \        \"County\" : null,\n         \"Country\" : \"CA\",\n         \"State\"
+        : \"\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"\",\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 2,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-04\",\n         \"CreateTime\"
+        : \"13:51:19\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Mom Corp\",\n         \"Street\"
+        : \"123 5th ave\",\n         \"Block\" : null,\n         \"ZipCode\" : \"10006\",\n
+        \        \"City\" : \"New York City\",\n         \"County\" : null,\n         \"Country\"
+        : \"US\",\n         \"State\" : \"NY\",\n         \"FederalTaxID\" : null,\n
+        \        \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : null,\n         \"AddressType\"
+        : \"bo_ShipTo\",\n         \"AddressName2\" : null,\n         \"AddressName3\"
+        : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\" : null,\n
+        \        \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 3,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"13:48:12\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Mom Corp\",\n         \"Street\" : \"123 4th ave\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"10006\",\n         \"City\" : \"New York
+        City\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"\",\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 4,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-07\",\n         \"CreateTime\"
+        : \"09:47:06\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Canadian Shipping\",\n
+        \        \"Street\" : \"456 Thank you way\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"V1X 8O8\",\n         \"City\" : \"Nice Town\",\n
+        \        \"County\" : null,\n         \"Country\" : \"CA\",\n         \"State\"
+        : \"BC\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 6,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-24\",\n         \"CreateTime\"
+        : \"12:06:48\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"billing 3\",\n         \"Street\"
+        : \"123 nice ave.\",\n         \"Block\" : null,\n         \"ZipCode\" : \"12345\",\n
+        \        \"City\" : \"Townsville\",\n         \"County\" : null,\n         \"Country\"
+        : \"US\",\n         \"State\" : \"NE\",\n         \"FederalTaxID\" : null,\n
+        \        \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : \"unit A\",\n
+        \        \"AddressType\" : \"bo_BillTo\",\n         \"AddressName2\" : null,\n
+        \        \"AddressName3\" : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\"
+        : null,\n         \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 8,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2021-06-24\",\n         \"CreateTime\" : \"12:13:51\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Wernstrom Enterprise\",\n         \"Street\" : \"1729 cube way\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"12345\",\n         \"City\" : \"New New
+        York\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"Unit 0\",\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 10,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-09-09\",\n         \"CreateTime\"
+        : \"10:22:02\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"new shipping address\",\n
+        \        \"Street\" : \"1456 streety ave\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"12875\",\n         \"City\" : \"make belive town\",\n
+        \        \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"OR\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 11,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-09-09\",\n         \"CreateTime\"
+        : \"15:02:56\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Zoidberg\",\n         \"Street\"
+        : \"12345 Lost City St\",\n         \"Block\" : null,\n         \"ZipCode\"
+        : \"30301\",\n         \"City\" : \"Atlanta\",\n         \"County\" : null,\n
+        \        \"Country\" : \"US\",\n         \"State\" : \"GA\",\n         \"FederalTaxID\"
+        : null,\n         \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : null,\n
+        \        \"AddressType\" : \"bo_BillTo\",\n         \"AddressName2\" : null,\n
+        \        \"AddressName3\" : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\"
+        : null,\n         \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 13,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2022-02-25\",\n         \"CreateTime\" : \"11:37:59\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Awesome Express\",\n         \"Street\" : \"4567\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"10001\",\n         \"City\" : \"New New
+        York\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 14,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2022-02-25\",\n         \"CreateTime\"
+        : \"11:39:02\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      }\n   ],\n   \"ContactEmployees\" : [\n      {\n         \"CardCode\"
+        : \"RIAN\",\n         \"Name\" : \"Mom\",\n         \"Position\" : null,\n
+        \        \"Address\" : \"123 Fakes Street\",\n         \"Phone1\" : \"123123123\",\n
+        \        \"Phone2\" : null,\n         \"MobilePhone\" : null,\n         \"Fax\"
+        : null,\n         \"E_Mail\" : \"droneinator+mom@gmail.com\",\n         \"Pager\"
+        : null,\n         \"Remarks1\" : null,\n         \"Remarks2\" : null,\n         \"Password\"
+        : null,\n         \"InternalCode\" : 12697,\n         \"PlaceOfBirth\" : \"AO\",\n
+        \        \"DateOfBirth\" : \"2121-06-04\",\n         \"Gender\" : \"gt_Undefined\",\n
+        \        \"Profession\" : null,\n         \"Title\" : \"CEO\",\n         \"CityOfBirth\"
+        : null,\n         \"Active\" : \"tYES\",\n         \"FirstName\" : \"Mom\",\n
+        \        \"MiddleName\" : null,\n         \"LastName\" : \"Tester\",\n         \"EmailGroupCode\"
+        : null,\n         \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-05-26\",\n         \"CreateTime\" : \"11:31:14\",\n         \"UpdateDate\"
+        : \"2021-12-15\",\n         \"UpdateTime\" : \"16:07:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : \"passwords in plain text??\",\n         \"U_v33_IsLoginEnabled\" : null,\n
+        \        \"U_v33_B1WebRoles\" : null,\n         \"U_v33_LinkedObjKey\" : null,\n
+        \        \"U_v33_Answer\" : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\"
+        : null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" :
+        null,\n         \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" :
+        null,\n         \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Walt\",\n         \"Position\" : null,\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+walter@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12698,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        null,\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Walter\",\n         \"MiddleName\" : \"Carol\",\n
+        \        \"LastName\" : \"Miller\",\n         \"EmailGroupCode\" : null,\n
+        \        \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"10:44:29\",\n         \"UpdateDate\"
+        : \"2021-12-15\",\n         \"UpdateTime\" : \"10:32:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Ignar\",\n         \"Position\" : null,\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+Ignar@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12699,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        \"Lackey\",\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Ignar\",\n         \"MiddleName\" : \"Willy\",\n
+        \        \"LastName\" : null,\n         \"EmailGroupCode\" : null,\n         \"BlockSendingMarketingContent\"
+        : \"tNO\",\n         \"CreateDate\" : \"2021-06-04\",\n         \"CreateTime\"
+        : \"10:56:22\",\n         \"UpdateDate\" : \"2022-03-03\",\n         \"UpdateTime\"
+        : \"10:58:00\",\n         \"ConnectedAddressName\" : null,\n         \"ConnectedAddressType\"
+        : null,\n         \"ForeignCountry\" : null,\n         \"U_v33_TempPassword\"
+        : null,\n         \"U_v33_PasswordHash\" : null,\n         \"U_v33_IsLoginEnabled\"
+        : null,\n         \"U_v33_B1WebRoles\" : null,\n         \"U_v33_LinkedObjKey\"
+        : null,\n         \"U_v33_Answer\" : null,\n         \"U_v33_Question\" :
+        null,\n         \"U_ZEDS_BPLId\" : null,\n         \"U_BOY_85_ECAT\" : null,\n
+        \        \"U_BOY_85_ECAT2\" : null,\n         \"U_BOY_85_ECAT3\" : null,\n
+        \        \"U_BOY_85_ECAT4\" : null,\n         \"U_BOY_85_ECAT5\" : null,\n
+        \        \"ContactEmployeeBlockSendingMarketingContents\" : []\n      },\n
+        \     {\n         \"CardCode\" : \"RIAN\",\n         \"Name\" : \"Larry\",\n
+        \        \"Position\" : \"Goon\",\n         \"Address\" : null,\n         \"Phone1\"
+        : null,\n         \"Phone2\" : null,\n         \"MobilePhone\" : null,\n         \"Fax\"
+        : null,\n         \"E_Mail\" : \"droneinator+larry@gmail.com\",\n         \"Pager\"
+        : null,\n         \"Remarks1\" : null,\n         \"Remarks2\" : null,\n         \"Password\"
+        : null,\n         \"InternalCode\" : 12700,\n         \"PlaceOfBirth\" : \"-1\",\n
+        \        \"DateOfBirth\" : null,\n         \"Gender\" : \"gt_Undefined\",\n
+        \        \"Profession\" : null,\n         \"Title\" : \"Goon\",\n         \"CityOfBirth\"
+        : null,\n         \"Active\" : \"tYES\",\n         \"FirstName\" : \"Larry\",\n
+        \        \"MiddleName\" : null,\n         \"LastName\" : null,\n         \"EmailGroupCode\"
+        : null,\n         \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"13:53:49\",\n         \"UpdateDate\"
+        : \"2022-03-03\",\n         \"UpdateTime\" : \"10:58:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      }\n   ],\n   \"BPAccountReceivablePaybleCollection\" : [],\n   \"BPPaymentMethods\"
+        : [],\n   \"BPWithholdingTaxCollection\" : [],\n   \"BPPaymentDates\" : [],\n
+        \  \"BPBranchAssignment\" : [],\n   \"BPBankAccounts\" : [],\n   \"BPFiscalTaxIDCollection\"
+        : [],\n   \"DiscountGroups\" : [],\n   \"BPIntrastatExtension\" : {},\n   \"BPBlockSendingMarketingContents\"
+        : [],\n   \"BPCurrenciesCollection\" : []\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 18:59:32 GMT
+      ETag:
+      - W/"887309D048BEEF83AD3EABF2A79A64A389AB1C9F"
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '24416'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/PaymentTermsTypes(8)
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#PaymentTermsTypes/@Element\",\n
+        \  \"GroupNumber\" : 8,\n   \"PaymentTermsGroupName\" : \"1% 45 Net 60 Days\",\n
+        \  \"StartFrom\" : \"pdt_None\",\n   \"NumberOfAdditionalMonths\" : 0,\n   \"NumberOfAdditionalDays\"
+        : 60,\n   \"CreditLimit\" : 0.0,\n   \"GeneralDiscount\" : 0.0,\n   \"InterestOnArrears\"
+        : 0.0,\n   \"PriceListNo\" : 2,\n   \"LoadLimit\" : 0.0,\n   \"OpenReceipt\"
+        : \"oip_No\",\n   \"DiscountCode\" : \"1 per 45 Days\",\n   \"DunningCode\"
+        : \"\",\n   \"BaselineDate\" : \"bld_TaxDate\",\n   \"NumberOfInstallments\"
+        : 0,\n   \"NumberOfToleranceDays\" : null\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 18:59:33 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '591'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/SalesPersons(21)
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#SalesPersons/@Element\",\n
+        \  \"SalesEmployeeCode\" : 21,\n   \"SalesEmployeeName\" : \"Paradise Marketing\",\n
+        \  \"Remarks\" : \"\",\n   \"CommissionForSalesEmployee\" : 0.0,\n   \"CommissionGroup\"
+        : 0,\n   \"Locked\" : \"tNO\",\n   \"EmployeeID\" : null,\n   \"Active\" :
+        \"tYES\",\n   \"Telephone\" : null,\n   \"Mobile\" : null,\n   \"Fax\" : null,\n
+        \  \"Email\" : \"outside_sales_person@example.com\",\n   \"U_BOY_50_BRKO\" : null\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 18:59:33 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '451'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/BusinessPartners('RIAN')
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#BusinessPartners/@Element\",\n
+        \  \"odata.etag\" : \"W/\\\"BC33EA4E26E5E1AF1408321416956113A4658763\\\"\",\n
+        \  \"CardCode\" : \"RIAN\",\n   \"CardName\" : \"Mom's Friendly Robot Company\",\n
+        \  \"CardType\" : \"cCustomer\",\n   \"GroupCode\" : 134,\n   \"Address\"
+        : \"123 4th ave\",\n   \"ZipCode\" : \"10006\",\n   \"MailAddress\" : \"123
+        5th ave\",\n   \"MailZipCode\" : \"10006\",\n   \"Phone1\" : \"987654321\",\n
+        \  \"Phone2\" : \"456456456\",\n   \"Fax\" : \"1234\",\n   \"ContactPerson\"
+        : \"Mom\",\n   \"Notes\" : \"Notes botes gotes\",\n   \"PayTermsGrpCode\"
+        : 8,\n   \"CreditLimit\" : 10000.0,\n   \"MaxCommitment\" : 10000.0,\n   \"DiscountPercent\"
+        : null,\n   \"VatLiable\" : \"vLiable\",\n   \"FederalTaxID\" : null,\n   \"DeductibleAtSource\"
+        : \"tNO\",\n   \"DeductionPercent\" : 0.0,\n   \"DeductionValidUntil\" : null,\n
+        \  \"PriceListNum\" : 2,\n   \"IntrestRatePercent\" : 0.0,\n   \"CommissionPercent\"
+        : 0.0,\n   \"CommissionGroupCode\" : 0,\n   \"FreeText\" : \"These are some
+        good notes about this business partner.\",\n   \"SalesPersonCode\" : 21,\n
+        \  \"Currency\" : \"$\",\n   \"RateDiffAccount\" : \"\",\n   \"Cellular\"
+        : \"12345\",\n   \"AvarageLate\" : null,\n   \"City\" : \"New York City\",\n
+        \  \"County\" : null,\n   \"Country\" : \"US\",\n   \"MailCity\" : \"New York
+        City\",\n   \"MailCounty\" : null,\n   \"MailCountry\" : \"US\",\n   \"EmailAddress\"
+        : null,\n   \"Picture\" : null,\n   \"DefaultAccount\" : null,\n   \"DefaultBranch\"
+        : null,\n   \"DefaultBankCode\" : \"-1\",\n   \"AdditionalID\" : null,\n   \"Pager\"
+        : null,\n   \"FatherCard\" : null,\n   \"CardForeignName\" : null,\n   \"FatherType\"
+        : \"cPayments_sum\",\n   \"DeductionOffice\" : null,\n   \"ExportCode\" :
+        null,\n   \"MinIntrest\" : 0.0,\n   \"CurrentAccountBalance\" : 0.0,\n   \"OpenDeliveryNotesBalance\"
+        : 2004.380,\n   \"OpenOrdersBalance\" : 34893.260,\n   \"OpenChecksBalance\"
+        : 0.0,\n   \"VatGroup\" : null,\n   \"ShippingType\" : 3,\n   \"Password\"
+        : null,\n   \"Indicator\" : null,\n   \"IBAN\" : null,\n   \"CreditCardCode\"
+        : 1,\n   \"CreditCardNum\" : \"**********0027\",\n   \"CreditCardExpiration\"
+        : \"2022-01-31\",\n   \"DebitorAccount\" : \"_SYS00000000067\",\n   \"OpenOpportunities\"
+        : null,\n   \"Valid\" : \"tYES\",\n   \"ValidFrom\" : null,\n   \"ValidTo\"
+        : null,\n   \"ValidRemarks\" : null,\n   \"Frozen\" : \"tNO\",\n   \"FrozenFrom\"
+        : null,\n   \"FrozenTo\" : null,\n   \"FrozenRemarks\" : null,\n   \"Block\"
+        : null,\n   \"BillToState\" : \"NY\",\n   \"ShipToState\" : \"NY\",\n   \"ExemptNum\"
+        : null,\n   \"Priority\" : -1,\n   \"FormCode1099\" : null,\n   \"Box1099\"
+        : null,\n   \"PeymentMethodCode\" : null,\n   \"BackOrder\" : \"tYES\",\n
+        \  \"PartialDelivery\" : \"tYES\",\n   \"BlockDunning\" : \"tNO\",\n   \"BankCountry\"
+        : null,\n   \"HouseBank\" : \"KEY\",\n   \"HouseBankCountry\" : \"US\",\n
+        \  \"HouseBankAccount\" : \"4479683033829\",\n   \"ShipToDefault\" : \"Mom
+        Corp\",\n   \"DunningLevel\" : null,\n   \"DunningDate\" : null,\n   \"CollectionAuthorization\"
+        : \"tNO\",\n   \"DME\" : null,\n   \"InstructionKey\" : null,\n   \"SinglePayment\"
+        : \"tNO\",\n   \"ISRBillerID\" : null,\n   \"PaymentBlock\" : \"tNO\",\n   \"ReferenceDetails\"
+        : null,\n   \"HouseBankBranch\" : \"Seattle\",\n   \"OwnerIDNumber\" : null,\n
+        \  \"PaymentBlockDescription\" : -1,\n   \"TaxExemptionLetterNum\" : null,\n
+        \  \"MaxAmountOfExemption\" : 0.0,\n   \"ExemptionValidityDateFrom\" : null,\n
+        \  \"ExemptionValidityDateTo\" : null,\n   \"LinkedBusinessPartner\" : \"12
+        Volt\",\n   \"LastMultiReconciliationNum\" : null,\n   \"DeferredTax\" : \"tNO\",\n
+        \  \"Equalization\" : \"tNO\",\n   \"SubjectToWithholdingTax\" : null,\n   \"CertificateNumber\"
+        : null,\n   \"ExpirationDate\" : null,\n   \"NationalInsuranceNum\" : null,\n
+        \  \"AccrualCriteria\" : \"tNO\",\n   \"WTCode\" : null,\n   \"BillToBuildingFloorRoom\"
+        : \"\",\n   \"DownPaymentClearAct\" : \"_SYS00000000118\",\n   \"ChannelBP\"
+        : null,\n   \"DefaultTechnician\" : null,\n   \"BilltoDefault\" : \"Mom Corp\",\n
+        \  \"CustomerBillofExchangDisc\" : null,\n   \"Territory\" : null,\n   \"ShipToBuildingFloorRoom\"
+        : \"\",\n   \"CustomerBillofExchangPres\" : null,\n   \"ProjectCode\" : null,\n
+        \  \"VatGroupLatinAmerica\" : null,\n   \"DunningTerm\" : null,\n   \"Website\"
+        : \"ilovebender.com\",\n   \"OtherReceivablePayable\" : null,\n   \"BillofExchangeonCollection\"
+        : null,\n   \"CompanyPrivate\" : \"cCompany\",\n   \"LanguageCode\" : 3,\n
+        \  \"UnpaidBillofExchange\" : null,\n   \"WithholdingTaxDeductionGroup\" :
+        -1,\n   \"ClosingDateProcedureNumber\" : null,\n   \"Profession\" : null,\n
+        \  \"BankChargesAllocationCode\" : null,\n   \"TaxRoundingRule\" : \"trr_CompanyDefault\",\n
+        \  \"Properties1\" : \"tYES\",\n   \"Properties2\" : \"tYES\",\n   \"Properties3\"
+        : \"tYES\",\n   \"Properties4\" : \"tYES\",\n   \"Properties5\" : \"tYES\",\n
+        \  \"Properties6\" : \"tYES\",\n   \"Properties7\" : \"tYES\",\n   \"Properties8\"
+        : \"tYES\",\n   \"Properties9\" : \"tYES\",\n   \"Properties10\" : \"tYES\",\n
+        \  \"Properties11\" : \"tYES\",\n   \"Properties12\" : \"tYES\",\n   \"Properties13\"
+        : \"tYES\",\n   \"Properties14\" : \"tYES\",\n   \"Properties15\" : \"tYES\",\n
+        \  \"Properties16\" : \"tYES\",\n   \"Properties17\" : \"tYES\",\n   \"Properties18\"
+        : \"tYES\",\n   \"Properties19\" : \"tYES\",\n   \"Properties20\" : \"tYES\",\n
+        \  \"Properties21\" : \"tYES\",\n   \"Properties22\" : \"tYES\",\n   \"Properties23\"
+        : \"tYES\",\n   \"Properties24\" : \"tYES\",\n   \"Properties25\" : \"tYES\",\n
+        \  \"Properties26\" : \"tYES\",\n   \"Properties27\" : \"tYES\",\n   \"Properties28\"
+        : \"tYES\",\n   \"Properties29\" : \"tYES\",\n   \"Properties30\" : \"tYES\",\n
+        \  \"Properties31\" : \"tYES\",\n   \"Properties32\" : \"tYES\",\n   \"Properties33\"
+        : \"tYES\",\n   \"Properties34\" : \"tYES\",\n   \"Properties35\" : \"tYES\",\n
+        \  \"Properties36\" : \"tYES\",\n   \"Properties37\" : \"tYES\",\n   \"Properties38\"
+        : \"tYES\",\n   \"Properties39\" : \"tYES\",\n   \"Properties40\" : \"tYES\",\n
+        \  \"Properties41\" : \"tYES\",\n   \"Properties42\" : \"tYES\",\n   \"Properties43\"
+        : \"tYES\",\n   \"Properties44\" : \"tYES\",\n   \"Properties45\" : \"tYES\",\n
+        \  \"Properties46\" : \"tYES\",\n   \"Properties47\" : \"tYES\",\n   \"Properties48\"
+        : \"tYES\",\n   \"Properties49\" : \"tYES\",\n   \"Properties50\" : \"tYES\",\n
+        \  \"Properties51\" : \"tYES\",\n   \"Properties52\" : \"tYES\",\n   \"Properties53\"
+        : \"tYES\",\n   \"Properties54\" : \"tYES\",\n   \"Properties55\" : \"tYES\",\n
+        \  \"Properties56\" : \"tYES\",\n   \"Properties57\" : \"tYES\",\n   \"Properties58\"
+        : \"tYES\",\n   \"Properties59\" : \"tYES\",\n   \"Properties60\" : \"tYES\",\n
+        \  \"Properties61\" : \"tYES\",\n   \"Properties62\" : \"tYES\",\n   \"Properties63\"
+        : \"tYES\",\n   \"Properties64\" : \"tYES\",\n   \"CompanyRegistrationNumber\"
+        : null,\n   \"VerificationNumber\" : null,\n   \"DiscountBaseObject\" : \"dgboNone\",\n
+        \  \"DiscountRelations\" : \"dgrLowestDiscount\",\n   \"TypeReport\" : \"atCompany\",\n
+        \  \"ThresholdOverlook\" : \"tNO\",\n   \"SurchargeOverlook\" : \"tNO\",\n
+        \  \"DownPaymentInterimAccount\" : null,\n   \"OperationCode347\" : \"ocSalesOrServicesRevenues\",\n
+        \  \"InsuranceOperation347\" : \"tNO\",\n   \"HierarchicalDeduction\" : \"tNO\",\n
+        \  \"ShaamGroup\" : \"sgServicesAndAsset\",\n   \"WithholdingTaxCertified\"
+        : \"tNO\",\n   \"BookkeepingCertified\" : \"tNO\",\n   \"PlanningGroup\" :
+        null,\n   \"Affiliate\" : \"tNO\",\n   \"Industry\" : null,\n   \"VatIDNum\"
+        : null,\n   \"DatevAccount\" : null,\n   \"DatevFirstDataEntry\" : \"tYES\",\n
+        \  \"UseShippedGoodsAccount\" : \"tNO\",\n   \"GTSRegNo\" : null,\n   \"GTSBankAccountNo\"
+        : null,\n   \"GTSBillingAddrTel\" : null,\n   \"ETaxWebSite\" : null,\n   \"HouseBankIBAN\"
+        : \"\",\n   \"VATRegistrationNumber\" : null,\n   \"RepresentativeName\" :
+        null,\n   \"IndustryType\" : null,\n   \"BusinessType\" : null,\n   \"Series\"
+        : 1,\n   \"AutomaticPosting\" : null,\n   \"InterestAccount\" : null,\n   \"FeeAccount\"
+        : null,\n   \"CampaignNumber\" : null,\n   \"AliasName\" : null,\n   \"DefaultBlanketAgreementNumber\"
+        : null,\n   \"EffectiveDiscount\" : \"dgrLowestDiscount\",\n   \"NoDiscounts\"
+        : \"tNO\",\n   \"EffectivePrice\" : \"epDefaultPriority\",\n   \"EffectivePriceConsidersPriceBeforeDiscount\"
+        : \"tNO\",\n   \"GlobalLocationNumber\" : null,\n   \"EDISenderID\" : null,\n
+        \  \"EDIRecipientID\" : null,\n   \"ResidenNumber\" : \"rntSpanishFiscalID\",\n
+        \  \"RelationshipCode\" : null,\n   \"RelationshipDateFrom\" : null,\n   \"RelationshipDateTill\"
+        : null,\n   \"UnifiedFederalTaxID\" : null,\n   \"AttachmentEntry\" : null,\n
+        \  \"TypeOfOperation\" : null,\n   \"EndorsableChecksFromBP\" : \"tYES\",\n
+        \  \"AcceptsEndorsedChecks\" : \"tNO\",\n   \"OwnerCode\" : null,\n   \"BlockSendingMarketingContent\"
+        : \"tNO\",\n   \"AgentCode\" : null,\n   \"PriceMode\" : null,\n   \"EDocGenerationType\"
+        : null,\n   \"EDocStreet\" : null,\n   \"EDocStreetNumber\" : null,\n   \"EDocBuildingNumber\"
+        : null,\n   \"EDocZipCode\" : null,\n   \"EDocCity\" : null,\n   \"EDocCountry\"
+        : null,\n   \"EDocDistrict\" : null,\n   \"EDocRepresentativeFirstName\" :
+        null,\n   \"EDocRepresentativeSurname\" : null,\n   \"EDocRepresentativeCompany\"
+        : null,\n   \"EDocRepresentativeFiscalCode\" : null,\n   \"EDocRepresentativeAdditionalId\"
+        : null,\n   \"EDocPECAddress\" : null,\n   \"IPACodeForPA\" : null,\n   \"UpdateDate\"
+        : \"2022-03-03\",\n   \"UpdateTime\" : \"11:00:58\",\n   \"ExemptionMaxAmountValidationType\"
+        : \"emaIndividual\",\n   \"ECommerceMerchantID\" : null,\n   \"UseBillToAddrToDetermineTax\"
+        : \"tNO\",\n   \"CreateDate\" : \"2021-05-13\",\n   \"CreateTime\" : \"13:44:34\",\n
+        \  \"DefaultTransporterEntry\" : null,\n   \"DefaultTransporterLineNumber\"
+        : null,\n   \"FCERelevant\" : \"tNO\",\n   \"FCEValidateBaseDelivery\" : \"tNO\",\n
+        \  \"MainUsage\" : null,\n   \"EBooksVATExemptionCause\" : null,\n   \"LegalText\"
+        : null,\n   \"DataVersion\" : 27,\n   \"ExchangeRateForIncomingPayment\" :
+        \"tYES\",\n   \"ExchangeRateForOutgoingPayment\" : \"tYES\",\n   \"CertificateDetails\"
+        : null,\n   \"DefaultCurrency\" : null,\n   \"EORINumber\" : null,\n   \"FCEAsPaymentMeans\"
+        : \"tNO\",\n   \"U_V33_PTACCTNUM\" : null,\n   \"U_Territory\" : \"T1\",\n
+        \  \"U_PriceLevel\" : null,\n   \"U_SalesManager\" : \"Jason\",\n   \"U_SalesSupport\"
+        : \"Rob\",\n   \"U_BBUPS\" : null,\n   \"U_AddNotes\" : null,\n   \"U_VIR\"
+        : \"YES\",\n   \"U_Pro\" : null,\n   \"U_SpecPricing\" : null,\n   \"U_V33_SYNCB2B\"
+        : \"YES\",\n   \"U_V33_PRODLR\" : \"NO\",\n   \"U_V33_COMPUSTAR\" : \"YES\",\n
+        \  \"U_V33_ARCSTART\" : \"YES\",\n   \"U_V33_FTX\" : \"YES\",\n   \"U_FT_Per_Guarantee\"
+        : null,\n   \"U_FT_Agr_Update_Date\" : null,\n   \"U_FT_Reseller_Permit\"
+        : null,\n   \"U_FT_Fall_VIR_Partic\" : \"NO\",\n   \"U_AP_Contact\" : null,\n
+        \  \"U_AP_Email\" : null,\n   \"U_AP_Phone\" : null,\n   \"U_AP_Notes\" :
+        null,\n   \"U_FT_DFI_PRICING\" : \"YES\",\n   \"U_BOY_23_QCCS\" : null,\n
+        \  \"U_BOY_23_ADPRTCD\" : null,\n   \"U_BOY_TB_0\" : \"N\",\n   \"U_Warranty\"
+        : \"EXCHANGE\",\n   \"U_MAP_Policy_Date\" : null,\n   \"ElectronicProtocols\"
+        : [],\n   \"BPAddresses\" : [\n      {\n         \"AddressName\" : \"Planet
+        Express\",\n         \"Street\" : \"5432 New Street\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"1234\",\n         \"City\" : \"New New York\",\n
+        \        \"County\" : null,\n         \"Country\" : \"CA\",\n         \"State\"
+        : \"\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"\",\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 2,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-04\",\n         \"CreateTime\"
+        : \"13:51:19\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Mom Corp\",\n         \"Street\"
+        : \"123 5th ave\",\n         \"Block\" : null,\n         \"ZipCode\" : \"10006\",\n
+        \        \"City\" : \"New York City\",\n         \"County\" : null,\n         \"Country\"
+        : \"US\",\n         \"State\" : \"NY\",\n         \"FederalTaxID\" : null,\n
+        \        \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : null,\n         \"AddressType\"
+        : \"bo_ShipTo\",\n         \"AddressName2\" : null,\n         \"AddressName3\"
+        : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\" : null,\n
+        \        \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 3,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"13:48:12\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Mom Corp\",\n         \"Street\" : \"123 4th ave\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"10006\",\n         \"City\" : \"New York
+        City\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"\",\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 4,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-07\",\n         \"CreateTime\"
+        : \"09:47:06\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Canadian Shipping\",\n
+        \        \"Street\" : \"456 Thank you way\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"V1X 8O8\",\n         \"City\" : \"Nice Town\",\n
+        \        \"County\" : null,\n         \"Country\" : \"CA\",\n         \"State\"
+        : \"BC\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 6,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-24\",\n         \"CreateTime\"
+        : \"12:06:48\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"billing 3\",\n         \"Street\"
+        : \"123 nice ave.\",\n         \"Block\" : null,\n         \"ZipCode\" : \"12345\",\n
+        \        \"City\" : \"Townsville\",\n         \"County\" : null,\n         \"Country\"
+        : \"US\",\n         \"State\" : \"NE\",\n         \"FederalTaxID\" : null,\n
+        \        \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : \"unit A\",\n
+        \        \"AddressType\" : \"bo_BillTo\",\n         \"AddressName2\" : null,\n
+        \        \"AddressName3\" : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\"
+        : null,\n         \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 8,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2021-06-24\",\n         \"CreateTime\" : \"12:13:51\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Wernstrom Enterprise\",\n         \"Street\" : \"1729 cube way\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"12345\",\n         \"City\" : \"New New
+        York\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"Unit 0\",\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 10,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-09-09\",\n         \"CreateTime\"
+        : \"10:22:02\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"new shipping address\",\n
+        \        \"Street\" : \"1456 streety ave\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"12875\",\n         \"City\" : \"make belive town\",\n
+        \        \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"OR\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 11,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-09-09\",\n         \"CreateTime\"
+        : \"15:02:56\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Zoidberg\",\n         \"Street\"
+        : \"12345 Lost City St\",\n         \"Block\" : null,\n         \"ZipCode\"
+        : \"30301\",\n         \"City\" : \"Atlanta\",\n         \"County\" : null,\n
+        \        \"Country\" : \"US\",\n         \"State\" : \"GA\",\n         \"FederalTaxID\"
+        : null,\n         \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : null,\n
+        \        \"AddressType\" : \"bo_BillTo\",\n         \"AddressName2\" : null,\n
+        \        \"AddressName3\" : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\"
+        : null,\n         \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 13,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2022-02-25\",\n         \"CreateTime\" : \"11:37:59\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Awesome Express\",\n         \"Street\" : \"4567\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"10001\",\n         \"City\" : \"New New
+        York\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 14,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2022-02-25\",\n         \"CreateTime\"
+        : \"11:39:02\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Awesome Express\",\n
+        \        \"Street\" : \"789 billing street\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"10001\",\n         \"City\" : \"New New York\",\n
+        \        \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 15,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2022-03-03\",\n         \"CreateTime\"
+        : \"11:00:58\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      }\n   ],\n   \"ContactEmployees\" : [\n      {\n         \"CardCode\"
+        : \"RIAN\",\n         \"Name\" : \"Mom\",\n         \"Position\" : null,\n
+        \        \"Address\" : \"123 Fakes Street\",\n         \"Phone1\" : \"123123123\",\n
+        \        \"Phone2\" : null,\n         \"MobilePhone\" : null,\n         \"Fax\"
+        : null,\n         \"E_Mail\" : \"droneinator+mom@gmail.com\",\n         \"Pager\"
+        : null,\n         \"Remarks1\" : null,\n         \"Remarks2\" : null,\n         \"Password\"
+        : null,\n         \"InternalCode\" : 12697,\n         \"PlaceOfBirth\" : \"AO\",\n
+        \        \"DateOfBirth\" : \"2121-06-04\",\n         \"Gender\" : \"gt_Undefined\",\n
+        \        \"Profession\" : null,\n         \"Title\" : \"CEO\",\n         \"CityOfBirth\"
+        : null,\n         \"Active\" : \"tYES\",\n         \"FirstName\" : \"Mom\",\n
+        \        \"MiddleName\" : null,\n         \"LastName\" : \"Tester\",\n         \"EmailGroupCode\"
+        : null,\n         \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-05-26\",\n         \"CreateTime\" : \"11:31:14\",\n         \"UpdateDate\"
+        : \"2021-12-15\",\n         \"UpdateTime\" : \"16:07:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : \"passwords in plain text??\",\n         \"U_v33_IsLoginEnabled\" : null,\n
+        \        \"U_v33_B1WebRoles\" : null,\n         \"U_v33_LinkedObjKey\" : null,\n
+        \        \"U_v33_Answer\" : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\"
+        : null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" :
+        null,\n         \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" :
+        null,\n         \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Walt\",\n         \"Position\" : null,\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+walter@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12698,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        null,\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Walter\",\n         \"MiddleName\" : \"Carol\",\n
+        \        \"LastName\" : \"Miller\",\n         \"EmailGroupCode\" : null,\n
+        \        \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"10:44:29\",\n         \"UpdateDate\"
+        : \"2021-12-15\",\n         \"UpdateTime\" : \"10:32:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Ignar\",\n         \"Position\" : null,\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+Ignar@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12699,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        \"Lackey\",\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Ignar\",\n         \"MiddleName\" : \"Willy\",\n
+        \        \"LastName\" : \"Miller\",\n         \"EmailGroupCode\" : null,\n
+        \        \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"10:56:22\",\n         \"UpdateDate\"
+        : \"2022-03-03\",\n         \"UpdateTime\" : \"11:00:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Larry\",\n         \"Position\" : \"Goon\",\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+larry@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12700,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        \"Goon\",\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Larry\",\n         \"MiddleName\" : null,\n         \"LastName\"
+        : null,\n         \"EmailGroupCode\" : null,\n         \"BlockSendingMarketingContent\"
+        : \"tNO\",\n         \"CreateDate\" : \"2021-06-04\",\n         \"CreateTime\"
+        : \"13:53:49\",\n         \"UpdateDate\" : \"2022-03-03\",\n         \"UpdateTime\"
+        : \"10:58:00\",\n         \"ConnectedAddressName\" : null,\n         \"ConnectedAddressType\"
+        : null,\n         \"ForeignCountry\" : null,\n         \"U_v33_TempPassword\"
+        : null,\n         \"U_v33_PasswordHash\" : null,\n         \"U_v33_IsLoginEnabled\"
+        : null,\n         \"U_v33_B1WebRoles\" : null,\n         \"U_v33_LinkedObjKey\"
+        : null,\n         \"U_v33_Answer\" : null,\n         \"U_v33_Question\" :
+        null,\n         \"U_ZEDS_BPLId\" : null,\n         \"U_BOY_85_ECAT\" : null,\n
+        \        \"U_BOY_85_ECAT2\" : null,\n         \"U_BOY_85_ECAT3\" : null,\n
+        \        \"U_BOY_85_ECAT4\" : null,\n         \"U_BOY_85_ECAT5\" : null,\n
+        \        \"ContactEmployeeBlockSendingMarketingContents\" : []\n      },\n
+        \     {\n         \"CardCode\" : \"RIAN\",\n         \"Name\" : \"Wernstrom\",\n
+        \        \"Position\" : null,\n         \"Address\" : null,\n         \"Phone1\"
+        : null,\n         \"Phone2\" : null,\n         \"MobilePhone\" : null,\n         \"Fax\"
+        : null,\n         \"E_Mail\" : \"droneinator+wernstrom@gmail.com\",\n         \"Pager\" : null,\n         \"Remarks1\"
+        : null,\n         \"Remarks2\" : null,\n         \"Password\" : null,\n         \"InternalCode\"
+        : 12708,\n         \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" :
+        \"2922-03-03\",\n         \"Gender\" : \"gt_Undefined\",\n         \"Profession\"
+        : null,\n         \"Title\" : null,\n         \"CityOfBirth\" : null,\n         \"Active\"
+        : \"tYES\",\n         \"FirstName\" : \"Ogden\",\n         \"MiddleName\"
+        : null,\n         \"LastName\" : \"Wernstrom\",\n         \"EmailGroupCode\"
+        : null,\n         \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2022-03-03\",\n         \"CreateTime\" : \"11:00:58\",\n         \"UpdateDate\"
+        : \"2022-03-03\",\n         \"UpdateTime\" : \"11:00:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      }\n   ],\n   \"BPAccountReceivablePaybleCollection\" : [],\n   \"BPPaymentMethods\"
+        : [],\n   \"BPWithholdingTaxCollection\" : [],\n   \"BPPaymentDates\" : [],\n
+        \  \"BPBranchAssignment\" : [],\n   \"BPBankAccounts\" : [],\n   \"BPFiscalTaxIDCollection\"
+        : [],\n   \"DiscountGroups\" : [],\n   \"BPIntrastatExtension\" : {},\n   \"BPBlockSendingMarketingContents\"
+        : [],\n   \"BPCurrenciesCollection\" : []\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 19:01:18 GMT
+      ETag:
+      - W/"BC33EA4E26E5E1AF1408321416956113A4658763"
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Transfer-Encoding:
+      - chunked
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '26918'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/PaymentTermsTypes(8)
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#PaymentTermsTypes/@Element\",\n
+        \  \"GroupNumber\" : 8,\n   \"PaymentTermsGroupName\" : \"1% 45 Net 60 Days\",\n
+        \  \"StartFrom\" : \"pdt_None\",\n   \"NumberOfAdditionalMonths\" : 0,\n   \"NumberOfAdditionalDays\"
+        : 60,\n   \"CreditLimit\" : 0.0,\n   \"GeneralDiscount\" : 0.0,\n   \"InterestOnArrears\"
+        : 0.0,\n   \"PriceListNo\" : 2,\n   \"LoadLimit\" : 0.0,\n   \"OpenReceipt\"
+        : \"oip_No\",\n   \"DiscountCode\" : \"1 per 45 Days\",\n   \"DunningCode\"
+        : \"\",\n   \"BaselineDate\" : \"bld_TaxDate\",\n   \"NumberOfInstallments\"
+        : 0,\n   \"NumberOfToleranceDays\" : null\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 19:01:18 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '591'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/SalesPersons(21)
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#SalesPersons/@Element\",\n
+        \  \"SalesEmployeeCode\" : 21,\n   \"SalesEmployeeName\" : \"Paradise Marketing\",\n
+        \  \"Remarks\" : \"\",\n   \"CommissionForSalesEmployee\" : 0.0,\n   \"CommissionGroup\"
+        : 0,\n   \"Locked\" : \"tNO\",\n   \"EmployeeID\" : null,\n   \"Active\" :
+        \"tYES\",\n   \"Telephone\" : null,\n   \"Mobile\" : null,\n   \"Fax\" : null,\n
+        \  \"Email\" : \"outside_sales_person@example.com\",\n   \"U_BOY_50_BRKO\" : null\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 19:01:18 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '451'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/BusinessPartners('RIAN')
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#BusinessPartners/@Element\",\n
+        \  \"odata.etag\" : \"W/\\\"BC33EA4E26E5E1AF1408321416956113A4658763\\\"\",\n
+        \  \"CardCode\" : \"RIAN\",\n   \"CardName\" : \"Mom's Friendly Robot Company\",\n
+        \  \"CardType\" : \"cCustomer\",\n   \"GroupCode\" : 134,\n   \"Address\"
+        : \"123 4th ave\",\n   \"ZipCode\" : \"10006\",\n   \"MailAddress\" : \"123
+        5th ave\",\n   \"MailZipCode\" : \"10006\",\n   \"Phone1\" : \"987654321\",\n
+        \  \"Phone2\" : \"456456456\",\n   \"Fax\" : \"1234\",\n   \"ContactPerson\"
+        : \"Mom\",\n   \"Notes\" : \"Notes botes gotes\",\n   \"PayTermsGrpCode\"
+        : 8,\n   \"CreditLimit\" : 10000.0,\n   \"MaxCommitment\" : 10000.0,\n   \"DiscountPercent\"
+        : null,\n   \"VatLiable\" : \"vLiable\",\n   \"FederalTaxID\" : null,\n   \"DeductibleAtSource\"
+        : \"tNO\",\n   \"DeductionPercent\" : 0.0,\n   \"DeductionValidUntil\" : null,\n
+        \  \"PriceListNum\" : 2,\n   \"IntrestRatePercent\" : 0.0,\n   \"CommissionPercent\"
+        : 0.0,\n   \"CommissionGroupCode\" : 0,\n   \"FreeText\" : \"These are some
+        good notes about this business partner.\",\n   \"SalesPersonCode\" : 21,\n
+        \  \"Currency\" : \"$\",\n   \"RateDiffAccount\" : \"\",\n   \"Cellular\"
+        : \"12345\",\n   \"AvarageLate\" : null,\n   \"City\" : \"New York City\",\n
+        \  \"County\" : null,\n   \"Country\" : \"US\",\n   \"MailCity\" : \"New York
+        City\",\n   \"MailCounty\" : null,\n   \"MailCountry\" : \"US\",\n   \"EmailAddress\"
+        : null,\n   \"Picture\" : null,\n   \"DefaultAccount\" : null,\n   \"DefaultBranch\"
+        : null,\n   \"DefaultBankCode\" : \"-1\",\n   \"AdditionalID\" : null,\n   \"Pager\"
+        : null,\n   \"FatherCard\" : null,\n   \"CardForeignName\" : null,\n   \"FatherType\"
+        : \"cPayments_sum\",\n   \"DeductionOffice\" : null,\n   \"ExportCode\" :
+        null,\n   \"MinIntrest\" : 0.0,\n   \"CurrentAccountBalance\" : 0.0,\n   \"OpenDeliveryNotesBalance\"
+        : 2004.380,\n   \"OpenOrdersBalance\" : 34893.260,\n   \"OpenChecksBalance\"
+        : 0.0,\n   \"VatGroup\" : null,\n   \"ShippingType\" : 3,\n   \"Password\"
+        : null,\n   \"Indicator\" : null,\n   \"IBAN\" : null,\n   \"CreditCardCode\"
+        : 1,\n   \"CreditCardNum\" : \"**********0027\",\n   \"CreditCardExpiration\"
+        : \"2022-01-31\",\n   \"DebitorAccount\" : \"_SYS00000000067\",\n   \"OpenOpportunities\"
+        : null,\n   \"Valid\" : \"tYES\",\n   \"ValidFrom\" : null,\n   \"ValidTo\"
+        : null,\n   \"ValidRemarks\" : null,\n   \"Frozen\" : \"tNO\",\n   \"FrozenFrom\"
+        : null,\n   \"FrozenTo\" : null,\n   \"FrozenRemarks\" : null,\n   \"Block\"
+        : null,\n   \"BillToState\" : \"NY\",\n   \"ShipToState\" : \"NY\",\n   \"ExemptNum\"
+        : null,\n   \"Priority\" : -1,\n   \"FormCode1099\" : null,\n   \"Box1099\"
+        : null,\n   \"PeymentMethodCode\" : null,\n   \"BackOrder\" : \"tYES\",\n
+        \  \"PartialDelivery\" : \"tYES\",\n   \"BlockDunning\" : \"tNO\",\n   \"BankCountry\"
+        : null,\n   \"HouseBank\" : \"KEY\",\n   \"HouseBankCountry\" : \"US\",\n
+        \  \"HouseBankAccount\" : \"4479683033829\",\n   \"ShipToDefault\" : \"Mom
+        Corp\",\n   \"DunningLevel\" : null,\n   \"DunningDate\" : null,\n   \"CollectionAuthorization\"
+        : \"tNO\",\n   \"DME\" : null,\n   \"InstructionKey\" : null,\n   \"SinglePayment\"
+        : \"tNO\",\n   \"ISRBillerID\" : null,\n   \"PaymentBlock\" : \"tNO\",\n   \"ReferenceDetails\"
+        : null,\n   \"HouseBankBranch\" : \"Seattle\",\n   \"OwnerIDNumber\" : null,\n
+        \  \"PaymentBlockDescription\" : -1,\n   \"TaxExemptionLetterNum\" : null,\n
+        \  \"MaxAmountOfExemption\" : 0.0,\n   \"ExemptionValidityDateFrom\" : null,\n
+        \  \"ExemptionValidityDateTo\" : null,\n   \"LinkedBusinessPartner\" : \"12
+        Volt\",\n   \"LastMultiReconciliationNum\" : null,\n   \"DeferredTax\" : \"tNO\",\n
+        \  \"Equalization\" : \"tNO\",\n   \"SubjectToWithholdingTax\" : null,\n   \"CertificateNumber\"
+        : null,\n   \"ExpirationDate\" : null,\n   \"NationalInsuranceNum\" : null,\n
+        \  \"AccrualCriteria\" : \"tNO\",\n   \"WTCode\" : null,\n   \"BillToBuildingFloorRoom\"
+        : \"\",\n   \"DownPaymentClearAct\" : \"_SYS00000000118\",\n   \"ChannelBP\"
+        : null,\n   \"DefaultTechnician\" : null,\n   \"BilltoDefault\" : \"Mom Corp\",\n
+        \  \"CustomerBillofExchangDisc\" : null,\n   \"Territory\" : null,\n   \"ShipToBuildingFloorRoom\"
+        : \"\",\n   \"CustomerBillofExchangPres\" : null,\n   \"ProjectCode\" : null,\n
+        \  \"VatGroupLatinAmerica\" : null,\n   \"DunningTerm\" : null,\n   \"Website\"
+        : \"ilovebender.com\",\n   \"OtherReceivablePayable\" : null,\n   \"BillofExchangeonCollection\"
+        : null,\n   \"CompanyPrivate\" : \"cCompany\",\n   \"LanguageCode\" : 3,\n
+        \  \"UnpaidBillofExchange\" : null,\n   \"WithholdingTaxDeductionGroup\" :
+        -1,\n   \"ClosingDateProcedureNumber\" : null,\n   \"Profession\" : null,\n
+        \  \"BankChargesAllocationCode\" : null,\n   \"TaxRoundingRule\" : \"trr_CompanyDefault\",\n
+        \  \"Properties1\" : \"tYES\",\n   \"Properties2\" : \"tYES\",\n   \"Properties3\"
+        : \"tYES\",\n   \"Properties4\" : \"tYES\",\n   \"Properties5\" : \"tYES\",\n
+        \  \"Properties6\" : \"tYES\",\n   \"Properties7\" : \"tYES\",\n   \"Properties8\"
+        : \"tYES\",\n   \"Properties9\" : \"tYES\",\n   \"Properties10\" : \"tYES\",\n
+        \  \"Properties11\" : \"tYES\",\n   \"Properties12\" : \"tYES\",\n   \"Properties13\"
+        : \"tYES\",\n   \"Properties14\" : \"tYES\",\n   \"Properties15\" : \"tYES\",\n
+        \  \"Properties16\" : \"tYES\",\n   \"Properties17\" : \"tYES\",\n   \"Properties18\"
+        : \"tYES\",\n   \"Properties19\" : \"tYES\",\n   \"Properties20\" : \"tYES\",\n
+        \  \"Properties21\" : \"tYES\",\n   \"Properties22\" : \"tYES\",\n   \"Properties23\"
+        : \"tYES\",\n   \"Properties24\" : \"tYES\",\n   \"Properties25\" : \"tYES\",\n
+        \  \"Properties26\" : \"tYES\",\n   \"Properties27\" : \"tYES\",\n   \"Properties28\"
+        : \"tYES\",\n   \"Properties29\" : \"tYES\",\n   \"Properties30\" : \"tYES\",\n
+        \  \"Properties31\" : \"tYES\",\n   \"Properties32\" : \"tYES\",\n   \"Properties33\"
+        : \"tYES\",\n   \"Properties34\" : \"tYES\",\n   \"Properties35\" : \"tYES\",\n
+        \  \"Properties36\" : \"tYES\",\n   \"Properties37\" : \"tYES\",\n   \"Properties38\"
+        : \"tYES\",\n   \"Properties39\" : \"tYES\",\n   \"Properties40\" : \"tYES\",\n
+        \  \"Properties41\" : \"tYES\",\n   \"Properties42\" : \"tYES\",\n   \"Properties43\"
+        : \"tYES\",\n   \"Properties44\" : \"tYES\",\n   \"Properties45\" : \"tYES\",\n
+        \  \"Properties46\" : \"tYES\",\n   \"Properties47\" : \"tYES\",\n   \"Properties48\"
+        : \"tYES\",\n   \"Properties49\" : \"tYES\",\n   \"Properties50\" : \"tYES\",\n
+        \  \"Properties51\" : \"tYES\",\n   \"Properties52\" : \"tYES\",\n   \"Properties53\"
+        : \"tYES\",\n   \"Properties54\" : \"tYES\",\n   \"Properties55\" : \"tYES\",\n
+        \  \"Properties56\" : \"tYES\",\n   \"Properties57\" : \"tYES\",\n   \"Properties58\"
+        : \"tYES\",\n   \"Properties59\" : \"tYES\",\n   \"Properties60\" : \"tYES\",\n
+        \  \"Properties61\" : \"tYES\",\n   \"Properties62\" : \"tYES\",\n   \"Properties63\"
+        : \"tYES\",\n   \"Properties64\" : \"tYES\",\n   \"CompanyRegistrationNumber\"
+        : null,\n   \"VerificationNumber\" : null,\n   \"DiscountBaseObject\" : \"dgboNone\",\n
+        \  \"DiscountRelations\" : \"dgrLowestDiscount\",\n   \"TypeReport\" : \"atCompany\",\n
+        \  \"ThresholdOverlook\" : \"tNO\",\n   \"SurchargeOverlook\" : \"tNO\",\n
+        \  \"DownPaymentInterimAccount\" : null,\n   \"OperationCode347\" : \"ocSalesOrServicesRevenues\",\n
+        \  \"InsuranceOperation347\" : \"tNO\",\n   \"HierarchicalDeduction\" : \"tNO\",\n
+        \  \"ShaamGroup\" : \"sgServicesAndAsset\",\n   \"WithholdingTaxCertified\"
+        : \"tNO\",\n   \"BookkeepingCertified\" : \"tNO\",\n   \"PlanningGroup\" :
+        null,\n   \"Affiliate\" : \"tNO\",\n   \"Industry\" : null,\n   \"VatIDNum\"
+        : null,\n   \"DatevAccount\" : null,\n   \"DatevFirstDataEntry\" : \"tYES\",\n
+        \  \"UseShippedGoodsAccount\" : \"tNO\",\n   \"GTSRegNo\" : null,\n   \"GTSBankAccountNo\"
+        : null,\n   \"GTSBillingAddrTel\" : null,\n   \"ETaxWebSite\" : null,\n   \"HouseBankIBAN\"
+        : \"\",\n   \"VATRegistrationNumber\" : null,\n   \"RepresentativeName\" :
+        null,\n   \"IndustryType\" : null,\n   \"BusinessType\" : null,\n   \"Series\"
+        : 1,\n   \"AutomaticPosting\" : null,\n   \"InterestAccount\" : null,\n   \"FeeAccount\"
+        : null,\n   \"CampaignNumber\" : null,\n   \"AliasName\" : null,\n   \"DefaultBlanketAgreementNumber\"
+        : null,\n   \"EffectiveDiscount\" : \"dgrLowestDiscount\",\n   \"NoDiscounts\"
+        : \"tNO\",\n   \"EffectivePrice\" : \"epDefaultPriority\",\n   \"EffectivePriceConsidersPriceBeforeDiscount\"
+        : \"tNO\",\n   \"GlobalLocationNumber\" : null,\n   \"EDISenderID\" : null,\n
+        \  \"EDIRecipientID\" : null,\n   \"ResidenNumber\" : \"rntSpanishFiscalID\",\n
+        \  \"RelationshipCode\" : null,\n   \"RelationshipDateFrom\" : null,\n   \"RelationshipDateTill\"
+        : null,\n   \"UnifiedFederalTaxID\" : null,\n   \"AttachmentEntry\" : null,\n
+        \  \"TypeOfOperation\" : null,\n   \"EndorsableChecksFromBP\" : \"tYES\",\n
+        \  \"AcceptsEndorsedChecks\" : \"tNO\",\n   \"OwnerCode\" : null,\n   \"BlockSendingMarketingContent\"
+        : \"tNO\",\n   \"AgentCode\" : null,\n   \"PriceMode\" : null,\n   \"EDocGenerationType\"
+        : null,\n   \"EDocStreet\" : null,\n   \"EDocStreetNumber\" : null,\n   \"EDocBuildingNumber\"
+        : null,\n   \"EDocZipCode\" : null,\n   \"EDocCity\" : null,\n   \"EDocCountry\"
+        : null,\n   \"EDocDistrict\" : null,\n   \"EDocRepresentativeFirstName\" :
+        null,\n   \"EDocRepresentativeSurname\" : null,\n   \"EDocRepresentativeCompany\"
+        : null,\n   \"EDocRepresentativeFiscalCode\" : null,\n   \"EDocRepresentativeAdditionalId\"
+        : null,\n   \"EDocPECAddress\" : null,\n   \"IPACodeForPA\" : null,\n   \"UpdateDate\"
+        : \"2022-03-03\",\n   \"UpdateTime\" : \"11:00:58\",\n   \"ExemptionMaxAmountValidationType\"
+        : \"emaIndividual\",\n   \"ECommerceMerchantID\" : null,\n   \"UseBillToAddrToDetermineTax\"
+        : \"tNO\",\n   \"CreateDate\" : \"2021-05-13\",\n   \"CreateTime\" : \"13:44:34\",\n
+        \  \"DefaultTransporterEntry\" : null,\n   \"DefaultTransporterLineNumber\"
+        : null,\n   \"FCERelevant\" : \"tNO\",\n   \"FCEValidateBaseDelivery\" : \"tNO\",\n
+        \  \"MainUsage\" : null,\n   \"EBooksVATExemptionCause\" : null,\n   \"LegalText\"
+        : null,\n   \"DataVersion\" : 27,\n   \"ExchangeRateForIncomingPayment\" :
+        \"tYES\",\n   \"ExchangeRateForOutgoingPayment\" : \"tYES\",\n   \"CertificateDetails\"
+        : null,\n   \"DefaultCurrency\" : null,\n   \"EORINumber\" : null,\n   \"FCEAsPaymentMeans\"
+        : \"tNO\",\n   \"U_V33_PTACCTNUM\" : null,\n   \"U_Territory\" : \"T1\",\n
+        \  \"U_PriceLevel\" : null,\n   \"U_SalesManager\" : \"Jason\",\n   \"U_SalesSupport\"
+        : \"Rob\",\n   \"U_BBUPS\" : null,\n   \"U_AddNotes\" : null,\n   \"U_VIR\"
+        : \"YES\",\n   \"U_Pro\" : null,\n   \"U_SpecPricing\" : null,\n   \"U_V33_SYNCB2B\"
+        : \"YES\",\n   \"U_V33_PRODLR\" : \"NO\",\n   \"U_V33_COMPUSTAR\" : \"YES\",\n
+        \  \"U_V33_ARCSTART\" : \"YES\",\n   \"U_V33_FTX\" : \"YES\",\n   \"U_FT_Per_Guarantee\"
+        : null,\n   \"U_FT_Agr_Update_Date\" : null,\n   \"U_FT_Reseller_Permit\"
+        : null,\n   \"U_FT_Fall_VIR_Partic\" : \"NO\",\n   \"U_AP_Contact\" : null,\n
+        \  \"U_AP_Email\" : null,\n   \"U_AP_Phone\" : null,\n   \"U_AP_Notes\" :
+        null,\n   \"U_FT_DFI_PRICING\" : \"YES\",\n   \"U_BOY_23_QCCS\" : null,\n
+        \  \"U_BOY_23_ADPRTCD\" : null,\n   \"U_BOY_TB_0\" : \"N\",\n   \"U_Warranty\"
+        : \"EXCHANGE\",\n   \"U_MAP_Policy_Date\" : null,\n   \"ElectronicProtocols\"
+        : [],\n   \"BPAddresses\" : [\n      {\n         \"AddressName\" : \"Planet
+        Express\",\n         \"Street\" : \"5432 New Street\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"1234\",\n         \"City\" : \"New New York\",\n
+        \        \"County\" : null,\n         \"Country\" : \"CA\",\n         \"State\"
+        : \"\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"\",\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 2,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-04\",\n         \"CreateTime\"
+        : \"13:51:19\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Mom Corp\",\n         \"Street\"
+        : \"123 5th ave\",\n         \"Block\" : null,\n         \"ZipCode\" : \"10006\",\n
+        \        \"City\" : \"New York City\",\n         \"County\" : null,\n         \"Country\"
+        : \"US\",\n         \"State\" : \"NY\",\n         \"FederalTaxID\" : null,\n
+        \        \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : null,\n         \"AddressType\"
+        : \"bo_ShipTo\",\n         \"AddressName2\" : null,\n         \"AddressName3\"
+        : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\" : null,\n
+        \        \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 3,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"13:48:12\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Mom Corp\",\n         \"Street\" : \"123 4th ave\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"10006\",\n         \"City\" : \"New York
+        City\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"\",\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 4,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-07\",\n         \"CreateTime\"
+        : \"09:47:06\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Canadian Shipping\",\n
+        \        \"Street\" : \"456 Thank you way\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"V1X 8O8\",\n         \"City\" : \"Nice Town\",\n
+        \        \"County\" : null,\n         \"Country\" : \"CA\",\n         \"State\"
+        : \"BC\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 6,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-06-24\",\n         \"CreateTime\"
+        : \"12:06:48\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"billing 3\",\n         \"Street\"
+        : \"123 nice ave.\",\n         \"Block\" : null,\n         \"ZipCode\" : \"12345\",\n
+        \        \"City\" : \"Townsville\",\n         \"County\" : null,\n         \"Country\"
+        : \"US\",\n         \"State\" : \"NE\",\n         \"FederalTaxID\" : null,\n
+        \        \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : \"unit A\",\n
+        \        \"AddressType\" : \"bo_BillTo\",\n         \"AddressName2\" : null,\n
+        \        \"AddressName3\" : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\"
+        : null,\n         \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 8,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2021-06-24\",\n         \"CreateTime\" : \"12:13:51\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Wernstrom Enterprise\",\n         \"Street\" : \"1729 cube way\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"12345\",\n         \"City\" : \"New New
+        York\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : \"Unit 0\",\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 10,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-09-09\",\n         \"CreateTime\"
+        : \"10:22:02\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"new shipping address\",\n
+        \        \"Street\" : \"1456 streety ave\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"12875\",\n         \"City\" : \"make belive town\",\n
+        \        \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"OR\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 11,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2021-09-09\",\n         \"CreateTime\"
+        : \"15:02:56\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Zoidberg\",\n         \"Street\"
+        : \"12345 Lost City St\",\n         \"Block\" : null,\n         \"ZipCode\"
+        : \"30301\",\n         \"City\" : \"Atlanta\",\n         \"County\" : null,\n
+        \        \"Country\" : \"US\",\n         \"State\" : \"GA\",\n         \"FederalTaxID\"
+        : null,\n         \"TaxCode\" : null,\n         \"BuildingFloorRoom\" : null,\n
+        \        \"AddressType\" : \"bo_BillTo\",\n         \"AddressName2\" : null,\n
+        \        \"AddressName3\" : null,\n         \"TypeOfAddress\" : null,\n         \"StreetNo\"
+        : null,\n         \"BPCode\" : \"RIAN\",\n         \"RowNum\" : 13,\n         \"GlobalLocationNumber\"
+        : null,\n         \"Nationality\" : null,\n         \"TaxOffice\" : null,\n
+        \        \"GSTIN\" : null,\n         \"GstType\" : null,\n         \"CreateDate\"
+        : \"2022-02-25\",\n         \"CreateTime\" : \"11:37:59\",\n         \"MYFType\"
+        : null,\n         \"TaasEnabled\" : \"tYES\"\n      },\n      {\n         \"AddressName\"
+        : \"Awesome Express\",\n         \"Street\" : \"4567\",\n         \"Block\"
+        : null,\n         \"ZipCode\" : \"10001\",\n         \"City\" : \"New New
+        York\",\n         \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_ShipTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 14,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2022-02-25\",\n         \"CreateTime\"
+        : \"11:39:02\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      },\n      {\n         \"AddressName\" : \"Awesome Express\",\n
+        \        \"Street\" : \"789 billing street\",\n         \"Block\" : null,\n
+        \        \"ZipCode\" : \"10001\",\n         \"City\" : \"New New York\",\n
+        \        \"County\" : null,\n         \"Country\" : \"US\",\n         \"State\"
+        : \"NY\",\n         \"FederalTaxID\" : null,\n         \"TaxCode\" : null,\n
+        \        \"BuildingFloorRoom\" : null,\n         \"AddressType\" : \"bo_BillTo\",\n
+        \        \"AddressName2\" : null,\n         \"AddressName3\" : null,\n         \"TypeOfAddress\"
+        : null,\n         \"StreetNo\" : null,\n         \"BPCode\" : \"RIAN\",\n
+        \        \"RowNum\" : 15,\n         \"GlobalLocationNumber\" : null,\n         \"Nationality\"
+        : null,\n         \"TaxOffice\" : null,\n         \"GSTIN\" : null,\n         \"GstType\"
+        : null,\n         \"CreateDate\" : \"2022-03-03\",\n         \"CreateTime\"
+        : \"11:00:58\",\n         \"MYFType\" : null,\n         \"TaasEnabled\" :
+        \"tYES\"\n      }\n   ],\n   \"ContactEmployees\" : [\n      {\n         \"CardCode\"
+        : \"RIAN\",\n         \"Name\" : \"Mom\",\n         \"Position\" : null,\n
+        \        \"Address\" : \"123 Fakes Street\",\n         \"Phone1\" : \"123123123\",\n
+        \        \"Phone2\" : null,\n         \"MobilePhone\" : null,\n         \"Fax\"
+        : null,\n         \"E_Mail\" : \"droneinator+mom@gmail.com\",\n         \"Pager\"
+        : null,\n         \"Remarks1\" : null,\n         \"Remarks2\" : null,\n         \"Password\"
+        : null,\n         \"InternalCode\" : 12697,\n         \"PlaceOfBirth\" : \"AO\",\n
+        \        \"DateOfBirth\" : \"2121-06-04\",\n         \"Gender\" : \"gt_Undefined\",\n
+        \        \"Profession\" : null,\n         \"Title\" : \"CEO\",\n         \"CityOfBirth\"
+        : null,\n         \"Active\" : \"tYES\",\n         \"FirstName\" : \"Mom\",\n
+        \        \"MiddleName\" : null,\n         \"LastName\" : \"Tester\",\n         \"EmailGroupCode\"
+        : null,\n         \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-05-26\",\n         \"CreateTime\" : \"11:31:14\",\n         \"UpdateDate\"
+        : \"2021-12-15\",\n         \"UpdateTime\" : \"16:07:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : \"passwords in plain text??\",\n         \"U_v33_IsLoginEnabled\" : null,\n
+        \        \"U_v33_B1WebRoles\" : null,\n         \"U_v33_LinkedObjKey\" : null,\n
+        \        \"U_v33_Answer\" : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\"
+        : null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" :
+        null,\n         \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" :
+        null,\n         \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Walt\",\n         \"Position\" : null,\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+walter@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12698,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        null,\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Walter\",\n         \"MiddleName\" : \"Carol\",\n
+        \        \"LastName\" : \"Miller\",\n         \"EmailGroupCode\" : null,\n
+        \        \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"10:44:29\",\n         \"UpdateDate\"
+        : \"2021-12-15\",\n         \"UpdateTime\" : \"10:32:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Ignar\",\n         \"Position\" : null,\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+Ignar@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12699,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        \"Lackey\",\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Ignar\",\n         \"MiddleName\" : \"Willy\",\n
+        \        \"LastName\" : \"Miller\",\n         \"EmailGroupCode\" : null,\n
+        \        \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2021-06-04\",\n         \"CreateTime\" : \"10:56:22\",\n         \"UpdateDate\"
+        : \"2022-03-03\",\n         \"UpdateTime\" : \"11:00:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      },\n      {\n         \"CardCode\" : \"RIAN\",\n         \"Name\"
+        : \"Larry\",\n         \"Position\" : \"Goon\",\n         \"Address\" : null,\n
+        \        \"Phone1\" : null,\n         \"Phone2\" : null,\n         \"MobilePhone\"
+        : null,\n         \"Fax\" : null,\n         \"E_Mail\" : \"droneinator+larry@gmail.com\",\n
+        \        \"Pager\" : null,\n         \"Remarks1\" : null,\n         \"Remarks2\"
+        : null,\n         \"Password\" : null,\n         \"InternalCode\" : 12700,\n
+        \        \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" : null,\n         \"Gender\"
+        : \"gt_Undefined\",\n         \"Profession\" : null,\n         \"Title\" :
+        \"Goon\",\n         \"CityOfBirth\" : null,\n         \"Active\" : \"tYES\",\n
+        \        \"FirstName\" : \"Larry\",\n         \"MiddleName\" : null,\n         \"LastName\"
+        : null,\n         \"EmailGroupCode\" : null,\n         \"BlockSendingMarketingContent\"
+        : \"tNO\",\n         \"CreateDate\" : \"2021-06-04\",\n         \"CreateTime\"
+        : \"13:53:49\",\n         \"UpdateDate\" : \"2022-03-03\",\n         \"UpdateTime\"
+        : \"10:58:00\",\n         \"ConnectedAddressName\" : null,\n         \"ConnectedAddressType\"
+        : null,\n         \"ForeignCountry\" : null,\n         \"U_v33_TempPassword\"
+        : null,\n         \"U_v33_PasswordHash\" : null,\n         \"U_v33_IsLoginEnabled\"
+        : null,\n         \"U_v33_B1WebRoles\" : null,\n         \"U_v33_LinkedObjKey\"
+        : null,\n         \"U_v33_Answer\" : null,\n         \"U_v33_Question\" :
+        null,\n         \"U_ZEDS_BPLId\" : null,\n         \"U_BOY_85_ECAT\" : null,\n
+        \        \"U_BOY_85_ECAT2\" : null,\n         \"U_BOY_85_ECAT3\" : null,\n
+        \        \"U_BOY_85_ECAT4\" : null,\n         \"U_BOY_85_ECAT5\" : null,\n
+        \        \"ContactEmployeeBlockSendingMarketingContents\" : []\n      },\n
+        \     {\n         \"CardCode\" : \"RIAN\",\n         \"Name\" : \"Wernstrom\",\n
+        \        \"Position\" : null,\n         \"Address\" : null,\n         \"Phone1\"
+        : null,\n         \"Phone2\" : null,\n         \"MobilePhone\" : null,\n         \"Fax\"
+        : null,\n         \"E_Mail\" : \"droneinator+wernstrom@gmail.com\",\n         \"Pager\" : null,\n         \"Remarks1\"
+        : null,\n         \"Remarks2\" : null,\n         \"Password\" : null,\n         \"InternalCode\"
+        : 12708,\n         \"PlaceOfBirth\" : \"-1\",\n         \"DateOfBirth\" :
+        \"2922-03-03\",\n         \"Gender\" : \"gt_Undefined\",\n         \"Profession\"
+        : null,\n         \"Title\" : null,\n         \"CityOfBirth\" : null,\n         \"Active\"
+        : \"tYES\",\n         \"FirstName\" : \"Ogden\",\n         \"MiddleName\"
+        : null,\n         \"LastName\" : \"Wernstrom\",\n         \"EmailGroupCode\"
+        : null,\n         \"BlockSendingMarketingContent\" : \"tNO\",\n         \"CreateDate\"
+        : \"2022-03-03\",\n         \"CreateTime\" : \"11:00:58\",\n         \"UpdateDate\"
+        : \"2022-03-03\",\n         \"UpdateTime\" : \"11:00:00\",\n         \"ConnectedAddressName\"
+        : null,\n         \"ConnectedAddressType\" : null,\n         \"ForeignCountry\"
+        : null,\n         \"U_v33_TempPassword\" : null,\n         \"U_v33_PasswordHash\"
+        : null,\n         \"U_v33_IsLoginEnabled\" : null,\n         \"U_v33_B1WebRoles\"
+        : null,\n         \"U_v33_LinkedObjKey\" : null,\n         \"U_v33_Answer\"
+        : null,\n         \"U_v33_Question\" : null,\n         \"U_ZEDS_BPLId\" :
+        null,\n         \"U_BOY_85_ECAT\" : null,\n         \"U_BOY_85_ECAT2\" : null,\n
+        \        \"U_BOY_85_ECAT3\" : null,\n         \"U_BOY_85_ECAT4\" : null,\n
+        \        \"U_BOY_85_ECAT5\" : null,\n         \"ContactEmployeeBlockSendingMarketingContents\"
+        : []\n      }\n   ],\n   \"BPAccountReceivablePaybleCollection\" : [],\n   \"BPPaymentMethods\"
+        : [],\n   \"BPWithholdingTaxCollection\" : [],\n   \"BPPaymentDates\" : [],\n
+        \  \"BPBranchAssignment\" : [],\n   \"BPBankAccounts\" : [],\n   \"BPFiscalTaxIDCollection\"
+        : [],\n   \"DiscountGroups\" : [],\n   \"BPIntrastatExtension\" : {},\n   \"BPBlockSendingMarketingContents\"
+        : [],\n   \"BPCurrenciesCollection\" : []\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 19:01:25 GMT
+      ETag:
+      - W/"BC33EA4E26E5E1AF1408321416956113A4658763"
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '26918'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/PaymentTermsTypes(8)
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#PaymentTermsTypes/@Element\",\n
+        \  \"GroupNumber\" : 8,\n   \"PaymentTermsGroupName\" : \"1% 45 Net 60 Days\",\n
+        \  \"StartFrom\" : \"pdt_None\",\n   \"NumberOfAdditionalMonths\" : 0,\n   \"NumberOfAdditionalDays\"
+        : 60,\n   \"CreditLimit\" : 0.0,\n   \"GeneralDiscount\" : 0.0,\n   \"InterestOnArrears\"
+        : 0.0,\n   \"PriceListNo\" : 2,\n   \"LoadLimit\" : 0.0,\n   \"OpenReceipt\"
+        : \"oip_No\",\n   \"DiscountCode\" : \"1 per 45 Days\",\n   \"DunningCode\"
+        : \"\",\n   \"BaselineDate\" : \"bld_TaxDate\",\n   \"NumberOfInstallments\"
+        : 0,\n   \"NumberOfToleranceDays\" : null\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 19:01:25 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '591'
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      B1S-ReplaceCollectionsOnPatch:
+      - 'true'
+      Connection:
+      - keep-alive
+      Cookie:
+      - B1SESSION=0e25a556-9b24-11ec-8000-02e74e0ca33a; ROUTEID=.node7
+      User-Agent:
+      - python-requests/2.26.0
+    method: GET
+    uri: https://api.myfirstech.com:50000/b1s/v1/SalesPersons(21)
+  response:
+    body:
+      string: "{\n   \"odata.metadata\" : \"https://api.myfirstech.com:50000/b1s/v1/$metadata#SalesPersons/@Element\",\n
+        \  \"SalesEmployeeCode\" : 21,\n   \"SalesEmployeeName\" : \"Paradise Marketing\",\n
+        \  \"Remarks\" : \"\",\n   \"CommissionForSalesEmployee\" : 0.0,\n   \"CommissionGroup\"
+        : 0,\n   \"Locked\" : \"tNO\",\n   \"EmployeeID\" : null,\n   \"Active\" :
+        \"tYES\",\n   \"Telephone\" : null,\n   \"Mobile\" : null,\n   \"Fax\" : null,\n
+        \  \"Email\" : \"outside_sales_person@example.com\",\n   \"U_BOY_50_BRKO\" : null\n}\n"
+    headers:
+      Connection:
+      - Keep-Alive
+      Content-Type:
+      - application/json;odata=minimalmetadata;charset=utf-8
+      DataServiceVersion:
+      - '3.0'
+      Date:
+      - Thu, 03 Mar 2022 19:01:26 GMT
+      Keep-Alive:
+      - timeout=5, max=100
+      Server:
+      - Apache
+      Vary:
+      - Accept-Encoding
+      content-length:
+      - '451'
+    status:
+      code: 200
+      message: OK
+version: 1

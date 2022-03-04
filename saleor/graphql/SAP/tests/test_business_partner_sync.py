@@ -1,5 +1,5 @@
+import pytest
 from typing import List
-from unittest.mock import patch
 
 from firstech.SAP.models import (
     ApprovedBrands,
@@ -11,39 +11,17 @@ from firstech.SAP.models import (
 from saleor.account.models import Address, UserManager
 from saleor.channel.models import Channel
 from saleor.checkout import AddressType
+from saleor.graphql.SAP.tests.fixtures import UPSERT_BUSINESS_PARTNER_MUTATION
 from saleor.graphql.SAP.tests.utils import assert_address_match
 from saleor.graphql.tests.utils import get_graphql_content
-from saleor.plugins.sap_orders.plugin import SAPPlugin
 from saleor.shipping.models import ShippingMethod
 
-UPSERT_BUSINESS_PARTNER_MUTATION = """
-    mutation upsertBusinessPartner($card_code: String!){
-        upsertBusinessPartner(sapBpCode: $card_code){
-            errors{
-                field
-                message
-            }
-        }
-    }
-"""
 
-
-@patch.object(SAPPlugin, "fetch_sales_person")
-@patch.object(SAPPlugin, "fetch_payment_terms")
-@patch.object(SAPPlugin, "fetch_shipping_type")
-@patch.object(SAPPlugin, "fetch_business_partner")
-@patch.object(SAPPlugin, "fetch_order")
+@pytest.mark.vcr
 def test_business_partner_sync(
-    fetch_order_mock,
-    fetch_business_partner_mock,
-    fetch_shipping_type_mock,
-    fetch_payment_terms_mock,
-    fetch_sales_person_mock,
     staff_api_client,
     sap_plugin,
     permission_manage_users,
-    sap_business_partner,
-    updated_sap_business_partner,
     ecommerce_basic_setup,
 ):
     """Test that the `UpsertBusinessPartner` mutation correctly syncs data from SAP
@@ -94,8 +72,6 @@ def test_business_partner_sync(
         # TODO: there are several fields that look like "Balance", need to make sure we
         #  have the right one.
         assert bp.account_balance == sap_business_partner["CurrentAccountBalance"]
-        # assert bp.account_is_active == (sap_bp["Active"] == "tYES")
-        # assert bp.account_purchasing_restricted == (sap_bp["Active"] == "tYES")
         assert bp.company_name == sap_business_partner["CardName"]
         assert bp.company_url == sap_business_partner["Website"]
         assert bp.credit_limit == sap_business_partner["CreditLimit"]
@@ -164,8 +140,8 @@ def test_business_partner_sync(
 
             assert contact["DateOfBirth"] == birthday
 
-    fetch_business_partner_mock.return_value = sap_business_partner
-    variables = {"card_code": "MOM"}
+    # fetch_business_partner_mock.return_value = sap_business_partner
+    variables = {"card_code": "RIAN"}
     response = staff_api_client.post_graphql(
         UPSERT_BUSINESS_PARTNER_MUTATION,
         variables=variables,
@@ -173,10 +149,16 @@ def test_business_partner_sync(
         check_no_permissions=False,
     )
     content = get_graphql_content(response)
-    bp = BusinessPartner.objects.get(sap_bp_code=sap_business_partner["CardCode"])
-    assert_business_partner_sync(bp, sap_business_partner)
+    bp = BusinessPartner.objects.get(sap_bp_code="RIAN")
+    sap_bp_1 = sap_plugin.fetch_business_partner("RIAN")
+    assert_business_partner_sync(bp, sap_bp_1)
 
-    fetch_business_partner_mock.return_value = updated_sap_business_partner
+    # The business partner has been updated in SAP. The next time we make the get
+    # business partner request with the SAP plugin we will receive the updated response
+    # from a different VCR "cassette". These separate cassettes were created by running
+    # this test in the debugger and making the updates to SAP while hanging at a
+    # breakpoint here.
+
     response = staff_api_client.post_graphql(
         UPSERT_BUSINESS_PARTNER_MUTATION,
         variables=variables,
@@ -185,4 +167,7 @@ def test_business_partner_sync(
     )
     content = get_graphql_content(response)
     bp.refresh_from_db()
-    assert_business_partner_sync(bp, updated_sap_business_partner)
+    sap_bp_2 = sap_plugin.fetch_business_partner("RIAN")
+    # Make sure they aren't just the same thing
+    assert sap_bp_1 != sap_bp_2
+    assert_business_partner_sync(bp, sap_bp_2)

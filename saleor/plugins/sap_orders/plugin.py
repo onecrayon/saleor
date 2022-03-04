@@ -607,7 +607,7 @@ class SAPPlugin(BasePlugin):
         outside_sales_rep_emails = []
         if business_partner.get("SalesPersonCode"):
             outside_sales_rep: dict = self.fetch_sales_person(
-                business_partner["salesPersonCode"]
+                business_partner["SalesPersonCode"]
             )
 
             # Turn the ; separated string into a list, and only keep email addresses
