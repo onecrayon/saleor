@@ -5,13 +5,13 @@ from .mutations.orders import OrderLineCancel, OrderLineReduce
 from saleor.graphql.firstech.mutations.stripe import (
     CreateCustomerSession,
     CreateSetupIntent,
-    PaymentMethodCreate,
-    PaymentMethodDelete,
-    PaymentMethodUpdate,
     PaymentSourceCreate,
-    PaymentSourceVerify, SaveDefaultPaymentMethod,
+    PaymentSourceDelete,
+    PaymentSourceUpdate,
+    PaymentSourceVerify,
 )
-from .resolvers import resolve_default_payment_method
+from .resolvers import resolve_payment_sources
+from ...core.exceptions import PermissionDenied
 
 
 class FirstechOrderMutations(graphene.ObjectType):
@@ -21,18 +21,23 @@ class FirstechOrderMutations(graphene.ObjectType):
 
 
 class FirstechStripeMutations(graphene.ObjectType):
-    create_customer_session = CreateCustomerSession.Field()
     create_setup_intent = CreateSetupIntent.Field()
-    payment_method_create = PaymentMethodCreate.Field()
-    payment_method_delete = PaymentMethodDelete.Field()
-    payment_method_update = PaymentMethodUpdate.Field()
     payment_source_create = PaymentSourceCreate.Field()
+    payment_source_delete = PaymentSourceDelete.Field()
+    payment_source_update = PaymentSourceUpdate.Field()
     payment_source_verify = PaymentSourceVerify.Field()
-    save_default_payment_method = SaveDefaultPaymentMethod.Field()
+    create_customer_session = CreateCustomerSession.Field()
 
 
 class FirstechStripeQueries(graphene.ObjectType):
-    default_payment_method = graphene.String()
+    stored_payment_sources = graphene.List(
+        "saleor.graphql.payment.types.PaymentSource",
+        description="List of stored payment sources.",
+        channel=graphene.String(
+            description="Slug of a channel for which the data should be returned."
+        ),
+    )
 
-    def resolve_default_payment_method(self, info):
-        return resolve_default_payment_method(info)
+    @staticmethod
+    def resolve_stored_payment_sources(self, info):
+        return resolve_payment_sources(info)

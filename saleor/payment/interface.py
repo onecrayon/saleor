@@ -21,6 +21,15 @@ class PaymentMethodInfo:
 
 
 @dataclass
+class BankAccountInfo:
+    account_holder_name: Optional[str] = None
+    bank_name: Optional[str] = None
+    account_last_4: Optional[str] = None
+    routing_number: Optional[str] = None
+    status: Optional[str] = None
+
+
+@dataclass
 class GatewayResponse:
     """Dataclass for storing gateway response.
 
@@ -139,7 +148,10 @@ class CustomerSource:
 
     id: str
     gateway: str
+    type: str
+    is_default: bool
     credit_card_info: Optional[PaymentMethodInfo] = None
+    bank_account_info: Optional[BankAccountInfo] = None
     billing_info: Optional[AddressData] = None
 
 

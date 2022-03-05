@@ -1,13 +1,15 @@
 import graphene
 from django.core.exceptions import ValidationError
 
+from firstech.permissions import SAPCustomerPermissions
 from saleor.core.permissions import PaymentPermissions
 from saleor.graphql.account.enums import CountryCodeEnum
 from saleor.graphql.account.types import AddressInput
 from saleor.graphql.core.mutations import BaseMutation
 from saleor.graphql.core.types.common import Error
+from saleor.graphql.payment.enums import PaymentSourceType
 from saleor.graphql.payment.types import CreditCard, PaymentSource, \
-    PaymentSourceBillingInfo
+    PaymentSourceBillingInfo, BankAccount
 from saleor.payment import gateway
 from saleor.payment.gateways.stripe_firstech.plugin import StripeGatewayPlugin
 from saleor.payment.utils import fetch_customer_id
@@ -46,6 +48,27 @@ class PaymentSourceBillingInfoInput(graphene.InputObjectType):
 
 def create_payment_source_response(cls, customer_source):
     billing_info = None
+
+    credit_card_info = None
+    if customer_source.credit_card_info:
+        credit_card_info = CreditCard(
+            brand=customer_source.credit_card_info.brand,
+            first_digits=customer_source.credit_card_info.first_4,
+            last_digits=customer_source.credit_card_info.last_4,
+            exp_month=customer_source.credit_card_info.exp_month,
+            exp_year=customer_source.credit_card_info.exp_year
+        )
+
+    bank_account_info = None
+    if customer_source.bank_account_info:
+        bank_account_info = BankAccount(
+            account_holder_name=customer_source.bank_account_info.account_holder_name,
+            bank_name=customer_source.bank_account_info.bank_name,
+            account_last_4=customer_source.bank_account_info.account_last_4,
+            routing_number=customer_source.bank_account_info.routing_number,
+            status=customer_source.bank_account_info.status,
+        )
+
     if customer_source.billing_info:
         billing_info = PaymentSourceBillingInfo(
             name=customer_source.billing_info.first_name,
@@ -61,13 +84,10 @@ def create_payment_source_response(cls, customer_source):
     return cls(**{
         "payment_source": PaymentSource(
             payment_method_id=customer_source.id,
-            credit_card_info=CreditCard(
-                brand=customer_source.credit_card_info.brand,
-                first_digits=customer_source.credit_card_info.first_4,
-                last_digits=customer_source.credit_card_info.last_4,
-                exp_month=customer_source.credit_card_info.exp_month,
-                exp_year=customer_source.credit_card_info.exp_year
-            ),
+            type=customer_source.type.upper(),
+            is_default=customer_source.is_default,
+            credit_card_info=credit_card_info,
+            bank_account_info=bank_account_info,
             billing_info=billing_info
         ),
         "errors": []
@@ -142,11 +162,11 @@ class CreateSetupIntent(BaseMutation):
         client_secret = gateway.create_setup_intent(
             gateway=gateway_id,
             manager=manager,
-            customer={
+            customer_info={
                 "customer_id": customer_id,
                 "customer_email": user.email
             },
-            channel_slug=""
+            channel_slug=data.get("channel")
         )
 
         return cls(**{
@@ -162,25 +182,35 @@ class CreateSetupIntent(BaseMutation):
             raise ValidationError("Method not available")
 
 
-class PaymentMethodCreate(BaseMutation):
+class PaymentSourceCreate(BaseMutation):
     payment_source = graphene.Field(PaymentSource,
                                     description="Created payment source.")
 
     class Meta:
         description = "Create payment source."
-        permissions = (PaymentPermissions.HANDLE_PAYMENTS,)
+        permissions = (
+            PaymentPermissions.HANDLE_PAYMENTS,
+            SAPCustomerPermissions.PURCHASE_PRODUCTS_B2C,
+            SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B
+        )
         error_type_class = PaymentSourceError
         error_type_field = "payment_source_errors"
 
     class Arguments:
-        type = graphene.String(
+        type = PaymentSourceType(
             required=True, description="Payment source type."
+        )
+        is_default = graphene.Boolean(
+            required=False
         )
         card = PaymentSourceCardInput(
             required=False, description="Card info."
         )
         billing_details = PaymentSourceBillingInfoInput(
             required=False, description="Payment method billing info."
+        )
+        token = graphene.String(
+            required=False
         )
 
     @classmethod
@@ -207,8 +237,6 @@ class PaymentMethodCreate(BaseMutation):
                 "phone": billing_details_input.get("phone")
             }
 
-        channel_slug = data.get("channel")
-
         user = info.context.user
         customer_id = None
         if user.is_authenticated:
@@ -216,16 +244,18 @@ class PaymentMethodCreate(BaseMutation):
 
         payment_source_details = {
             "customer_id": customer_id,
-            "type": data.get("type"),
+            "is_default": data.get("is_default"),
+            "type": data.get("type").lower(),
             "card_info": data.get("card"),
-            "billing_details": billing_details
+            "billing_details": billing_details,
+            "token": data.get("token"),
         }
 
-        payment_source = gateway.create_payment_method(
+        payment_source = gateway.create_payment_source(
             gateway=gateway_id,
             manager=manager,
             payment_source_details=payment_source_details,
-            channel_slug=channel_slug
+            channel_slug=data.get("channel")
         )
 
         return create_payment_source_response(cls, payment_source)
@@ -238,20 +268,27 @@ class PaymentMethodCreate(BaseMutation):
             raise ValidationError("Method not available")
 
 
-class PaymentMethodUpdate(BaseMutation):
+class PaymentSourceUpdate(BaseMutation):
     payment_source = graphene.Field(PaymentSource,
                                     description="Updated payment source.")
 
     class Meta:
         description = "Update payment source."
-        permissions = (PaymentPermissions.HANDLE_PAYMENTS,)
+        permissions = (
+            PaymentPermissions.HANDLE_PAYMENTS,
+            SAPCustomerPermissions.PURCHASE_PRODUCTS_B2C,
+            SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B
+        )
         error_type_class = PaymentSourceError
         error_type_field = "payment_source_errors"
 
     class Arguments:
-        payment_method_id = graphene.String(
+        payment_source_id = graphene.String(
             description="Payment method identifier.",
             required=True
+        )
+        is_default = graphene.Boolean(
+            required=False
         )
         card = PaymentSourceCardInput(
             description="Card info.",
@@ -286,19 +323,24 @@ class PaymentMethodUpdate(BaseMutation):
                 "phone": billing_details_input.get("phone")
             }
 
+        user = info.context.user
+        customer_id = None
+        if user.is_authenticated:
+            customer_id = fetch_customer_id(user=user, gateway=gateway_id)
+
         payment_source_details = {
-            "payment_method_id": data.get("payment_method_id"),
+            "customer_id": customer_id,
+            "is_default": data.get("is_default"),
+            "payment_source_id": data.get("payment_source_id"),
             "billing_info": billing_details,
             "card_info": data.get("card")
         }
 
-        channel_slug = data.get("channel")
-
-        payment_source = gateway.update_payment_method(
+        payment_source = gateway.update_payment_source(
             gateway=gateway_id,
             manager=manager,
             payment_source_details=payment_source_details,
-            channel_slug=channel_slug
+            channel_slug=data.get("channel")
         )
 
         return create_payment_source_response(cls, payment_source)
@@ -311,59 +353,26 @@ class PaymentMethodUpdate(BaseMutation):
             raise ValidationError("Method not available")
 
 
-class PaymentMethodDelete(BaseMutation):
-    payment_source = graphene.Field(PaymentSource,
-                                    description="Deleted payment source.")
+class PaymentSourceDelete(BaseMutation):
+    payment_source_id = graphene.String(description="Deleted payment source ID")
 
     class Meta:
         description = "Delete payment source."
-        permissions = (PaymentPermissions.HANDLE_PAYMENTS,)
+        permissions = (
+            PaymentPermissions.HANDLE_PAYMENTS,
+            SAPCustomerPermissions.PURCHASE_PRODUCTS_B2C,
+            SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B
+        )
         error_type_class = PaymentSourceError
         error_type_field = "payment_source_errors"
 
     class Arguments:
-        payment_method_id = graphene.String(
-            description="Payment method identifier.",
+        payment_source_type = PaymentSourceType(
+            description="Payment method type.",
             required=True
         )
-
-    @classmethod
-    def perform_mutation(cls, _root, info, **data):
-        gateway_id = StripeGatewayPlugin.PLUGIN_ID
-        manager = info.context.plugins
-
-        cls.validate_gateway(gateway_id, manager)
-
-        channel_slug = data.get("channel")
-
-        payment_source = gateway.delete_payment_method(
-            gateway=gateway_id,
-            manager=manager,
-            payment_source_id=data.get("payment_method_id"),
-            channel_slug=channel_slug
-        )
-
-        return create_payment_source_response(cls, payment_source)
-
-    @classmethod
-    def validate_gateway(cls, gateway_id, manager):
-        gateways_id = [gtw.id for gtw in manager.list_payment_gateways()]
-
-        if gateway_id not in gateways_id:
-            raise ValidationError("Method not available")
-
-
-class PaymentSourceCreate(BaseMutation):
-    id = graphene.String(description="Payment source ID")
-
-    class Meta:
-        description = "Create Stripe payment source"
-        permissions = ()
-        error_type_class = PaymentSourceError
-        error_type_field = "errors"
-
-    class Arguments:
-        token = graphene.String(
+        payment_source_id = graphene.String(
+            description="Payment method identifier.",
             required=True
         )
 
@@ -379,19 +388,19 @@ class PaymentSourceCreate(BaseMutation):
         if user.is_authenticated:
             customer_id = fetch_customer_id(user=user, gateway=gateway_id)
 
-        source_id = gateway.create_payment_source(
+        payment_source_id = gateway.delete_payment_source(
             gateway=gateway_id,
             manager=manager,
-            payment_source_details={
-                "token": data["token"],
+            payment_source_info={
                 "customer_id": customer_id,
-                "customer_email": user.email
+                "payment_source_id": data.get("payment_source_id"),
+                "payment_source_type": data.get("payment_source_type").lower()
             },
-            channel_slug=""
+            channel_slug=data.get("channel")
         )
 
         return cls(**{
-            "id": source_id,
+            "payment_source_id": payment_source_id,
             "errors": []
         })
 
@@ -404,71 +413,25 @@ class PaymentSourceCreate(BaseMutation):
 
 
 class PaymentSourceVerify(BaseMutation):
-    id = graphene.String(description="Payment source ID")
+    payment_source = graphene.Field(PaymentSource,
+                                    description="Updated payment source.")
 
     class Meta:
         description = "Verify Stripe payment source"
-        permissions = ()
+        permissions = (
+            PaymentPermissions.HANDLE_PAYMENTS,
+            SAPCustomerPermissions.PURCHASE_PRODUCTS_B2C,
+            SAPCustomerPermissions.PURCHASE_PRODUCTS_B2B
+        )
         error_type_class = PaymentSourceError
-        error_type_field = "errors"
+        error_type_field = "payment_source_errors"
 
     class Arguments:
         payment_source_id = graphene.String(
             required=True
         )
         bank_account_amounts = graphene.List(
-            of_type=graphene.Int
-        )
-
-    @classmethod
-    def perform_mutation(cls, _root, info, **data):
-        gateway_id = StripeGatewayPlugin.PLUGIN_ID
-        manager = info.context.plugins
-
-        cls.validate_gateway(gateway_id, manager)
-
-        user = info.context.user
-        customer_id = None
-        if user.is_authenticated:
-            customer_id = fetch_customer_id(user=user, gateway=gateway_id)
-
-        source_id = gateway.verify_payment_source(
-            gateway=gateway_id,
-            manager=manager,
-            verification_details={
-                "token": data["token"],
-                "customer_id": customer_id,
-                "customer_email": user.email,
-                "payment_source_id": data["payment_source_id"],
-                "amounts": data["amounts"]
-            },
-            channel_slug=""
-        )
-
-        return cls(**{
-            "id": source_id,
-            "errors": []
-        })
-
-    @classmethod
-    def validate_gateway(cls, gateway_id, manager):
-        gateways_id = [gtw.id for gtw in manager.list_payment_gateways()]
-
-        if gateway_id not in gateways_id:
-            raise ValidationError("Method not available")
-
-
-class SaveDefaultPaymentMethod(BaseMutation):
-    id = graphene.String(description="Payment source ID")
-
-    class Meta:
-        description = "Save default payment method"
-        permissions = ()
-        error_type_class = PaymentSourceError
-        error_type_field = "errors"
-
-    class Arguments:
-        payment_method_id = graphene.String(
+            of_type=graphene.Int,
             required=True
         )
 
@@ -484,21 +447,19 @@ class SaveDefaultPaymentMethod(BaseMutation):
         if user.is_authenticated:
             customer_id = fetch_customer_id(user=user, gateway=gateway_id)
 
-        source_id = gateway.set_default_payment_method(
+        payment_source = gateway.verify_payment_source(
             gateway=gateway_id,
             manager=manager,
-            payment_method_info={
+            verification_info={
                 "customer_id": customer_id,
                 "customer_email": user.email,
-                "payment_method_id": data["payment_method_id"]
+                "payment_source_id": data["payment_source_id"],
+                "bank_account_amounts": data["bank_account_amounts"]
             },
-            channel_slug=""
+            channel_slug=data.get("channel")
         )
 
-        return cls(**{
-            "id": source_id,
-            "errors": []
-        })
+        return create_payment_source_response(cls, payment_source)
 
     @classmethod
     def validate_gateway(cls, gateway_id, manager):
@@ -506,4 +467,5 @@ class SaveDefaultPaymentMethod(BaseMutation):
 
         if gateway_id not in gateways_id:
             raise ValidationError("Method not available")
+
 

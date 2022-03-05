@@ -15,7 +15,7 @@ from ...interface import (
     GatewayConfig,
     GatewayResponse,
     PaymentData,
-    PaymentMethodInfo, AddressData,
+    PaymentMethodInfo, AddressData, BankAccountInfo,
 )
 from ...models import Transaction
 from ...utils import price_from_minor_unit, price_to_minor_unit
@@ -34,7 +34,7 @@ from .stripe_api import (
     subscribe_webhook, create_payment_method, update_payment_method_card,
     attach_payment_method, detach_payment_method, create_setup_intent,
     create_ephemeral_key, create_payment_source, verify_payment_source,
-    set_default_payment_method,
+    set_default_payment_source, list_customer_sources, delete_payment_source,
 )
 from .webhooks import handle_webhook
 
@@ -418,8 +418,7 @@ class StripeGatewayPlugin(BasePlugin):
         )
 
     @require_active_plugin
-    def create_customer_session(self, customer: dict, previous_value
-                                ) -> str:
+    def create_customer_session(self, customer: dict, previous_value) -> str:
         customer = get_or_create_customer(
             api_key=self.config.connection_params["secret_api_key"],
             customer_email=customer["email"],
@@ -434,48 +433,99 @@ class StripeGatewayPlugin(BasePlugin):
         return ephemeral_key
 
     @require_active_plugin
-    def default_payment_method(
-            self, customer: dict, previous_value
-    ) -> str:
-        cus = get_or_create_customer(
+    def get_default_payment_source(self, customer_id: str):
+        customer = get_or_create_customer(
             api_key=self.config.connection_params["secret_api_key"],
-            customer_email=customer["customer_email"],
-            customer_id=customer["customer_id"]
+            customer_email="",
+            customer_id=customer_id
         )
 
-        return cus.metadata["default_payment_method"]
+        default_payment_source_id = None
+        if "default_payment_source" in customer.metadata:
+            default_payment_source_id = customer.metadata["default_payment_source"]
+
+        return default_payment_source_id
 
     @require_active_plugin
-    def set_default_payment_method(
-            self, payment_method_info: dict, previous_value
-    ) -> str:
-        cus = get_or_create_customer(
+    def set_default_payment_source(
+        self, customer_id: str, payment_source_id: str
+    ):
+        customer, error = set_default_payment_source(
             api_key=self.config.connection_params["secret_api_key"],
-            customer_email=payment_method_info["customer_email"],
-            customer_id=payment_method_info["customer_id"]
+            customer_id=customer_id,
+            metadata={
+                "default_payment_source": payment_source_id
+            }
         )
 
-        cus, error = set_default_payment_method(
-            api_key=self.config.connection_params["secret_api_key"],
-            customer_id=payment_method_info["customer_id"],
-            payment_method_id=payment_method_info["payment_method_id"]
-        )
-
-        return cus.metadata["default_payment_method"]
+        if error:
+            raise ValidationError(error.user_message)
 
     @require_active_plugin
     def list_payment_sources(
-        self, customer_id: str, previous_value
+            self, customer_id: str, previous_value
     ) -> List[CustomerSource]:
         payment_methods, error = list_customer_payment_methods(
             api_key=self.config.connection_params["secret_api_key"],
             customer_id=customer_id,
         )
         if payment_methods:
+            channel_slug: str = self.channel.slug  # type: ignore
             customer_sources = [
                 CustomerSource(
                     id=payment_method.id,
                     gateway=PLUGIN_ID,
+                    credit_card_info=PaymentMethodInfo(
+                        exp_year=payment_method.card.exp_year,
+                        exp_month=payment_method.card.exp_month,
+                        last_4=payment_method.card.last4,
+                        name=None,
+                        brand=payment_method.card.brand,
+                    ),
+                )
+                for payment_method in payment_methods
+                if payment_method.metadata.get("channel") == channel_slug
+            ]
+            previous_value.extend(customer_sources)
+        return previous_value
+
+    @require_active_plugin
+    def list_all_payment_sources(
+        self, customer_info: dict, previous_value
+    ) -> List[CustomerSource]:
+
+        customer = get_or_create_customer(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_email=customer_info["customer_email"],
+            customer_id=customer_info["customer_id"]
+        )
+
+        default_payment_source_id = customer.metadata.get("default_payment_source", None)
+
+        payment_methods, error = list_customer_payment_methods(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_id=customer.stripe_id,
+        )
+
+        if error:
+            raise ValidationError(error.user_message)
+
+        payment_sources, error = list_customer_sources(
+            api_key=self.config.connection_params["secret_api_key"],
+            customer_id=customer.stripe_id,
+        )
+
+        if error:
+            raise ValidationError(error.user_message)
+
+        customer_sources = []
+        if payment_methods:
+            customer_sources.extend([
+                CustomerSource(
+                    id=payment_method.id,
+                    gateway=PLUGIN_ID,
+                    type="card",
+                    is_default=payment_method.id == default_payment_source_id,
                     credit_card_info=PaymentMethodInfo(
                         exp_year=payment_method.card.exp_year,
                         exp_month=payment_method.card.exp_month,
@@ -498,43 +548,73 @@ class StripeGatewayPlugin(BasePlugin):
                     )
                 )
                 for payment_method in payment_methods
-            ]
+            ])
+
+        if payment_sources:
+            customer_sources.extend([
+                CustomerSource(
+                    id=payment_source.id,
+                    gateway=PLUGIN_ID,
+                    type="bank_account",
+                    is_default=payment_source.id == default_payment_source_id,
+                    bank_account_info=BankAccountInfo(
+                        account_holder_name=payment_source.account_holder_name,
+                        bank_name=payment_source.bank_name,
+                        account_last_4=payment_source.last4,
+                        routing_number=payment_source.routing_number,
+                        status=payment_source.status
+                    )
+                )
+                for payment_source in payment_sources
+            ])
+
+        if customer_sources:
             previous_value.extend(customer_sources)
         return previous_value
 
     @require_active_plugin
-    def create_setup_intent(self, customer: dict, previous_value) -> str:
+    def create_setup_intent(self, customer_info: dict, previous_value) -> str:
 
-        cus = get_or_create_customer(
+        customer = get_or_create_customer(
             api_key=self.config.connection_params["secret_api_key"],
-            customer_email=customer["customer_email"],
-            customer_id=customer["customer_id"]
+            customer_email=customer_info["customer_email"],
+            customer_id=customer_info["customer_id"]
         )
 
         setup_intent, error = create_setup_intent(
             api_key=self.config.connection_params["secret_api_key"],
-            customer_id=cus.stripe_id
+            customer_id=customer.stripe_id
         )
 
         return setup_intent["client_secret"]
 
     @require_active_plugin
-    def create_payment_method(
+    def create_payment_source(
+            self,
+            payment_source_details: dict,
+            previous_value
+    ) -> CustomerSource:
+        payment_source_type = payment_source_details["type"]
+        if payment_source_type == "card":
+            return self.create_card(payment_source_details, previous_value)
+        elif payment_source_type == "bank_account":
+            return self.create_bank_account(payment_source_details, previous_value)
+        else:
+            raise ValidationError("Unknown payment source type")
+
+    @require_active_plugin
+    def create_card(
         self,
-        payment_source_details: [dict],
+        payment_source_details: dict,
         previous_value
     ) -> CustomerSource:
-
-        metadata = {}
-        if "metadata" in payment_source_details:
-            metadata = payment_source_details["metadata"]
 
         payment_method, error = create_payment_method(
             api_key=self.config.connection_params["secret_api_key"],
             payment_method_type=payment_source_details["type"],
             card_info=payment_source_details["card_info"],
             billing_details=payment_source_details["billing_details"],
-            metadata=metadata
+            metadata=payment_source_details.get("metadata", {})
         )
 
         if error:
@@ -549,9 +629,17 @@ class StripeGatewayPlugin(BasePlugin):
         if error:
             raise ValidationError(error.user_message)
 
+        is_default = False
+        customer_id = payment_source_details.get("customer_id")
+        if payment_source_details.get("is_default"):
+            self.set_default_payment_source(customer_id, payment_method.id)
+            is_default = True
+
         return CustomerSource(
             id=payment_method.id,
             gateway=PLUGIN_ID,
+            type="card",
+            is_default=is_default,
             credit_card_info=PaymentMethodInfo(
                 exp_year=payment_method.card.exp_year,
                 exp_month=payment_method.card.exp_month,
@@ -575,30 +663,62 @@ class StripeGatewayPlugin(BasePlugin):
         )
 
     @require_active_plugin
+    def create_bank_account(self, payment_source_details: dict,
+                            previous_value) -> CustomerSource:
+
+        payment_source, error = create_payment_source(
+            api_key=self.config.connection_params["secret_api_key"],
+            token=payment_source_details["token"],
+            customer_id=payment_source_details["customer_id"]
+        )
+
+        if error:
+            raise ValidationError(error.user_message)
+
+        return CustomerSource(
+            id=payment_source.id,
+            gateway=PLUGIN_ID,
+            type="bank_account",
+            is_default=False,
+            bank_account_info=BankAccountInfo(
+                account_holder_name=payment_source.account_holder_name,
+                bank_name=payment_source.bank_name,
+                account_last_4=payment_source.last4,
+                routing_number=payment_source.routing_number,
+                status=payment_source.status
+            )
+        )
+
+    @require_active_plugin
     def update_payment_source(
         self,
-        payment_source_details: [dict],
+        payment_source_details: dict,
         previous_value
     ) -> CustomerSource:
 
-        metadata = {}
-        if "metadata" in payment_source_details:
-            metadata = payment_source_details["metadata"]
-
         payment_method, error = update_payment_method_card(
             api_key=self.config.connection_params["secret_api_key"],
-            payment_method_id=payment_source_details["payment_method_id"],
+            payment_method_id=payment_source_details["payment_source_id"],
             card=payment_source_details["card_info"],
             billing_details=payment_source_details["billing_info"],
-            metadata=metadata
+            metadata=payment_source_details.get("metadata", None)
         )
 
         if error:
             raise ValidationError(message=error.user_message)
 
+        customer_id = payment_source_details.get("customer_id")
+        if payment_source_details.get("is_default"):
+            self.set_default_payment_source(customer_id, payment_method.id)
+            default_payment_source_id = payment_method.id
+        else:
+            default_payment_source_id = self.get_default_payment_source(customer_id)
+
         return CustomerSource(
             id=payment_method.id,
             gateway=PLUGIN_ID,
+            type="card",
+            is_default=payment_method.id == default_payment_source_id,
             credit_card_info=PaymentMethodInfo(
                 exp_year=payment_method.card.exp_year,
                 exp_month=payment_method.card.exp_month,
@@ -624,77 +744,55 @@ class StripeGatewayPlugin(BasePlugin):
     @require_active_plugin
     def delete_payment_source(
         self,
-        payment_source_id: str,
+        payment_source_info: dict,
+        previous_value
+    ):
+        if payment_source_info["payment_source_type"] == "card":
+            payment_source, error = detach_payment_method(
+                api_key=self.config.connection_params["secret_api_key"],
+                payment_method_id=payment_source_info["payment_source_id"]
+            )
+        else:
+            payment_source, error = delete_payment_source(
+                api_key=self.config.connection_params["secret_api_key"],
+                customer_id=payment_source_info["customer_id"],
+                payment_source_id=payment_source_info["payment_source_id"]
+            )
+
+        if error:
+            raise ValidationError(error.user_message)
+
+        return payment_source.id
+
+    @require_active_plugin
+    def verify_payment_source(
+        self,
+        verification_info: dict,
         previous_value
     ) -> CustomerSource:
-
-        payment_method, error = detach_payment_method(
+        payment_source, error = verify_payment_source(
             api_key=self.config.connection_params["secret_api_key"],
-            payment_method_id=payment_source_id
+            customer_id=verification_info["customer_id"],
+            payment_source_id=verification_info["payment_source_id"],
+            amounts=verification_info["bank_account_amounts"]
         )
 
         if error:
             raise ValidationError(error.user_message)
 
         return CustomerSource(
-            id=payment_method.id,
+            id=payment_source.id,
             gateway=PLUGIN_ID,
-            credit_card_info=PaymentMethodInfo(
-                exp_year=payment_method.card.exp_year,
-                exp_month=payment_method.card.exp_month,
-                last_4=payment_method.card.last4,
-                name=None,
-                brand=payment_method.card.brand,
-            ),
-            billing_info=AddressData(
-                first_name=payment_method.billing_details.name,
-                last_name="",
-                company_name="",
-                city_area="",
-                street_address_1=payment_method.billing_details.address.line1,
-                street_address_2=payment_method.billing_details.address.line2,
-                city=payment_method.billing_details.address.city,
-                postal_code=payment_method.billing_details.address.postal_code,
-                country=payment_method.billing_details.address.country,
-                country_area=payment_method.billing_details.address.state,
-                phone=payment_method.billing_details.phone
+            type="bank_account",
+            is_default=False,
+            bank_account_info=BankAccountInfo(
+                account_holder_name=payment_source.account_holder_name,
+                bank_name=payment_source.bank_name,
+                account_last_4=payment_source.last4,
+                routing_number=payment_source.routing_number,
+                status=payment_source.status
             )
         )
-
-    @require_active_plugin
-    def create_payment_source(self, customer: dict, previous_value) -> str:
-
-        cus = get_or_create_customer(
-            api_key=self.config.connection_params["secret_api_key"],
-            customer_email=customer["customer_email"],
-            customer_id=customer["customer_id"]
-        )
-
-        source, error = create_payment_source(
-            api_key=self.config.connection_params["secret_api_key"],
-            token=customer["token"],
-            customer_id=cus.id
-        )
-
-        return source
-
-    @require_active_plugin
-    def verify_payment_source(self, verification_details: dict, previous_value) -> str:
-
-        cus = get_or_create_customer(
-            api_key=self.config.connection_params["secret_api_key"],
-            customer_email=verification_details["customer_email"],
-            customer_id=verification_details["customer_id"]
-        )
-
-        response, error = verify_payment_source(
-            api_key=self.config.connection_params["secret_api_key"],
-            customer_id=cus.stripe_id,
-            payment_source_id=verification_details["payment_source_id"],
-            amounts=verification_details["amounts"]
-        )
-
-        return response
 
     @classmethod
     def pre_save_plugin_configuration(cls, plugin_configuration: "PluginConfiguration"):

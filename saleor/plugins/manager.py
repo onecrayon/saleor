@@ -804,49 +804,6 @@ class PluginsManager(PaymentInterface):
             gtw, method_name, default_value, token_config=token_config
         )
 
-    def create_customer_session(
-        self,
-        gateway: str,
-        customer: dict,
-        channel_slug: str,
-    ) -> str:
-        default_value: list = []
-        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
-        if gtw is not None:
-            return self.__run_method_on_single_plugin(
-                gtw, "create_customer_session", default_value, customer=customer
-            )
-        raise Exception(f"Payment plugin {gateway} is inaccessible!")
-
-    def default_payment_method(
-        self,
-        gateway: str,
-        customer: dict,
-        channel_slug: str,
-    ) -> str:
-        default_value: list = []
-        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
-        if gtw is not None:
-            return self.__run_method_on_single_plugin(
-                gtw, "default_payment_method", default_value, customer=customer
-            )
-        raise Exception(f"Payment plugin {gateway} is inaccessible!")
-
-    def set_default_payment_method(
-        self,
-        gateway: str,
-        payment_method_info: dict,
-        channel_slug: str,
-    ) -> str:
-        default_value: list = []
-        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
-        if gtw is not None:
-            return self.__run_method_on_single_plugin(
-                gtw, "set_default_payment_method", default_value,
-                payment_method_info=payment_method_info
-            )
-        raise Exception(f"Payment plugin {gateway} is inaccessible!")
-
     def list_payment_sources(
         self,
         gateway: str,
@@ -861,59 +818,32 @@ class PluginsManager(PaymentInterface):
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
+    def list_payment_sources_stripe(
+        self,
+        gateway: str,
+        customer_info: dict,
+        channel_slug: str,
+    ) -> List["CustomerSource"]:
+        default_value: list = []
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "list_all_payment_sources", default_value,
+                customer_info=customer_info
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
     def create_setup_intent(
         self,
         gateway: str,
-        customer: dict,
+        customer_info: dict,
         channel_slug: str,
     ) -> str:
         default_value: list = []
         gtw = self.get_plugin(gateway, channel_slug=channel_slug)
         if gtw is not None:
             return self.__run_method_on_single_plugin(
-                gtw, "create_setup_intent", default_value, customer=customer
-            )
-        raise Exception(f"Payment plugin {gateway} is inaccessible!")
-
-    def create_payment_method(
-        self,
-        gateway: str,
-        payment_source_details: dict,
-        channel_slug: str,
-    ) -> "CustomerSource":
-        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
-        if gtw is not None:
-            return self.__run_method_on_single_plugin(
-                gtw, "create_payment_source", None,
-                payment_source_details=payment_source_details
-            )
-        raise Exception(f"Payment plugin {gateway} is inaccessible!")
-
-    def update_payment_method(
-        self,
-        gateway: str,
-        payment_source_details: dict,
-        channel_slug: str,
-    ) -> "CustomerSource":
-        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
-        if gtw is not None:
-            return self.__run_method_on_single_plugin(
-                gtw, "update_payment_source", None,
-                payment_source_details=payment_source_details
-            )
-        raise Exception(f"Payment plugin {gateway} is inaccessible!")
-
-    def delete_payment_method(
-        self,
-        gateway: str,
-        payment_source_id: str,
-        channel_slug: str,
-    ) -> "CustomerSource":
-        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
-        if gtw is not None:
-            return self.__run_method_on_single_plugin(
-                gtw, "delete_payment_source", None,
-                payment_source_id=payment_source_id
+                gtw, "create_setup_intent", default_value, customer_info=customer_info
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
@@ -931,17 +861,74 @@ class PluginsManager(PaymentInterface):
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
-    def verify_payment_source(
+    def update_payment_source(
         self,
         gateway: str,
-        verification_details: dict,
+        payment_source_details: dict,
         channel_slug: str,
     ) -> "CustomerSource":
         gtw = self.get_plugin(gateway, channel_slug=channel_slug)
         if gtw is not None:
             return self.__run_method_on_single_plugin(
-                gtw, "create_payment_source", None,
-                verification_details=verification_details
+                gtw, "update_payment_source", None,
+                payment_source_details=payment_source_details
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
+    def delete_payment_source(
+        self,
+        gateway: str,
+        payment_source_info: dict,
+        channel_slug: str,
+    ) -> str:
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "delete_payment_source", None,
+                payment_source_info=payment_source_info
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
+    def verify_payment_source(
+        self,
+        gateway: str,
+        verification_info: dict,
+        channel_slug: str,
+    ) -> "CustomerSource":
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "verify_payment_source", None,
+                verification_info=verification_info
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
+    def create_customer_session(
+        self,
+        gateway: str,
+        customer: dict,
+        channel_slug: str,
+    ) -> str:
+        default_value: list = []
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "create_customer_session", default_value, customer=customer
+            )
+        raise Exception(f"Payment plugin {gateway} is inaccessible!")
+
+    def set_default_payment_source(
+        self,
+        gateway: str,
+        payment_source_info: dict,
+        channel_slug: str,
+    ) -> str:
+        default_value: list = []
+        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
+        if gtw is not None:
+            return self.__run_method_on_single_plugin(
+                gtw, "set_default_payment_source", default_value,
+                payment_source_info=payment_source_info
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
