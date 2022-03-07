@@ -1,6 +1,7 @@
 from itertools import chain
 
 from saleor.core.tracing import traced_resolver
+from saleor.graphql.payment.enums import PaymentSourceType
 from saleor.payment import gateway
 from saleor.payment.gateways.stripe_firstech.plugin import StripeGatewayPlugin
 from saleor.payment.utils import fetch_customer_id
@@ -67,7 +68,7 @@ def prepare_graphql_payment_sources_type(payment_sources):
             {
                 "gateway": src.gateway,
                 "payment_method_id": src.id,
-                "type": src.type,
+                "type": src.type.upper(),
                 "is_default": src.is_default,
                 "credit_card_info": credit_card_info,
                 "bank_account_info": bank_account_info,

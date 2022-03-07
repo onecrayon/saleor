@@ -21,7 +21,7 @@ from .consts import (
     PLUGIN_ID,
     STRIPE_API_VERSION,
     WEBHOOK_EVENTS,
-    WEBHOOK_PATH,
+    WEBHOOK_PATH, SOURCE_TYPE_BANK, SOURCE_TYPE_CARD,
 )
 
 logger = logging.getLogger(__name__)
@@ -387,7 +387,7 @@ def list_customer_payment_methods(
                 api_key=api_key,
                 customer=customer_id,
                 stripe_version=STRIPE_API_VERSION,
-                type="card",  # we support only cards for now
+                type=SOURCE_TYPE_CARD,  # we support only cards for now
             )
         return payment_methods, None
     except StripeError as error:
@@ -402,7 +402,7 @@ def list_customer_sources(
             payment_sources = stripe.Customer.list_sources(
                 customer_id,
                 api_key=api_key,
-                object="bank_account",
+                object=SOURCE_TYPE_BANK,
                 stripe_version=STRIPE_API_VERSION,
             )
         return payment_sources, None
@@ -531,7 +531,7 @@ def get_payment_method_details(
         charge_data = charges_data[-1]
         payment_method_details = charge_data.get("payment_method_details", {})
 
-        if payment_method_details.get("type") == "card":
+        if payment_method_details.get("type") == SOURCE_TYPE_CARD:
             card_details = payment_method_details.get("card", {})
             exp_year = card_details.get("exp_year", "")
             exp_year = int(exp_year) if exp_year else None
@@ -542,6 +542,6 @@ def get_payment_method_details(
                 exp_year=exp_year,
                 exp_month=exp_month,
                 brand=card_details.get("brand", ""),
-                type="card",
+                type=SOURCE_TYPE_CARD,
             )
     return payment_method_info

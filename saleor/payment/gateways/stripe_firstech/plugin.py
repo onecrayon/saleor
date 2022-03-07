@@ -49,7 +49,7 @@ from .consts import (
     PLUGIN_NAME,
     PROCESSING_STATUS,
     SUCCESS_STATUS,
-    WEBHOOK_PATH,
+    WEBHOOK_PATH, SOURCE_TYPE_BANK, SOURCE_TYPE_CARD,
 )
 
 logger = logging.getLogger(__name__)
@@ -524,7 +524,7 @@ class StripeGatewayPlugin(BasePlugin):
                 CustomerSource(
                     id=payment_method.id,
                     gateway=PLUGIN_ID,
-                    type="card",
+                    type=SOURCE_TYPE_CARD,
                     is_default=payment_method.id == default_payment_source_id,
                     credit_card_info=PaymentMethodInfo(
                         exp_year=payment_method.card.exp_year,
@@ -555,7 +555,7 @@ class StripeGatewayPlugin(BasePlugin):
                 CustomerSource(
                     id=payment_source.id,
                     gateway=PLUGIN_ID,
-                    type="bank_account",
+                    type=SOURCE_TYPE_BANK,
                     is_default=payment_source.id == default_payment_source_id,
                     bank_account_info=BankAccountInfo(
                         account_holder_name=payment_source.account_holder_name,
@@ -595,9 +595,9 @@ class StripeGatewayPlugin(BasePlugin):
             previous_value
     ) -> CustomerSource:
         payment_source_type = payment_source_details["type"]
-        if payment_source_type == "card":
+        if payment_source_type == SOURCE_TYPE_CARD:
             return self.create_card(payment_source_details, previous_value)
-        elif payment_source_type == "bank_account":
+        elif payment_source_type == SOURCE_TYPE_BANK:
             return self.create_bank_account(payment_source_details, previous_value)
         else:
             raise ValidationError("Unknown payment source type")
@@ -638,7 +638,7 @@ class StripeGatewayPlugin(BasePlugin):
         return CustomerSource(
             id=payment_method.id,
             gateway=PLUGIN_ID,
-            type="card",
+            type=SOURCE_TYPE_CARD,
             is_default=is_default,
             credit_card_info=PaymentMethodInfo(
                 exp_year=payment_method.card.exp_year,
@@ -678,7 +678,7 @@ class StripeGatewayPlugin(BasePlugin):
         return CustomerSource(
             id=payment_source.id,
             gateway=PLUGIN_ID,
-            type="bank_account",
+            type=SOURCE_TYPE_BANK,
             is_default=False,
             bank_account_info=BankAccountInfo(
                 account_holder_name=payment_source.account_holder_name,
@@ -696,37 +696,39 @@ class StripeGatewayPlugin(BasePlugin):
         previous_value
     ) -> CustomerSource:
 
-        payment_method, error = update_payment_method_card(
-            api_key=self.config.connection_params["secret_api_key"],
-            payment_method_id=payment_source_details["payment_source_id"],
-            card=payment_source_details["card_info"],
-            billing_details=payment_source_details["billing_info"],
-            metadata=payment_source_details.get("metadata", None)
-        )
+        payment_source_id = payment_source_details["payment_source_id"]
+        customer_id = payment_source_details["customer_id"]
+        card = payment_source_details["card_info"]
+        billing = payment_source_details["billing_info"]
 
-        if error:
-            raise ValidationError(message=error.user_message)
-
-        customer_id = payment_source_details.get("customer_id")
         if payment_source_details.get("is_default"):
-            self.set_default_payment_source(customer_id, payment_method.id)
-            default_payment_source_id = payment_method.id
+            self.set_default_payment_source(customer_id, payment_source_id)
+            default_payment_source_id = payment_source_id
         else:
             default_payment_source_id = self.get_default_payment_source(customer_id)
 
-        return CustomerSource(
-            id=payment_method.id,
-            gateway=PLUGIN_ID,
-            type="card",
-            is_default=payment_method.id == default_payment_source_id,
-            credit_card_info=PaymentMethodInfo(
+        credit_card_info = None
+        billing_info = None
+        if card or billing:
+            payment_method, error = update_payment_method_card(
+                api_key=self.config.connection_params["secret_api_key"],
+                payment_method_id=payment_source_id,
+                card=card,
+                billing_details=billing,
+                metadata=payment_source_details.get("metadata", None)
+            )
+
+            if error:
+                raise ValidationError(message=error.user_message)
+
+            credit_card_info = PaymentMethodInfo(
                 exp_year=payment_method.card.exp_year,
                 exp_month=payment_method.card.exp_month,
                 last_4=payment_method.card.last4,
                 name=None,
                 brand=payment_method.card.brand,
-            ),
-            billing_info=AddressData(
+            )
+            billing_info = AddressData(
                 first_name=payment_method.billing_details.name,
                 last_name="",
                 company_name="",
@@ -739,6 +741,14 @@ class StripeGatewayPlugin(BasePlugin):
                 country_area=payment_method.billing_details.address.state,
                 phone=payment_method.billing_details.phone
             )
+
+        return CustomerSource(
+            id=payment_source_id,
+            gateway=PLUGIN_ID,
+            type=SOURCE_TYPE_CARD,
+            is_default=payment_source_id == default_payment_source_id,
+            credit_card_info=credit_card_info,
+            billing_info=billing_info
         )
 
     @require_active_plugin
@@ -747,7 +757,7 @@ class StripeGatewayPlugin(BasePlugin):
         payment_source_info: dict,
         previous_value
     ):
-        if payment_source_info["payment_source_type"] == "card":
+        if payment_source_info["payment_source_type"] == SOURCE_TYPE_CARD:
             payment_source, error = detach_payment_method(
                 api_key=self.config.connection_params["secret_api_key"],
                 payment_method_id=payment_source_info["payment_source_id"]
@@ -783,7 +793,7 @@ class StripeGatewayPlugin(BasePlugin):
         return CustomerSource(
             id=payment_source.id,
             gateway=PLUGIN_ID,
-            type="bank_account",
+            type=SOURCE_TYPE_BANK,
             is_default=False,
             bank_account_info=BankAccountInfo(
                 account_holder_name=payment_source.account_holder_name,
