@@ -27,6 +27,8 @@ from saleor.graphql.order.mutations.draft_orders import (
     DraftOrderComplete,
     DraftOrderInput,
     DraftOrderUpdate,
+    DraftOrderCreate,
+    DraftOrderCreateInput,
 )
 from saleor.graphql.order.mutations.orders import (
     OrderLineDelete,
@@ -36,7 +38,7 @@ from saleor.graphql.order.mutations.orders import (
 )
 from saleor.graphql.order.types import Order, OrderLine
 from saleor.graphql.SAP.resolvers import filter_business_partner_by_view_permissions
-from saleor.order import models as order_models
+from saleor.order import models as order_models, OrderStatus, OrderOrigin
 from saleor.order.utils import recalculate_order
 from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.shipping.models import ShippingMethodChannelListing, ShippingMethod
@@ -214,6 +216,52 @@ class UpsertSAPOrder(DraftOrderUpdate):
             "country": country,
             "postal_code": postal_code,
         }
+
+    @classmethod
+    def clean_input(cls, info, instance, data):
+        """This is almost the same as the clean_input method of the DraftOrderUpdate
+        class, but here we are protecting the status and origin of the order if this is
+        not a new order"""
+        shipping_address = data.pop("shipping_address", None)
+        billing_address = data.pop("billing_address", None)
+        redirect_url = data.pop("redirect_url", None)
+        channel_id = data.pop("channel_id", None)
+
+        cleaned_input = super(DraftOrderCreate, cls).clean_input(
+            info, instance, data, input_cls=DraftOrderCreateInput
+        )
+
+        channel = cls.clean_channel_id(info, instance, cleaned_input, channel_id)
+
+        voucher = cleaned_input.get("voucher", None)
+        if voucher:
+            cls.clean_voucher(voucher, channel)
+
+        if channel:
+            cleaned_input["currency"] = channel.currency_code
+
+        lines = data.pop("lines", None)
+        cls.clean_lines(cleaned_input, lines, channel)
+
+        if not instance.pk:
+            # Only set these to "draft" if this is a new order
+            # TODO: Support upserting orders from SAP that are already partially
+            #  fulfilled or closed
+            cleaned_input["status"] = OrderStatus.DRAFT
+            cleaned_input["origin"] = OrderOrigin.DRAFT
+
+        display_gross_prices = info.context.site.settings.display_gross_prices
+        cleaned_input["display_gross_prices"] = display_gross_prices
+
+        cls.clean_addresses(
+            info, instance, cleaned_input, shipping_address, billing_address
+        )
+
+        if redirect_url:
+            cls.clean_redirect_url(redirect_url)
+            cleaned_input["redirect_url"] = redirect_url
+
+        return cleaned_input
 
     @classmethod
     @traced_atomic_transaction()
@@ -397,15 +445,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
             del draft_order_input["channel_id"]
 
         # Update the draft Order
-        # Ok...so. We can't use cls.clean_input for this because we would need to be
-        # able to pass in the `input_cls` argument to make sure the
-        # BaseMutation.clean_input method is referring to the right input class.
-        # (We want to clean theDraftOrderCreateInput not the SAPOrderInput).
-        # But the DraftOrderUpdate class doesn't pass the `input_cls` argument through
-        # to the BaseMutation class. So we either need to edit the stock saleor code to
-        # pass that argument through OR explicitly call a fresh DraftOrderUpdate class
-        # to make sure the right input class gets used.
-        cleaned_input = DraftOrderUpdate.clean_input(info, order, draft_order_input)
+        cleaned_input = cls.clean_input(info, order, draft_order_input)
         order = cls.construct_instance(order, cleaned_input)
         cls.clean_instance(info, order)
         cls.save(info, order, cleaned_input)
@@ -436,7 +476,7 @@ class UpsertSAPOrder(DraftOrderUpdate):
                         # the scenes actions that take place in the normal update order
                         # mutation. Instead of trying to recreate that all we'll just
                         # call that mutation from here.
-                        OrderLineUpdate.perform_mutation(
+                        FirstechOrderLineUpdate.perform_mutation(
                             _root,
                             info,
                             id=graphene.Node.to_global_id(
@@ -448,16 +488,17 @@ class UpsertSAPOrder(DraftOrderUpdate):
                     lines_to_create.append(line)
 
             # Create the new lines using the mutation for that
-            OrderLinesCreate.perform_mutation(
-                _root,
-                info,
-                id=graphene.Node.to_global_id("Order", order.id),
-                input=lines_to_create,
-            )
+            if lines_to_create:
+                OrderLinesCreate.perform_mutation(
+                    _root,
+                    info,
+                    id=graphene.Node.to_global_id("Order", order.id),
+                    input=lines_to_create,
+                )
 
             # Delete any remaining lines that weren't updated or added
             for variant_id, line in line_cache.items():
-                OrderLineDelete.perform_mutation(
+                FirstechOrderLineDelete.perform_mutation(
                     _root, info, id=graphene.Node.to_global_id("OrderLine", line.id)
                 )
 
