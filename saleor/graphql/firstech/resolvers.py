@@ -13,20 +13,14 @@ def resolve_payment_sources(info):
     user = info.context.user
 
     gateway_id = StripeGatewayPlugin.PLUGIN_ID
-    channel_slug = ""
     customer_info = None
     if user.is_authenticated:
         customer_id = fetch_customer_id(user=user, gateway=gateway_id)
-        customer_info = {
-            "customer_id": customer_id,
-            "customer_email": user.email
-        }
+        customer_info = {"customer_id": customer_id, "customer_email": user.email}
 
     return list(
         prepare_graphql_payment_sources_type(
-            gateway.list_payment_sources_stripe(
-                gateway_id, customer_info, manager, channel_slug
-            )
+            gateway.list_payment_sources_stripe(gateway_id, customer_info, manager)
         )
     )
 
@@ -44,7 +38,7 @@ def prepare_graphql_payment_sources_type(payment_sources):
                 "state": src.billing_info.country_area,
                 "postal_code": src.billing_info.postal_code,
                 "country_code": src.billing_info.country,
-                "phone": src.billing_info.phone
+                "phone": src.billing_info.phone,
             }
         credit_card_info = None
         if src.credit_card_info:
@@ -68,11 +62,11 @@ def prepare_graphql_payment_sources_type(payment_sources):
             {
                 "gateway": src.gateway,
                 "payment_method_id": src.id,
-                "type": src.type.upper(),
+                "type": src.type,
                 "is_default": src.is_default,
                 "credit_card_info": credit_card_info,
                 "bank_account_info": bank_account_info,
-                "billing_info": billing_info
+                "billing_info": billing_info,
             }
         )
     return sources

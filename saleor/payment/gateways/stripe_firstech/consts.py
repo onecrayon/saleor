@@ -42,4 +42,3 @@ STRIPE_API_VERSION = "2020-08-27;line_items_beta=v1"
 
 SOURCE_TYPE_BANK = "bank_account"
 SOURCE_TYPE_CARD = "card"
-

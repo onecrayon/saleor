@@ -21,7 +21,9 @@ from .consts import (
     PLUGIN_ID,
     STRIPE_API_VERSION,
     WEBHOOK_EVENTS,
-    WEBHOOK_PATH, SOURCE_TYPE_BANK, SOURCE_TYPE_CARD,
+    WEBHOOK_PATH,
+    SOURCE_TYPE_BANK,
+    SOURCE_TYPE_CARD,
 )
 
 logger = logging.getLogger(__name__)
@@ -133,7 +135,7 @@ def create_payment_intent(
     off_session: Optional[bool] = None,
     payment_method_types: Optional[List[str]] = None,
     customer_email: Optional[str] = None,
-    line_items: Optional[List[dict]] = None
+    line_items: Optional[List[dict]] = None,
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
 
     capture_method = AUTOMATIC_CAPTURE_METHOD if auto_capture else MANUAL_CAPTURE_METHOD
@@ -188,7 +190,7 @@ def create_payment_method(
     payment_method_type: str,
     card_info: Optional[dict] = None,
     billing_details: Optional[dict] = None,
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = None,
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
     try:
         with stripe_opentracing_trace("stripe.PaymentMethod.create"):
@@ -197,7 +199,7 @@ def create_payment_method(
                 type=payment_method_type,
                 card=card_info,
                 billing_details=billing_details,
-                metadata=metadata
+                metadata=metadata,
             )
             return payment_method, None
     except StripeError as error:
@@ -207,13 +209,10 @@ def create_payment_method(
         return None, error
 
 
-def update_payment_method(
-        api_key: str, payment_method_id: str):
+def update_payment_method(api_key: str, payment_method_id: str):
     with stripe_opentracing_trace("stripe.PaymentMethod.modify"):
         try:
-            stripe.PaymentMethod.modify(
-                payment_method_id, api_key=api_key
-            )
+            stripe.PaymentMethod.modify(payment_method_id, api_key=api_key)
         except StripeError as error:
             logger.warning(
                 "Failed to update payment method",
@@ -222,11 +221,12 @@ def update_payment_method(
 
 
 def update_payment_method_card(
-        api_key: str,
-        payment_method_id: str,
-        card: dict,
-        billing_details: dict,
-        metadata: dict):
+    api_key: str,
+    payment_method_id: str,
+    card: dict,
+    billing_details: dict,
+    metadata: dict,
+):
     with stripe_opentracing_trace("stripe.PaymentMethod.modify"):
         try:
             payment_method = stripe.PaymentMethod.modify(
@@ -234,7 +234,7 @@ def update_payment_method_card(
                 api_key=api_key,
                 card=card,
                 billing_details=billing_details,
-                metadata=metadata
+                metadata=metadata,
             )
             return payment_method, None
         except StripeError as error:
@@ -246,16 +246,12 @@ def update_payment_method_card(
 
 
 def attach_payment_method(
-    api_key: str,
-    payment_method_id: str,
-    customer_id: str
+    api_key: str, payment_method_id: str, customer_id: str
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
     try:
         with stripe_opentracing_trace("stripe.PaymentMethod.attach"):
             payment_method = stripe.PaymentMethod.attach(
-                api_key=api_key,
-                sid=payment_method_id,
-                customer=customer_id
+                api_key=api_key, sid=payment_method_id, customer=customer_id
             )
         return payment_method, None
     except StripeError as error:
@@ -263,14 +259,12 @@ def attach_payment_method(
 
 
 def detach_payment_method(
-    api_key: str,
-    payment_method_id: str
+    api_key: str, payment_method_id: str
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
     try:
         with stripe_opentracing_trace("stripe.PaymentMethod.detach"):
             payment_method = stripe.PaymentMethod.detach(
-                api_key=api_key,
-                sid=payment_method_id
+                api_key=api_key, sid=payment_method_id
             )
         return payment_method, None
     except StripeError as error:
@@ -278,27 +272,19 @@ def detach_payment_method(
 
 
 def delete_payment_source(
-    api_key: str,
-    customer_id: str,
-    payment_source_id: str
+    api_key: str, customer_id: str, payment_source_id: str
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
     try:
         with stripe_opentracing_trace("stripe.Customer.delete_source"):
             response = stripe.Customer.delete_source(
-                customer_id,
-                payment_source_id,
-                api_key=api_key
+                customer_id, payment_source_id, api_key=api_key
             )
         return response, None
     except StripeError as error:
         return None, error
 
 
-def create_payment_source(
-    api_key: str,
-    token: str,
-    customer_id: str
-):
+def create_payment_source(api_key: str, token: str, customer_id: str):
     try:
         with stripe_opentracing_trace("stripe.Customer.create_source"):
             setup_intent = stripe.Customer.create_source(
@@ -318,17 +304,12 @@ def create_payment_source(
 
 
 def verify_payment_source(
-    api_key: str,
-    customer_id: str,
-    payment_source_id: str,
-    amounts: list
+    api_key: str, customer_id: str, payment_source_id: str, amounts: list
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
     try:
         with stripe_opentracing_trace("stripe.Customer.retrieve_source"):
             payment_source = stripe.Customer.retrieve_source(
-                customer_id,
-                payment_source_id,
-                api_key=api_key
+                customer_id, payment_source_id, api_key=api_key
             )
             payment_source = payment_source.verify(amounts=amounts)
         return payment_source, None
@@ -341,10 +322,7 @@ def verify_payment_source(
         return None, error
 
 
-def create_ephemeral_key(
-    api_key: str,
-    customer_id: str
-):
+def create_ephemeral_key(api_key: str, customer_id: str):
     try:
         with stripe_opentracing_trace("stripe.EphemeralKey.create"):
             ephemeral_key = stripe.EphemeralKey.create(
@@ -371,7 +349,7 @@ def set_default_payment_source(
                 customer_id,
                 api_key=api_key,
                 metadata=metadata,
-                stripe_version=STRIPE_API_VERSION
+                stripe_version=STRIPE_API_VERSION,
             )
         return customer, None
     except StripeError as error:
@@ -395,7 +373,7 @@ def list_customer_payment_methods(
 
 
 def list_customer_sources(
-        api_key: str, customer_id: str
+    api_key: str, customer_id: str
 ) -> Tuple[Optional[StripeObject], Optional[StripeError]]:
     try:
         with stripe_opentracing_trace("stripe.Customer.list_sources"):
@@ -410,10 +388,7 @@ def list_customer_sources(
         return None, error
 
 
-def create_setup_intent(
-    api_key: str,
-    customer_id: str
-):
+def create_setup_intent(api_key: str, customer_id: str):
     try:
         with stripe_opentracing_trace("stripe.SetupIntent.create"):
             setup_intent = stripe.SetupIntent.create(

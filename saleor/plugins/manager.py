@@ -917,21 +917,6 @@ class PluginsManager(PaymentInterface):
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
-    def set_default_payment_source(
-        self,
-        gateway: str,
-        payment_source_info: dict,
-        channel_slug: str,
-    ) -> str:
-        default_value: list = []
-        gtw = self.get_plugin(gateway, channel_slug=channel_slug)
-        if gtw is not None:
-            return self.__run_method_on_single_plugin(
-                gtw, "set_default_payment_source", default_value,
-                payment_source_info=payment_source_info
-            )
-        raise Exception(f"Payment plugin {gateway} is inaccessible!")
-
     def translation_created(self, translation: "Translation"):
         default_value = None
         return self.__run_method_on_plugins(

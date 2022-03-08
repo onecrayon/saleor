@@ -26,5 +26,5 @@ class OrderAction(graphene.Enum):
 
 
 class PaymentSourceType(graphene.Enum):
-    CARD = "CARD"
-    BANK_ACCOUNT = "BANK_ACCOUNT"
+    CARD = "card"
+    BANK_ACCOUNT = "bank_account"
