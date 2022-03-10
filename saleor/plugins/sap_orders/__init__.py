@@ -81,8 +81,10 @@ def get_price_list_cache(config: SAPServiceLayerConfiguration) -> dict:
 
 def get_sap_plugin_or_error(manager: "PluginsManager"):
     """Returns the SAP plugin if it is configured correctly, or returns Error.
+
     :param manager: An instance of a plugins manager. Usually can be obtained through
         a mutation's info.context.plugins attribute.
+
     :returns: An instance of the SAPPlugin class.
     """
     sap_plugin: SAPPlugin = manager.get_plugin(plugin_id="firstech.sap")
@@ -94,5 +96,11 @@ def get_sap_plugin_or_error(manager: "PluginsManager"):
         if not config["value"] and config["value"] is not False:
             # Raise error for any fields that are null or blank (explicitly False is ok)
             raise ImproperlyConfigured("SAP Plugin is not properly configured.")
+
+    # Turn this flag to False so that we don't try to push changes to SAP while we are
+    # upserting those objects from SAP. Otherwise while we are updating saleor objects
+    # with information from SAP, the plugin manager will be triggered and try to update
+    # SAP.
+    sap_plugin.sync_to_SAP = False
 
     return sap_plugin

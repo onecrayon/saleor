@@ -10,7 +10,7 @@ from saleor.core.permissions import OrderPermissions
 from saleor.core.tracing import traced_atomic_transaction
 from saleor.graphql.core.mutations import ModelMutation
 from saleor.graphql.core.types.common import OrderError
-from saleor.graphql.SAP.types import SAPCreditMemo
+from saleor.graphql.SAP.sap_types import SAPCreditMemo
 from saleor.plugins.sap_orders import get_sap_plugin_or_error
 from saleor.product.models import ProductVariant
 

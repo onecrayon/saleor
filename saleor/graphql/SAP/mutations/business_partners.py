@@ -13,7 +13,7 @@ from saleor.graphql.account.types import AddressInput, User
 from saleor.graphql.core.mutations import ModelMutation
 from saleor.graphql.core.types.common import AccountError
 from saleor.graphql.SAP.enums import DistributionTypeEnum
-from saleor.graphql.SAP.types import (
+from saleor.graphql.SAP.sap_types import (
     BusinessPartner,
     BusinessPartnerError,
     DroneRewardsProfile,

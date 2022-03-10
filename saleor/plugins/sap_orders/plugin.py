@@ -101,6 +101,11 @@ class SAPPlugin(BasePlugin):
             verify_ssl=is_truthy(configuration["SSL Verification"]),
         )
 
+        # This attribute is True by default but will be changed to False when "getting"
+        # the plugin for upserting objects from SAP. See the `get_sap_plugin_or_error`
+        # function for details.
+        self.sync_to_SAP = True
+
     @property
     def price_list_cache(self):
         return get_price_list_cache(self.config)
@@ -313,7 +318,7 @@ class SAPPlugin(BasePlugin):
         the dashboard, and also when users complete the checkout process.
         """
         # Only send sales orders to SAP once they have been confirmed
-        if order.status not in CONFIRMED_ORDERS:
+        if not self.sync_to_SAP or order.status not in CONFIRMED_ORDERS:
             return previous_value
 
         if order.private_metadata.get("doc_entry"):
@@ -355,8 +360,10 @@ class SAPPlugin(BasePlugin):
         # Only send sales orders to SAP once they have been confirmed, or if there is a
         # doc entry already.
         if (
-                order.status not in CONFIRMED_ORDERS
-                and not order.private_metadata.get("doc_entry")
+                not self.sync_to_SAP or (
+                    order.status not in CONFIRMED_ORDERS
+                    and not order.private_metadata.get("doc_entry")
+                )
         ):
             return previous_value
 
@@ -581,9 +588,8 @@ class SAPPlugin(BasePlugin):
 
         # Look up the name of the payment terms and add it to the dict
         if business_partner.get("PayTermsGrpCode"):
-            payment_terms: str = self.service_layer_request(
-                "get", f"PaymentTermsTypes({business_partner['PayTermsGrpCode']})"
-            ).get("PaymentTermsGroupName")
+            payment_terms: str = self.fetch_payment_terms(
+                business_partner["PayTermsGrpCode"]).get("PaymentTermsGroupName")
 
             business_partner["payment_terms"] = payment_terms
         else:
@@ -600,8 +606,8 @@ class SAPPlugin(BasePlugin):
         # Get outside sales rep emails and add them
         outside_sales_rep_emails = []
         if business_partner.get("SalesPersonCode"):
-            outside_sales_rep: dict = self.service_layer_request(
-                "get", f"SalesPersons({business_partner['SalesPersonCode']})"
+            outside_sales_rep: dict = self.fetch_sales_person(
+                business_partner["SalesPersonCode"]
             )
 
             # Turn the ; separated string into a list, and only keep email addresses
@@ -676,3 +682,9 @@ class SAPPlugin(BasePlugin):
             document_line["UnitPrice"] = float(order_line.unit_price_net_amount)
 
         return document_line
+
+    def fetch_payment_terms(self, code: int) -> dict:
+        return self.service_layer_request("get", f"PaymentTermsTypes({code})")
+
+    def fetch_sales_person(self, code: int) -> dict:
+        return self.service_layer_request("get", f"SalesPersons({code})")
