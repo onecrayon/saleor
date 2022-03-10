@@ -1,10 +1,11 @@
 from itertools import chain
 
+from saleor.core.exceptions import PermissionDenied
 from saleor.core.tracing import traced_resolver
 from saleor.graphql.payment.enums import PaymentSourceType
 from saleor.payment import gateway
 from saleor.payment.gateways.stripe_firstech.plugin import StripeGatewayPlugin
-from saleor.payment.utils import fetch_customer_id
+from saleor.payment.utils import fetch_customer_id, store_customer_id
 
 
 @traced_resolver
@@ -13,16 +14,22 @@ def resolve_payment_sources(info):
     user = info.context.user
 
     gateway_id = StripeGatewayPlugin.PLUGIN_ID
-    customer_info = None
+
     if user.is_authenticated:
         customer_id = fetch_customer_id(user=user, gateway=gateway_id)
         customer_info = {"customer_id": customer_id, "customer_email": user.email}
 
-    return list(
-        prepare_graphql_payment_sources_type(
-            gateway.list_payment_sources_stripe(gateway_id, customer_info, manager)
+        response = gateway.list_payment_sources_stripe(
+            gateway_id, customer_info, manager
         )
-    )
+
+        if customer_id is None:
+            store_customer_id(user, gateway_id, response.customer_id)
+
+        return list(prepare_graphql_payment_sources_type(response.sources))
+
+    else:
+        raise PermissionDenied()
 
 
 def prepare_graphql_payment_sources_type(payment_sources):

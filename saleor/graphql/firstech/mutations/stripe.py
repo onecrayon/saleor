@@ -108,8 +108,8 @@ class CreateCustomerSession(BaseStripeMutation):
     # it is not useful
 
     class Meta:
-        description = "Create Stripe customer session to handle payment methods using " \
-                      "front-end Stripe SDK "
+        description = ("Create Stripe customer session to handle payment methods using "
+                       "front-end Stripe SDK.")
         permissions = (SAPCustomerPermissions.PURCHASE_PRODUCTS_B2C,)
         error_type_class = Error
         error_type_field = "errors"
@@ -137,9 +137,9 @@ class CreateSetupIntent(BaseStripeMutation):
     client_secret = graphene.String(description="Client secret")
 
     class Meta:
-        description = "Create Stripe SetupIntent to handle payment method creation " \
-                      "using front-end Stripe SDK. This is the preferred way of " \
-                      "creating cards. "
+        description = ("Create Stripe SetupIntent to handle payment method creation "
+                       "using front-end Stripe SDK. This is the preferred way of "
+                       "creating cards.")
         permissions = (SAPCustomerPermissions.PURCHASE_PRODUCTS_B2C,)
         error_type_class = Error
         error_type_field = "errors"

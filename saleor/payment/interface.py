@@ -156,6 +156,12 @@ class CustomerSource:
 
 
 @dataclass
+class CustomerSourcesResponse:
+    customer_id: str
+    sources: List[CustomerSource]
+
+
+@dataclass
 class PaymentGateway:
     """Dataclass for storing information about a payment gateway."""
 

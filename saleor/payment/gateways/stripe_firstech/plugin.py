@@ -18,6 +18,7 @@ from ...interface import (
     PaymentMethodInfo,
     AddressData,
     BankAccountInfo,
+    CustomerSourcesResponse,
 )
 from ...models import Transaction
 from ...utils import price_from_minor_unit, price_to_minor_unit
@@ -500,7 +501,7 @@ class StripeGatewayPlugin(BasePlugin):
     @require_active_plugin
     def list_all_payment_sources(
         self, customer_info: dict, previous_value
-    ) -> List[CustomerSource]:
+    ) -> CustomerSourcesResponse:
 
         customer = get_or_create_customer(
             api_key=self.config.connection_params["secret_api_key"],
@@ -584,7 +585,9 @@ class StripeGatewayPlugin(BasePlugin):
 
         if customer_sources:
             previous_value.extend(customer_sources)
-        return previous_value
+        return CustomerSourcesResponse(
+            customer_id=customer.stripe_id, sources=previous_value
+        )
 
     @require_active_plugin
     def create_setup_intent(self, customer_info: dict, previous_value) -> str:
