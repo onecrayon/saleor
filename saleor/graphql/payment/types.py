@@ -1,13 +1,14 @@
 import graphene
 from graphene import relay
 
+from ..account.enums import CountryCodeEnum
 from ...core.permissions import OrderPermissions
 from ...payment import models
 from ..checkout.dataloaders import CheckoutByTokenLoader
 from ..core.connection import CountableDjangoObjectType
 from ..core.types import Money
 from ..decorators import permission_required
-from .enums import OrderAction, PaymentChargeStatusEnum
+from .enums import OrderAction, PaymentChargeStatusEnum, PaymentSourceType
 
 
 class Transaction(CountableDjangoObjectType):
@@ -52,6 +53,36 @@ class CreditCard(graphene.ObjectType):
     )
 
 
+class BankAccount(graphene.ObjectType):
+    account_holder_name = graphene.String(description="Holder name.", required=True)
+    bank_name = graphene.String(
+        description="Bank name.", required=False
+    )
+    account_last_4 = graphene.String(
+        description="Last 4 digits of the account number.",
+        required=False,
+    )
+    routing_number = graphene.String(
+        description="Routing number.",
+        required=False,
+    )
+    status = graphene.String(
+        description="Bank account status.",
+        required=False,
+    )
+
+
+class PaymentSourceBillingInfo(graphene.ObjectType):
+    name = graphene.String()
+    street_address_1 = graphene.String()
+    street_address_2 = graphene.String()
+    city = graphene.String()
+    state = graphene.String()
+    postal_code = graphene.String()
+    country_code = graphene.Field(CountryCodeEnum)
+    phone = graphene.String()
+
+
 class PaymentSource(graphene.ObjectType):
     class Meta:
         description = (
@@ -63,6 +94,17 @@ class PaymentSource(graphene.ObjectType):
     payment_method_id = graphene.String(description="ID of stored payment method.")
     credit_card_info = graphene.Field(
         CreditCard, description="Stored credit card details if available."
+    )
+    bank_account_info = graphene.Field(
+        BankAccount, description="Stored bank account details if available."
+    )
+    billing_info = graphene.Field(
+        PaymentSourceBillingInfo,
+        description="Stored credit card billing details if available."
+    )
+    is_default = graphene.Boolean(description="Payment method is selected as default")
+    type = graphene.Field(
+        PaymentSourceType, description="Payment source type."
     )
 
 

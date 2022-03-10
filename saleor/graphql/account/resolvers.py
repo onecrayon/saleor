@@ -173,6 +173,18 @@ def resolve_payment_sources(info, user: models.User, channel_slug: str):
 def prepare_graphql_payment_sources_type(payment_sources):
     sources = []
     for src in payment_sources:
+        billing_info = None
+        if src.billing_info:
+            billing_info = {
+                "name": src.billing_info.first_name,
+                "street_address_1": src.billing_info.street_address_1,
+                "street_address_2": src.billing_info.street_address_2,
+                "city": src.billing_info.city,
+                "state": src.billing_info.country_area,
+                "postal_code": src.billing_info.postal_code,
+                "country_code": src.billing_info.country,
+                "phone": src.billing_info.phone
+            }
         sources.append(
             {
                 "gateway": src.gateway,
@@ -184,6 +196,7 @@ def prepare_graphql_payment_sources_type(payment_sources):
                     "brand": src.credit_card_info.brand,
                     "first_digits": src.credit_card_info.first_4,
                 },
+                "billing_info": billing_info
             }
         )
     return sources

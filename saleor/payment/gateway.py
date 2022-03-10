@@ -305,6 +305,70 @@ def list_payment_sources(
     return manager.list_payment_sources(gateway, customer_id, channel_slug=channel_slug)
 
 
+def list_payment_sources_stripe(
+    gateway: str,
+    customer_info: dict,
+    manager: "PluginsManager",
+    channel_slug: str = None,
+) -> List["CustomerSource"]:
+    return manager.list_payment_sources_stripe(gateway, customer_info,
+                                               channel_slug=channel_slug)
+
+
+def create_setup_intent(
+    gateway: str,
+    customer_info: dict,
+    manager: "PluginsManager",
+    channel_slug: str = None
+) -> str:
+    return manager.create_setup_intent(gateway, customer_info, channel_slug=channel_slug)
+
+
+def create_payment_source(
+    gateway: str,
+    manager: "PluginsManager",
+    payment_source_details: dict,
+    channel_slug: str = None,
+) -> "CustomerSource":
+    return manager.create_payment_source(gateway, payment_source_details, channel_slug)
+
+
+def update_payment_source(
+    gateway: str,
+    manager: "PluginsManager",
+    payment_source_details: dict,
+    channel_slug: str = None,
+) -> "CustomerSource":
+    return manager.update_payment_source(gateway, payment_source_details, channel_slug)
+
+
+def delete_payment_source(
+    gateway: str,
+    manager: "PluginsManager",
+    payment_source_info: dict,
+    channel_slug: str = None,
+) -> str:
+    return manager.delete_payment_source(gateway, payment_source_info, channel_slug)
+
+
+def verify_payment_source(
+    gateway: str,
+    manager: "PluginsManager",
+    verification_info: dict,
+    channel_slug: str = None,
+) -> "CustomerSource":
+    return manager.verify_payment_source(gateway, verification_info, channel_slug)
+
+
+def create_customer_session(
+    gateway: str,
+    customer: dict,
+    manager: "PluginsManager",
+    channel_slug: str = None,
+) -> str:
+    return manager.create_customer_session(gateway, customer, channel_slug=channel_slug)
+
+
 def list_gateways(
     manager: "PluginsManager", channel_slug: Optional[str] = None
 ) -> List["PaymentGateway"]:

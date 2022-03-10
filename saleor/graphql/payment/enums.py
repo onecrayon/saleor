@@ -23,3 +23,8 @@ class OrderAction(graphene.Enum):
         if self == OrderAction.VOID:
             return "Represents a void action."
         raise ValueError("Unsupported enum value: %s" % self.value)
+
+
+class PaymentSourceType(graphene.Enum):
+    CARD = "card"
+    BANK_ACCOUNT = "bank_account"
