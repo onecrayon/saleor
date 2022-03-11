@@ -18,7 +18,11 @@ from .utils import (
 
 if TYPE_CHECKING:
     # flake8: noqa
-    from ..payment.interface import CustomerSource, PaymentGateway
+    from ..payment.interface import (
+        CustomerSource,
+        PaymentGateway,
+        CustomerSourcesResponse,
+    )
     from ..plugins.manager import PluginsManager
 
 
@@ -310,18 +314,21 @@ def list_payment_sources_stripe(
     customer_info: dict,
     manager: "PluginsManager",
     channel_slug: str = None,
-) -> List["CustomerSource"]:
-    return manager.list_payment_sources_stripe(gateway, customer_info,
-                                               channel_slug=channel_slug)
+) -> "CustomerSourcesResponse":
+    return manager.list_payment_sources_stripe(
+        gateway, customer_info, channel_slug=channel_slug
+    )
 
 
 def create_setup_intent(
     gateway: str,
     customer_info: dict,
     manager: "PluginsManager",
-    channel_slug: str = None
+    channel_slug: str = None,
 ) -> str:
-    return manager.create_setup_intent(gateway, customer_info, channel_slug=channel_slug)
+    return manager.create_setup_intent(
+        gateway, customer_info, channel_slug=channel_slug
+    )
 
 
 def create_payment_source(

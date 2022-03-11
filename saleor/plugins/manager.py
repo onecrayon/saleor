@@ -47,6 +47,7 @@ if TYPE_CHECKING:
         PaymentData,
         PaymentGateway,
         TokenConfig,
+        CustomerSourcesResponse,
     )
     from ..product.models import Product, ProductType, ProductVariant
     from ..translation.models import Translation
@@ -823,13 +824,15 @@ class PluginsManager(PaymentInterface):
         gateway: str,
         customer_info: dict,
         channel_slug: str,
-    ) -> List["CustomerSource"]:
+    ) -> "CustomerSourcesResponse":
         default_value: list = []
         gtw = self.get_plugin(gateway, channel_slug=channel_slug)
         if gtw is not None:
             return self.__run_method_on_single_plugin(
-                gtw, "list_all_payment_sources", default_value,
-                customer_info=customer_info
+                gtw,
+                "list_all_payment_sources",
+                default_value,
+                customer_info=customer_info,
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
@@ -856,8 +859,10 @@ class PluginsManager(PaymentInterface):
         gtw = self.get_plugin(gateway, channel_slug=channel_slug)
         if gtw is not None:
             return self.__run_method_on_single_plugin(
-                gtw, "create_payment_source", None,
-                payment_source_details=payment_source_details
+                gtw,
+                "create_payment_source",
+                None,
+                payment_source_details=payment_source_details,
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
@@ -870,8 +875,10 @@ class PluginsManager(PaymentInterface):
         gtw = self.get_plugin(gateway, channel_slug=channel_slug)
         if gtw is not None:
             return self.__run_method_on_single_plugin(
-                gtw, "update_payment_source", None,
-                payment_source_details=payment_source_details
+                gtw,
+                "update_payment_source",
+                None,
+                payment_source_details=payment_source_details,
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
@@ -884,8 +891,10 @@ class PluginsManager(PaymentInterface):
         gtw = self.get_plugin(gateway, channel_slug=channel_slug)
         if gtw is not None:
             return self.__run_method_on_single_plugin(
-                gtw, "delete_payment_source", None,
-                payment_source_info=payment_source_info
+                gtw,
+                "delete_payment_source",
+                None,
+                payment_source_info=payment_source_info,
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
@@ -898,8 +907,7 @@ class PluginsManager(PaymentInterface):
         gtw = self.get_plugin(gateway, channel_slug=channel_slug)
         if gtw is not None:
             return self.__run_method_on_single_plugin(
-                gtw, "verify_payment_source", None,
-                verification_info=verification_info
+                gtw, "verify_payment_source", None, verification_info=verification_info
             )
         raise Exception(f"Payment plugin {gateway} is inaccessible!")
 
@@ -1207,7 +1215,7 @@ class PluginsManager(PaymentInterface):
             "get_backorder_quantity_limit",
             default_value,
             variant_channel,
-            channel_slug=channel_slug
+            channel_slug=channel_slug,
         )
 
 
