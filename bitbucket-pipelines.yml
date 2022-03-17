@@ -47,6 +47,11 @@ pipelines:
       - step:
           <<: *deploy-to-aws
           deployment: prod
+  custom:
+    stg:
+      - step:
+          <<: *deploy-to-aws
+          deployment: stg
 
 definitions:
   services:
