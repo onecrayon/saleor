@@ -59,6 +59,34 @@ environments:
     variables:
       AWS_MEDIA_BUCKET_NAME: saleor-dev-media
       AWS_STORAGE_BUCKET_NAME: saleor-dev-static
+
+  stg:
+    variables:
+      ALLOWED_CLIENT_HOSTS: 'dashboard.stg.saleor.staging.firstechstg.com,*.stg.saleor.staging.firstechstg.com'
+      ALLOWED_HOSTS: 'localhost,127.0.0.1,api.stg.saleor.staging.firstechstg.com'
+      AWS_MEDIA_BUCKET_NAME: saleor-stg-media
+      AWS_STORAGE_BUCKET_NAME: saleor-stg-static
+      DASHBOARD_URL: https://dashboard.stg.saleor.staging.firstechstg.com
+      REDIS_URL: redis://redis.stg.saleor.local:6379/0
+    secrets:
+      DATABASE_URL: /saleor/stg/DATABASE_URL
+      EMAIL_URL: /saleor/stg/EMAIL_URL
+      SECRET_KEY: /saleor/stg/SECRET_KEY
+      SENTRY_DSN: /saleor/stg/SENTRY_DSN
+
+      DRONE_API_URL: /saleor/stg/DRONE_API_URL
+      DRONE_API_SECRET_KEY: /saleor/stg/DRONE_API_SECRET_KEY
+      DRONE_COGNITO_POOL_ID: /saleor/stg/DRONE_COGNITO_POOL_ID
+      DRONE_COGNITO_CLIENT_ID: /saleor/stg/DRONE_COGNITO_CLIENT_ID
+      DRONE_AWS_DEFAULT_REGION: /saleor/stg/DRONE_AWS_DEFAULT_REGION
+
+      DRONE_DATABASE_HOST: /saleor/stg/DRONE_DATABASE_HOST
+      DRONE_DATABASE_PORT: /saleor/stg/DRONE_DATABASE_PORT
+      DRONE_DATABASE_USERNAME: /saleor/stg/DRONE_DATABASE_USERNAME
+      DRONE_DATABASE_PASSWORD: /saleor/stg/DRONE_DATABASE_PASSWORD
+      DRONE_DATABASE_DBNAME: /saleor/stg/DRONE_DATABASE_DBNAME
+      DRONE_DATABASE_SSLMODE: /saleor/stg/DRONE_DATABASE_SSLMODE
+
   prod:
     variables:
       AWS_MEDIA_BUCKET_NAME: saleor-prod-media
