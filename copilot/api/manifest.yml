@@ -69,6 +69,9 @@ environments:
       DASHBOARD_URL: https://dashboard.dev.saleor.firstech.dev
 
   stg:
+    memory: 8192
+    count: 2
+
     variables:
       ALLOWED_CLIENT_HOSTS: 'dashboard.stg.saleor.firstech.dev,*.stg.saleor.firstech.dev'
       ALLOWED_HOSTS: 'localhost,127.0.0.1,api.stg.saleor.firstech.dev'
