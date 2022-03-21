@@ -77,11 +77,13 @@ environments:
       ALLOWED_HOSTS: 'localhost,127.0.0.1,api.stg.saleor.firstech.dev'
       AWS_MEDIA_BUCKET_NAME: saleor-stg-media
       AWS_STORAGE_BUCKET_NAME: saleor-stg-static
+      CELERY_BROKER_URL: redis://redis.stg.saleor.local:6379/1
       DASHBOARD_URL: https://dashboard.stg.saleor.firstech.dev
       REDIS_URL: redis://redis.stg.saleor.local:6379/0
     secrets:
       DATABASE_URL: /saleor/stg/DATABASE_URL
       EMAIL_URL: /saleor/stg/EMAIL_URL
+      RSA_PRIVATE_KEY: /saleor/stg/RSA_PRIVATE_KEY
       SECRET_KEY: /saleor/stg/SECRET_KEY
       SENTRY_DSN: /saleor/stg/SENTRY_DSN
 

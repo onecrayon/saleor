@@ -66,6 +66,7 @@ environments:
       ALLOWED_HOSTS: 'localhost,127.0.0.1,api.stg.saleor.staging.firstechstg.com'
       AWS_MEDIA_BUCKET_NAME: saleor-stg-media
       AWS_STORAGE_BUCKET_NAME: saleor-stg-static
+      CELERY_BROKER_URL: redis://redis.stg.saleor.local:6379/1
       DASHBOARD_URL: https://dashboard.stg.saleor.staging.firstechstg.com
       REDIS_URL: redis://redis.stg.saleor.local:6379/0
     secrets:
