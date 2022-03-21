@@ -70,7 +70,7 @@ def create_payment_source_response(cls, customer_source):
             street_address_1=customer_source.billing_info.street_address_1,
             street_address_2=customer_source.billing_info.street_address_2,
             city=customer_source.billing_info.city,
-            state=customer_source.billing_info.city_area,
+            state=customer_source.billing_info.country_area,
             postal_code=customer_source.billing_info.postal_code,
             country_code=customer_source.billing_info.country,
             phone=customer_source.billing_info.phone,
@@ -196,8 +196,8 @@ class PaymentSourceCreate(BaseStripeMutation):
             billing_details = {
                 "address": {
                     "city": billing_details_input.get("city"),
-                    "state": billing_details_input.get("country_area"),
-                    "country": billing_details_input.get("country"),
+                    "state": billing_details_input.get("state"),
+                    "country": billing_details_input.get("country_code"),
                     "line1": billing_details_input.get("street_address_1"),
                     "line2": billing_details_input.get("street_address_2"),
                     "postal_code": billing_details_input.get("postal_code"),
@@ -262,8 +262,8 @@ class PaymentSourceUpdate(BaseStripeMutation):
             billing_details = {
                 "address": {
                     "city": billing_details_input.get("city"),
-                    "state": billing_details_input.get("country_area"),
-                    "country": billing_details_input.get("country"),
+                    "state": billing_details_input.get("state"),
+                    "country": billing_details_input.get("country_code"),
                     "line1": billing_details_input.get("street_address_1"),
                     "line2": billing_details_input.get("street_address_2"),
                     "postal_code": billing_details_input.get("postal_code"),
