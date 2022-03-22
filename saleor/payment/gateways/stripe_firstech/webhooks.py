@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 @transaction_with_commit_on_errors()
 def handle_webhook(
-    request: WSGIRequest, gateway_config: "GatewayConfig", channel_slug: str
+    request: WSGIRequest, gateway_config: "GatewayConfig"
 ):
     payload = request.body
     sig_header = request.META["HTTP_STRIPE_SIGNATURE"]
@@ -83,7 +83,7 @@ def handle_webhook(
             "Processing new Stripe webhook",
             extra={"event_type": event.type, "event_id": event.id},
         )
-        webhook_handlers[event.type](event.data.object, gateway_config, channel_slug)
+        webhook_handlers[event.type](event.data.object, gateway_config)
     else:
         logger.warning(
             "Received unhandled webhook events", extra={"event_type": event.type}
@@ -148,7 +148,7 @@ def _finalize_checkout(
 
     manager = get_plugins_manager()
     discounts = fetch_active_discounts()
-    lines = fetch_checkout_lines(checkout)  # type: ignore
+    lines, _ = fetch_checkout_lines(checkout)  # type: ignore
     checkout_info = fetch_checkout_info(
         checkout, lines, discounts, manager  # type: ignore
     )
@@ -234,7 +234,7 @@ def update_payment_method_details_from_intent(
 
 
 def handle_authorized_payment_intent(
-    payment_intent: StripeObject, gateway_config: "GatewayConfig", _channel_slug: str
+    payment_intent: StripeObject, gateway_config: "GatewayConfig"
 ):
     payment = _get_payment(payment_intent.id)
 
@@ -270,7 +270,7 @@ def handle_authorized_payment_intent(
 
 
 def handle_failed_payment_intent(
-    payment_intent: StripeObject, gateway_config: "GatewayConfig", _channel_slug: str
+    payment_intent: StripeObject, gateway_config: "GatewayConfig"
 ):
     payment = _get_payment(payment_intent.id)
 
@@ -292,7 +292,7 @@ def handle_failed_payment_intent(
 
 
 def handle_processing_payment_intent(
-    payment_intent: StripeObject, gateway_config: "GatewayConfig", _channel_slug: str
+    payment_intent: StripeObject, gateway_config: "GatewayConfig"
 ):
     payment = _get_payment(payment_intent.id)
 
@@ -317,7 +317,7 @@ def handle_processing_payment_intent(
 
 
 def handle_successful_payment_intent(
-    payment_intent: StripeObject, gateway_config: "GatewayConfig", channel_slug: str
+    payment_intent: StripeObject, gateway_config: "GatewayConfig"
 ):
     payment = _get_payment(payment_intent.id)
 
@@ -331,7 +331,7 @@ def handle_successful_payment_intent(
     api_key = gateway_config.connection_params["secret_api_key"]
 
     if payment_intent.setup_future_usage:
-        update_payment_method(api_key, payment_intent.payment_method, channel_slug)
+        update_payment_method(api_key, payment_intent.payment_method)
 
     update_payment_method_details_from_intent(payment, payment_intent)
 
@@ -365,7 +365,7 @@ def handle_successful_payment_intent(
 
 
 def handle_refund(
-    charge: StripeObject, gateway_config: "GatewayConfig", _channel_slug: str
+    charge: StripeObject, gateway_config: "GatewayConfig"
 ):
     payment_intent_id = charge.payment_intent
     payment = _get_payment(payment_intent_id)

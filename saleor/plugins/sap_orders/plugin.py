@@ -226,7 +226,7 @@ class SAPPlugin(BasePlugin):
             ],
             "ContactEmployees": [
                 {
-                    "Name": order.user.name if order.user else order.user_email,
+                    "Name": order.user.get_full_name() if order.user else order.user_email,
                     "E_Mail": order.user_email,
                     "Phone1": order.billing_address.phone,
                 }
