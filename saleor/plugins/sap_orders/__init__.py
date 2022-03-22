@@ -39,6 +39,7 @@ def get_sap_cookies(config: SAPServiceLayerConfiguration, skip_cache=False):
         },
         verify=config.verify_ssl,
     )
+    response.raise_for_status()
     # Cookies are kept for 29 minutes (1 minute less than they are good for)
     cache.set("sap_login_cookies", response.cookies, timeout=60 * 29)
     return response.cookies

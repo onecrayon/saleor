@@ -10,6 +10,7 @@ import pytz
 import requests
 from django.core.exceptions import ValidationError
 from prices import TaxedMoney
+from requests import HTTPError
 from slugify import slugify
 from urllib3.exceptions import InsecureRequestWarning
 
@@ -105,6 +106,34 @@ class SAPPlugin(BasePlugin):
         # the plugin for upserting objects from SAP. See the `get_sap_plugin_or_error`
         # function for details.
         self.sync_to_SAP = True
+
+    @classmethod
+    def validate_plugin_configuration(
+        cls, plugin_configuration: "PluginConfiguration", **kwargs
+    ):
+        """Validate if provided configuration is correct.
+
+        Raise django.core.exceptions.ValidationError otherwise.
+        """
+        configuration = plugin_configuration.configuration
+        configuration = {item["name"]: item["value"] for item in configuration}
+        config = SAPServiceLayerConfiguration(
+            username=configuration["Username"],
+            password=configuration["Password"],
+            database=configuration["Database"],
+            url=configuration["SAP Service Layer URL"],
+            verify_ssl=is_truthy(configuration["SSL Verification"]),
+        )
+        if plugin_configuration.active:
+            # Attempt to refresh our login credentials to ensure our connection to SAP
+            #  is configured properly
+            try:
+                _ = get_sap_cookies(config, skip_cache=True)
+            except HTTPError:
+                # If requests raised an error, then we don't have a valid connection
+                raise ValidationError(
+                    "Unable to connect to SAP Service Layer with the provided credentials."
+                )
 
     @property
     def price_list_cache(self):
