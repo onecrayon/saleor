@@ -70,7 +70,7 @@ environments:
 
   stg:
     memory: 8192
-    count: 2
+    count: 1
 
     variables:
       ALLOWED_CLIENT_HOSTS: 'dashboard.stg.saleor.firstech.dev,*.stg.saleor.firstech.dev'
@@ -101,15 +101,21 @@ environments:
       DRONE_DATABASE_SSLMODE: /saleor/stg/DRONE_DATABASE_SSLMODE
 
   prod:
+    memory: 8192
+    exec: true
+
     variables:
-      ALLOWED_CLIENT_HOSTS: 'dashboard.prod.saleor.prod.firstechstg.com,*.prod.saleor.prod.firstechstg.com'
-      ALLOWED_HOSTS: 'localhost,127.0.0.1,api.prod.saleor.prod.firstechstg.com'
+      ALLOWED_CLIENT_HOSTS: 'cms.myfirstech.com,*.myfirstech.com'
+      ALLOWED_HOSTS: 'cms-api.myfirstech.com'
       AWS_MEDIA_BUCKET_NAME: saleor-prod-media
       AWS_STORAGE_BUCKET_NAME: saleor-prod-static
-      DASHBOARD_URL: https://dashboard.prod.saleor.prod.firstechstg.com
+      DASHBOARD_URL: https://cms.myfirstech.com
+      DEBUG: False
+      PLAYGROUND_ENABLED: False
     secrets:
       DATABASE_URL: /saleor/prod/DATABASE_URL
       EMAIL_URL: /saleor/prod/EMAIL_URL
+      RSA_PRIVATE_KEY: /saleor/prod/RSA_PRIVATE_KEY
       SECRET_KEY: /saleor/prod/SECRET_KEY
       SENTRY_DSN: /saleor/prod/SENTRY_DSN
 
