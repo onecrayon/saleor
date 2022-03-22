@@ -230,8 +230,8 @@ class SAPPlugin(BasePlugin):
             "BPAddresses": [
                 {
                     "AddressType": "bo_BillTo",
-                    "AddressName": billing_address.company_name or
-                                   order.billing_address.full_name,
+                    "AddressName": billing_address.company_name
+                    or order.billing_address.full_name,
                     "Street": billing_address.street_address_1,
                     "BuildingFloorRoom": billing_address.street_address_2,
                     "City": billing_address.city,
@@ -242,8 +242,8 @@ class SAPPlugin(BasePlugin):
                 },
                 {
                     "AddressType": "bo_ShipTo",
-                    "AddressName": shipping_address.company_name or
-                                   order.shipping_address.full_name,
+                    "AddressName": shipping_address.company_name
+                    or order.shipping_address.full_name,
                     "Street": shipping_address.street_address_1,
                     "BuildingFloorRoom": shipping_address.street_address_2,
                     "City": shipping_address.city,
@@ -255,16 +255,16 @@ class SAPPlugin(BasePlugin):
             ],
             "ContactEmployees": [
                 {
-                    "Name": order.user.get_full_name() if order.user else order.user_email,
+                    "Name": order.user.get_full_name()
+                    if order.user
+                    else order.user_email,
                     "E_Mail": order.user_email,
                     "Phone1": order.billing_address.phone,
                 }
-            ]
+            ],
         }
         # Post a new business partner to SAP
-        bp: dict = self.service_layer_request(
-            "post", "BusinessPartners", body=new_bp
-        )
+        bp: dict = self.service_layer_request("post", "BusinessPartners", body=new_bp)
         if bp.get("error", {}).get("code") == -10:
             # A business partner with that card code already exists in SAP.
             bp: dict = self.fetch_business_partner(card_code)
@@ -388,11 +388,9 @@ class SAPPlugin(BasePlugin):
         or edited."""
         # Only send sales orders to SAP once they have been confirmed, or if there is a
         # doc entry already.
-        if (
-                not self.sync_to_SAP or (
-                    order.status not in CONFIRMED_ORDERS
-                    and not order.private_metadata.get("doc_entry")
-                )
+        if not self.sync_to_SAP or (
+            order.status not in CONFIRMED_ORDERS
+            and not order.private_metadata.get("doc_entry")
         ):
             return previous_value
 
@@ -404,8 +402,7 @@ class SAPPlugin(BasePlugin):
             # Unfortunately SAP doesn't return the object after patching, so we need
             # to fetch it in order to validate the order totals.
             validate_order_totals(
-                order,
-                self.service_layer_request("get", f"Orders({doc_entry})")
+                order, self.service_layer_request("get", f"Orders({doc_entry})")
             )
             order.save(update_fields=["metadata"])
             # Update Delivery Documents
@@ -618,7 +615,8 @@ class SAPPlugin(BasePlugin):
         # Look up the name of the payment terms and add it to the dict
         if business_partner.get("PayTermsGrpCode"):
             payment_terms: str = self.fetch_payment_terms(
-                business_partner["PayTermsGrpCode"]).get("PaymentTermsGroupName")
+                business_partner["PayTermsGrpCode"]
+            ).get("PaymentTermsGroupName")
 
             business_partner["payment_terms"] = payment_terms
         else:

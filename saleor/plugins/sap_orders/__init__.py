@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from saleor.plugins.manager import PluginsManager
     from saleor.plugins.sap_orders.plugin import SAPPlugin
 
+
 @dataclass
 class SAPServiceLayerConfiguration:
     username: str
@@ -51,7 +52,7 @@ def get_price_list_cache(config: SAPServiceLayerConfiguration) -> dict:
     give a price list by its number rather than its name. This dict is cached in redis
     since it is highly unlikely that price lists will be added or updated often. The
     cache will be refreshed once per day as specified in the timeout parameter.
-     """
+    """
     cache = caches["default"]
     if price_list_cache := cache.get("price_list_cache"):
         return price_list_cache
@@ -67,9 +68,7 @@ def get_price_list_cache(config: SAPServiceLayerConfiguration) -> dict:
             verify=config.verify_ssl,
         ).json()
         for price_list in price_lists["value"]:
-            price_list_cache[price_list["PriceListNo"]] = price_list[
-                "PriceListName"
-            ]
+            price_list_cache[price_list["PriceListNo"]] = price_list["PriceListName"]
 
         if "odata.nextLink" in price_lists:
             skip += 20
